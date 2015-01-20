@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="http://fold-lang.org">
-    <img src="https://avatars2.githubusercontent.com/u/8985975"/>
+    <img src="http://i.imgur.com/b1ow8N9.png"/>
   </a>
   <br/>
 </p>
