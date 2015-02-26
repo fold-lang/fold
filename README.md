@@ -1,8 +1,7 @@
 ## The _Fold_ Programming Language
 
 
-> _A modern pragmatic functional language with concise, expressive, programmable syntax  
-> for development of blazingly fast and robust applications._
+Fold is a modern pragmatic functional language with concise, expressive, programmable syntax for development of blazingly fast and robust applications._
 
 Currently the language parser is being implemented as a separate parsing library:
 
