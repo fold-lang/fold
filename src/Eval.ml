@@ -3,8 +3,12 @@ open Pure
 open Syntax
 open Lex
 
+let log = print ~file:stderr
 
-let is_macro_call expr env = undefined ()
+
+let is_macro_call expr env =
+  (* XXX *)
+  false
 
 let rec macroexpand expr env =
   if is_macro_call expr env then
@@ -21,7 +25,18 @@ let rec macroexpand expr env =
     expr
 
 
-let rec eval expr env =
+let rec eval_expr expr env =
+  match expr with
+  | Form xs -> (Form (List.map (fun x -> fst (eval x env)) xs), env)
+  | Atom (_, (Symbol x as key)) ->
+    begin match Env.lookup key env with
+      | Some value -> log ("looking up symbol %s" % x); (value, env)
+      | None -> fail ("symbol %s is not defined" % Lex.Literal.to_string key)
+    end
+  | atomic_value -> (atomic_value, env)
+
+
+and eval expr env =
   match macroexpand expr env with
   (* META *)
   (* TODO: add_meta (add_meta x attr1) attr2 = add_meta x [attr1, attr2] *)
@@ -51,9 +66,14 @@ let rec eval expr env =
   | Form [Atom (_, Symbol "add_meta"); x; _attr] ->
     eval x env
 
+  (* add_meta x: invalid syntax *)
+  | Form [Atom (_, Symbol "add_meta"); x] ->
+    fail "invalid syntax, expecting attribute for `add_meta`"
+
   (* DEFINE *)
 
   | Form [Atom (_, Symbol "define"); Atom (_, name); x] ->
+    log ("eval: defining symbol %s" % Lex.Literal.to_string name);
     let (value, env) = eval x env in
     let env' = Env.define name value env in
     (Expr.symbol "()", env')
@@ -65,7 +85,7 @@ let rec eval expr env =
 
   (* infix op precedence *)
   | Form [Atom (_, Symbol "infix"); Atom _ as op; Atom (_, Int precedence)] ->
-    let rule = Expr.(Form [name "a"; op; name "b"]) in
+    let rule = Expr.(Form [symbol "_"; op; symbol "_"]) in
     (rule, env)
 
   | Form [Atom (_, Symbol "infix"); Atom (_, name)] ->
@@ -83,5 +103,6 @@ let rec eval expr env =
   | Form ((Atom (loc, Symbol "macro")) :: _) ->
     fail ("invalid macro syntax at %s" % Location.to_string loc)
 
-  | _ -> undefined ()
+  | expr -> eval_expr expr env
+
 

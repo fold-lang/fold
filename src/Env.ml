@@ -35,5 +35,9 @@ let lookup_infix name env =
   | None -> None
   | Some expr ->
     begin match expr with
-      | Form [Atom (_, Symbol "add_meta"); ...]
+      | Form [Atom (_, Symbol "add_meta"); x] ->
+        fail "todo"
+      | _ ->
+        fail "todo"
+    end
 

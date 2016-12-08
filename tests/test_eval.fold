@@ -1,0 +1,31 @@
+
+-- [A]
+-- The symbol `x` in this macro definition will be added to the environment as
+-- a simple atomic prefix parser. During the evaluation the value will be
+-- replaced by 42.
+
+define (macro `x) 42
+
+
+assert (equals x 42)
+
+
+-- [B]
+-- Constants like 42 will parsed expexting exactly the given value. The value
+-- will be replcaed during the evaluation.
+define (macro 42)    1
+define (macro 'x')   2
+define (macro "abc") 3
+
+assert do
+  42    == 1
+  'x'   == 2
+  "abc" == 3
+end
+
+
+-- Q: What if you want to create a rule for a polymorphic variant?
+define (macro `if test `then a `else b) a
+define (macro `pow 2.0 32.0) 4294967296.0
+
+

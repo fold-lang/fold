@@ -1,0 +1,52 @@
+OASISFormat: 0.4
+Name:        fold
+Version:     0.1.0
+Synopsis:    The Fold programming language
+Authors:     Rizo Isrof <rizo@odis.io>
+Maintainers: Rizo Isrof <rizo@odis.io>
+Homepage:    https://github.com/fold-lang/fold
+License:     MIT
+BuildTools:  ocamlbuild
+Plugins: META (0.4), DevFiles (0.4)
+
+Library fold
+  Path:           src
+  CompiledObject: best
+  BuildDepends:   sedlex,
+                  pure,
+                  ppx_format,
+                  ppx_monad,
+                  compiler-libs.bytecomp,
+                  ppx_deriving.std
+  Pack:           true
+  Modules:        Lex,
+                  Env,
+                  Eval,
+                  Syntax,
+                  Pratt,
+                  Parser
+
+
+Executable fold
+  Path:           src/
+  MainIs:         Main.ml
+  CompiledObject: best
+  BuildDepends:   fold,
+                  pure
+
+
+Executable test_pratt
+  Path:           tests/
+  MainIs:         test_pratt.ml
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure
+
+Executable test_eval
+  Path:           tests/
+  MainIs:         test_eval.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure
+

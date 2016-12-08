@@ -109,70 +109,50 @@ let expression right_precedence =
 
 (* XXX: We have an opportunity to define rewrite rules for optimization here! *)
 
-(* let parse_rule rule = *)
-  (* let rec loop acc expr_list = *)
-    (* match expr_list with *)
-    (* | [] -> List.rev acc *)
-    (* | Atom (_, (Name _)) :: tail -> *)
-      (* expression 0 >>= fun expr -> *)
-      (* loop (expr :: acc) tail *)
-    (* | Atom (_, literal) -> *)
-      (* consume literal >> *)
-    (* | _ -> fail "invalid macro syntax" in *)
-  (* match rule with *)
-  (* | Form (head :: tail) -> *)
-    (* Form (loop [] expr_list) *)
-  (* | _ -> fail "invalid macro syntax" *)
 
+(** [parse_rule rule] constructs a parser for a syntax described by [rule].
 
-(* List.fold *)
-  (* (fun r expr -> *)
-    (* match expr with *)
-    (* | Atom (loc, Name name) -> *)
-      (* r >> lazy (expression 0) *)
-    (* | Atom (loc, literal) -> *)
-      (* r >> consume literal) *)
-  (* empty *)
+    {[
+      (* Parse the 'x' symbol. *)
+      parse_rule (symbol "x")
 
-(* let base_env = *)
-  (* Env.empty *)
-  (* |> Env.add (Symbol "`") () *)
+      (* Parse the 42 integer. *)
+      parse_rule (int 42)
 
+      (* Parse the plus operator. *)
+      parse_rule (form [symbol "_"; symbol "+"; symbol "_"]))
+
+      (* Parse the if-then-else expression. *)
+      parse_rule (form (List.map symbol ["if"; "_"; "then"; "_"; "else"; "_"])))
+
+      (* Parse a form. *)
+      parse_rule (form [symbol "f"; symbol "x"; symbol "y"])))
+    ]}
+
+ *)
 let parse_rule rule =
-  let rec loop rule_name acc atom =
-    match atom with
+  let rec loop fqn acc atoms =
+    match atoms with
     | [] ->
-      let name = Option.force rule_name in
-      print ~file:stderr ("macro: done for rule %s" % (Token.to_string name));
-      return (Form (Expr.atom name :: (List.rev acc)))
+      return (Form (Expr.form (List.rev fqn) :: (List.rev acc)))
 
-    | Atom (loc, Name name) :: rest ->
-      (* XXX: any is used temporary instead of expression. *)
-      any >>= fun value ->
-      print ~file:stderr ("macro: %s = %s" % (name, Expr.show value));
-      advance >> lazy (loop rule_name (value :: acc) rest)
+    | Atom (_loc, Symbol "_") as slot :: rest ->
+      any >>= fun expr ->
+      advance >> lazy (loop (slot :: fqn) (expr :: acc) rest)
 
-    | Atom (loc, Symbol keyword) :: rest ->
-      print ~file:stderr ("macro: keyword %s" % keyword);
-      let rule_name =
-        if is_some rule_name then
-          rule_name
-        else
-          Some (loc, Symbol keyword) in
-      consume (Name keyword) >> lazy (loop rule_name acc rest)
-
-    | Atom (loc, lit) :: _ ->
-      invalid_arg ("invalid literal %s in macro definition" % Literal.to_string lit)
+    | Atom (_loc, lit) as keyword :: rest ->
+      consume lit >> lazy (loop (keyword :: fqn) acc rest)
 
     | Form _ :: _ ->
-      invalid_arg "rewrite rules are not supported" in
+      invalid_arg "invalid rule definition syntax" in
 
   match rule with
   | Form atoms ->
-    loop None [] atoms
+    loop [] [] atoms
 
-  | Atom (loc, lit) as atom ->
+  | Atom (_loc, lit) as atom ->
     consume lit >> lazy (return atom)
+
 
 let parse_form left =
   expression 90 >>= fun right ->
@@ -182,11 +162,12 @@ let parse_form left =
     | atom         -> [atom] in
   return (Form (List.append form_list [right]))
 
+
 let infix precedence left =
   get >>= fun { env; token } ->
   let rule = Env.lookup (Token.value token) env or (Expr.symbol "...") in
-  if
   parse_rule rule >>= fun right ->
+  fail "todo"
 
 
 let prefix precedence =

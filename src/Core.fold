@@ -214,8 +214,17 @@ if True then 1 else 0 + sqrt x
 -- Here is the environment definitions for the `if` and `+` rules.
 -- All other tokens are built with the default prefix and infix rules.
 
-+   => (_ `+` _)
-if  => (`if` _ `then` _ `else` _)
+{+   => (_ `+` _)                  @ {infix  => left 4},
+ if  => (`if` _ `then` _ `else` _) @ {prefix => true}}
+
+Env.empty
+|> Env.add (Symbol "+")  (Form [Symbol "add_meta"; Form [Symbol "a"; String "+"; Symbol "b"];
+                                                   Form [Symbol "infix"; Symbol "left"; Int 4]])
+|> Env.add (Symbol "if") (Form [Symbol "add_meta"; Form [String "if"; Symbol "t"; String "then"; Symbol "a"; String "else"; Symbol "b"];
+                                                   Form [Symbol "macro"; Bool true]])
+
+-- All infix operators can also be used in prefix form.
+(+ 2 2)
 
 -- The parsed expression will look like:
 (+ (if True 1 0) x)

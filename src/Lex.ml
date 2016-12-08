@@ -7,8 +7,7 @@ type literal =
   | Float  of float        (* 3.14 00.1 1.0000 *)
   | Int    of int          (* 100 42 0 012345  *)
   | String of string       (* "hello" "" "x"   *)
-  | Name   of string       (*  a   foo  (>>=)  *)
-  | Symbol of string       (* `a` `foo` `>>=`  *)
+  | Symbol of string       (* a foo Bar + >>=  *)
 [@@deriving show, ord]
 
 module Literal = struct
@@ -22,13 +21,12 @@ module Literal = struct
     end)
 
   let to_string = function
-    | Bool   x -> string_of_bool x
+    | Bool   x -> String.capitalize_ascii (string_of_bool x)
     | Char   x -> "'%c'" % x
     | Float  x -> string_of_float x
     | Int    x -> string_of_int x
     | String x -> "\"%s\"" % x
-    | Name   x -> "`%s" % x
-    | Symbol x -> "`%s" % x
+    | Symbol x -> x
 end
 
 
@@ -184,9 +182,10 @@ module Lexer = struct
       else
         Symbol (current_lexeme self)
 
-    | '`',  (name_literal | Plus identifier_char) ->
-      let lexeme = current_lexeme self in
-      Symbol (String.sub lexeme 1 (String.length lexeme - 1))
+    (* XXX: Quoted symbols are not part of the lexer for now. *)
+    (* | '`',  (name_literal | Plus identifier_char) -> *)
+    (* let lexeme = current_lexeme self in *)
+    (* Symbol (String.sub lexeme 1 (String.length lexeme - 1)) *)
 
     | '"',  (Compl '"'), '"' ->
       let lexeme = current_lexeme self in
@@ -200,7 +199,7 @@ module Lexer = struct
 
     (* Names (operators and identifiers) *)
     | name_literal | Plus identifier_char ->
-      Name (current_lexeme self)
+      Symbol (current_lexeme self)
 
     (* Newline symbol *)
     | '\n' ->

@@ -28,6 +28,5 @@ module Expr = struct
   let int    ?(loc = Location.empty) x  = Atom (loc, Int    x)
   let string ?(loc = Location.empty) x  = Atom (loc, String x)
   let symbol ?(loc = Location.empty) x  = Atom (loc, Symbol x)
-  let name   ?(loc = Location.empty) x  = Atom (loc, Name   x)
 end
 
