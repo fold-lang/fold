@@ -24,6 +24,8 @@ assert do
 end
 
 
+syntax (if _ then _ else _)
+
 -- Q: What if you want to create a rule for a polymorphic variant?
 define (macro `if test `then a `else b) a
 define (macro `pow 2.0 32.0) 4294967296.0

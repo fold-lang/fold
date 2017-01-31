@@ -1,0 +1,188 @@
+
+open Pure
+open Syntax
+open Lex
+
+data state = {
+  lexer :: Lexer,
+  token :: Token,
+  env   :: Env
+}
+
+module Parser =
+  StateT State (Result.Of_error String)
+
+include Parser
+
+
+def empty state =
+  Error "empty"
+
+def return = pure
+
+def error msg = _ -> Error msg
+
+def (p1 <|> p2) = state ->
+  match p1 state
+  | Error _  -> p2 state
+  | Ok value -> Ok value
+  end
+
+def between op ed x =
+  op >> x << ed
+
+def option x p = p <|> return x
+def optional p = option () (p >> lazy (return ()))
+
+def skip_many x =
+  optional (x >>= _ -> skip_many x)
+
+def many p =
+  option [] (p >>= x  -> many p
+               >>= xs -> return [x & xs])
+
+def satisfy test =
+  get >>= state ->
+    if test (Token.value state.token) then
+      return (Expr.atom state.token)
+    else
+      error "could not satisfy test"
+
+def any        = satisfy (const true)
+def exactly x  = satisfy (x ==)
+def one_of  xs = satisfy (x -> List.mem x xs)
+def none_of xs = satisfy (x -> not (List.mem x xs))
+def range s e  = satisfy (x -> s <= x && x <= e)
+
+
+def (parser <?> label) = s ->
+  match parser s
+  | Error _ ->
+    let msg =
+      when
+      | Token.value s.token == Symbol "EOF" ->
+        "%s unexpected end of file while reading %s" %
+        (Location.show (Token.location s.token), label)
+
+      | label == (Literal.show (Symbol "EOF")) ->
+        "parsing stopped at %s" % Token.show s.token
+      | otherwise ->
+        "expected %s but %s found" % (label, Token.show s.token)
+      end in
+    Error msg
+  | Ok x -> Ok x
+
+def expect x =
+  exactly x <?> Literal.show x
+
+def advance =
+  modify do s ->
+    { s with token = Lexer.next s.lexer }
+  end
+
+def consume x =
+  expect x >> lazy advance
+
+type Rule a =
+  | Prefix (Parser Expr)
+  | Infix  (Expr -> Parser Expr, Int)
+
+def invalid_infix () =
+  let parser exp =
+    get >>= fun { token } ->
+    error ("%s cannot be used in infix position" % Token.show token) in
+  Infix (parser, 0)
+
+def invalid_prefix () =
+  let parser =
+    get >>= fun { token } ->
+    error ("%s cannot be used in prefix position" % Token.show token) in
+  Prefix parser
+
+
+def expression right_precedence = undefined
+
+
+{- `parse_rule rule` constructs a parser for a syntax described by [rule].
+
+   -- Parse the 'x' symbol.
+   parse_rule (symbol "x")
+
+   -- Parse the 42 integer.
+   parse_rule (int 42)
+
+   -- Parse the plus operator.
+   parse_rule (form [symbol "_"; symbol "+"; symbol "_"]))
+
+   -- Parse the if-then-else expression.
+   parse_rule (form (List.map symbol ["if"; "_"; "then"; "_"; "else"; "_"])))
+
+   -- Parse a form.
+   parse_rule (form [symbol "f"; symbol "x"; symbol "y"])))
+-}
+def parse_rule rule =
+  let loop fqn acc atoms =
+    match atoms
+    | [] ->
+      return (Form [Expr.form (List.rev fqn) & List.rev acc]))
+
+    | [Atom (_loc, Symbol "_") as slot & rest] ->
+      any >>= fun expr ->
+      advance >> lazy (loop [slot & fqn] [expr & acc] rest)
+
+    | [Atom (_loc, lit) as keyword & rest] ->
+      consume lit >> lazy (loop [keyword & fqn] acc rest)
+
+    | [Form _ & _] ->
+      invalid_arg "invalid rule definition syntax" in
+
+  match rule with
+  | Form atoms ->
+    loop [] [] atoms
+
+  | Atom (_loc, lit) as atom ->
+    consume lit >> lazy (return atom)
+
+
+let parse_form left =
+  expression 90 >>= fun right ->
+  let form_list =
+    match left with
+    | Form xs -> xs
+    | atom    -> [atom] in
+  return (Form (List.append form_list [right]))
+
+
+let infix precedence left =
+  get >>= fun { env; token } ->
+  let rule = Env.lookup (Token.value token) env or (Expr.symbol "...") in
+  parse_rule rule >>= fun right ->
+  fail "todo"
+
+
+let prefix precedence =
+  get >>= fun { env; token } ->
+  let rule = Env.lookup (Token.value token) env or Atom token in
+  parse_rule rule >>= fun left ->
+  infix precedence left
+
+let expression () =
+  prefix 0
+
+let parse (lexer : Lexer.t) env =
+  let state = { lexer; env; token = Lexer.read lexer } in
+  match run (expression ()) state with
+  | Ok (expr, _) -> expr
+  | Error msg    -> Error msg
+
+let parse_string parser str =
+  let lexer = Lex.Lexer.from_string str in
+  let state = {
+    lexer;
+    token = Lex.Lexer.read lexer;
+    env   = Env.empty
+  } in
+  match run parser state with
+  | Ok (expr, _) -> Ok expr
+  | Error e -> Error e
+

@@ -6,6 +6,7 @@ open Fold.Syntax
 open Fold.Eval
 
 (* Translation combinators *)
+
 let add_meta expr attr =
   Expr.(form [symbol "add_meta"; expr; attr])
 
@@ -30,12 +31,15 @@ let test_bindings () =
   assert (result = symbol "()");
   assert (Env.(Scope.cardinal env_with_x.data) = 1);
   assert (Env.(env_with_x.next) = None);
-  assert (Env.lookup (Lex.Symbol "x") env_with_x = Some (int 1));
+  assert (Env.lookup (Lex.Location.empty, Lex.Symbol "x") env_with_x = Some (int 1));
 
   (* Symbols are resolved to bindings. *)
-  assert (fst (eval (symbol "x") env_with_x) = int 1)
+  assert (fst (eval (symbol "x") env_with_x) = int 1);
 
   (* TODO: Assert not defined *)
+  assert
+    (try ignore (eval (symbol "y") env_with_x); false
+     with NameError "y" -> true)
 
 
 let test_meta () =

@@ -1,4 +1,6 @@
 
+let () = Pervasives.print_endline "Lex"
+
 open Pure
 
 type literal =
@@ -56,8 +58,8 @@ module Token = struct
   type t = (Location.t * Literal.t)
     [@@deriving show]
 
-  let value    = snd
   let location = fst
+  let literal  = snd
 
   include Printable.Make(struct
       type nonrec t = t

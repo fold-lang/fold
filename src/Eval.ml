@@ -1,4 +1,6 @@
 
+let () = Pervasives.print_endline "Eval"
+
 open Pure
 open Syntax
 open Lex
@@ -13,8 +15,8 @@ let is_macro_call expr env =
 let rec macroexpand expr env =
   if is_macro_call expr env then
     match expr with
-    | Form ((Atom (loc, name)) :: args) ->
-      begin match Env.lookup name env with
+    | Form ((Atom token) :: args) ->
+      begin match Env.lookup token env with
         (* FIXME *)
         (* | Some (Func f) -> *)
           (* macroexpand env (f args) *)
@@ -24,14 +26,16 @@ let rec macroexpand expr env =
   else
     expr
 
+exception NameError of string
+
 
 let rec eval_expr expr env =
   match expr with
   | Form xs -> (Form (List.map (fun x -> fst (eval x env)) xs), env)
-  | Atom (_, (Symbol x as key)) ->
-    begin match Env.lookup key env with
+  | Atom (_, (Symbol x as key) as token) ->
+    begin match Env.lookup token env with
       | Some value -> log ("looking up symbol %s" % x); (value, env)
-      | None -> fail ("symbol %s is not defined" % Lex.Literal.to_string key)
+      | None -> raise (NameError (Lex.Literal.to_string key))
     end
   | atomic_value -> (atomic_value, env)
 
@@ -47,15 +51,15 @@ and eval expr env =
 
   (* define x (add_meta x attr) == (); get_meta x == Some attr *)
   | Form [Atom (_, Symbol "define");
-          Atom (_, name);
+          Atom name;
           Form [Atom (_, Symbol "add_meta"); x; attr]] ->
     let (value, env') = eval x env in
     let env'' = Env.define name (Form [Expr.symbol "add_meta"; value; attr]) env' in
     (Expr.symbol "()", env'')
 
   (* get_meta x == (Option.map get_meta (Env.lookup x env)) *)
-  | Form [Atom (_, Symbol "get_meta"); Atom (_, lit)] ->
-    begin match Env.lookup lit env with
+  | Form [Atom (_, Symbol "get_meta"); Atom x] ->
+    begin match Env.lookup x env with
       | Some (Form [Atom (_, Symbol "add_meta"); value; attr]) ->
         (Form [Expr.symbol "Some"; attr], env)
       | _ ->
@@ -72,8 +76,8 @@ and eval expr env =
 
   (* DEFINE *)
 
-  | Form [Atom (_, Symbol "define"); Atom (_, name); x] ->
-    log ("eval: defining symbol %s" % Lex.Literal.to_string name);
+  | Form [Atom (_, Symbol "define"); Atom name; x] ->
+    log ("eval: defining symbol %s" % Lex.Token.to_string name);
     let (value, env) = eval x env in
     let env' = Env.define name value env in
     (Expr.symbol "()", env')

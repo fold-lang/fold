@@ -15,7 +15,6 @@ Library fold
   BuildDepends:   sedlex,
                   pure,
                   ppx_format,
-                  ppx_monad,
                   compiler-libs.bytecomp,
                   ppx_deriving.std
   Pack:           true

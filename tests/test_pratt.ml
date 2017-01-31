@@ -27,10 +27,10 @@ let test_parse_atomic_rules () =
       "x"          , symbol "x";
     ] in
   List.iter (fun (str, rule) ->
-      parse_string (parse_rule rule) str
+      parse_string (parse_with_rule rule) str
       |> Result.print Expr.pp Format.pp_print_string;
       print "\n\n";
-      assert (parse_string (parse_rule rule) str = Ok rule))
+      assert (parse_string (parse_with_rule rule) str = Ok rule))
     cases
 
 

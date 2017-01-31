@@ -1,4 +1,6 @@
 
+let () = Pervasives.print_endline "Syntax"
+
 open Pure
 open Lex
 
