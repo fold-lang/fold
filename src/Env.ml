@@ -1,48 +1,67 @@
-let () = Pervasives.print_endline "Env"
 
 open Pure
 open Lex
 open Syntax
 
-module Scope = Map.Make(String)
-
+module M = Map.Make(String)
 
 type t = {
-  data : Expr.t Scope.t;
-  next : t option;
+  precedence : Int.t  M.t;
+  infix      : Expr.t M.t;
+  prefix     : Expr.t M.t;
+  next       : t option;
 }
 
 
 let empty = {
-  data = Scope.empty;
-  next = None;
+  precedence = M.empty;
+  prefix     = M.empty;
+  infix      = M.empty;
+  next       = None;
 }
 
 
-let define token expr env =
-  let name = Token.to_string token in
-  { env with data = Scope.add name expr env.data }
+(* Define *)
+
+let define_precedence literal precedence env =
+  let name = Literal.to_string literal in
+  { env with precedence = env.precedence |> M.add name precedence }
+
+let define_prefix literal expr env =
+  let name = Literal.to_string literal in
+  { env with prefix = env.prefix |> M.add name expr }
+
+let define_infix literal expr env =
+  let name = Literal.to_string literal in
+  { env with infix = env.infix |> M.add name expr }
 
 
-let rec lookup token env =
-  let name = Token.to_string token in
-  if Scope.mem name env.data then
-    Some (Scope.find name env.data)
+(* Lookup *)
+
+let rec lookup_precedence literal env =
+  let name = Literal.to_string literal in
+  if M.mem name env.precedence then
+    M.find name env.precedence
   else
     match env.next with
-    | Some next -> lookup token next
+    | Some next -> lookup_precedence literal next
+    | None      -> 0
+
+let rec lookup_prefix literal env =
+  let name = Literal.to_string literal in
+  if M.mem name env.prefix then
+    Some (M.find name env.prefix)
+  else
+    match env.next with
+    | Some next -> lookup_prefix literal next
     | None      -> None
 
-
-let _lookup_infix name env =
-  match lookup name env with
-  | None -> None
-  | Some expr ->
-    begin match expr with
-      | Form [Atom (_, Symbol "add_meta"); x] ->
-        fail "todo"
-      | _ ->
-        fail "todo"
-    end
-
+let rec lookup_infix literal env =
+  let name = Literal.to_string literal in
+  if M.mem name env.infix then
+    Some (M.find name env.infix)
+  else
+    match env.next with
+    | Some next -> lookup_infix literal next
+    | None      -> None
 

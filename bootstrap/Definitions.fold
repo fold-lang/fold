@@ -1,0 +1,134 @@
+
+macro `if condition `then consequence `else alternative =
+  ```
+  match $condition
+  | True  -> $consequence
+  | False -> $alternative
+  end
+  ```
+
+{-
+
+  definition ::=
+    | `def
+
+
+  `:: > `=
+  `:: > `=
+  `:: = `->
+  `=  > `|
+-}
+
+
+-- value definition
+def x = expr
+
+(def (= x expr))
+
+
+-- value declaration
+def x :: def_type
+
+(def (:: x def_type))
+
+
+-- value definition with block
+def x
+  expr
+end
+
+(def x expr)
+
+
+-- value definition with patterns
+def pat1
+  | pat1 = expr
+
+(def (| pat1 (= pat1 expr)))
+
+
+-- function definition
+def f x y =
+  expr
+
+(def (= (f x y) expr))
+
+
+-- function definition with return type
+def f x y -> ret_type =
+  expr
+
+(def (= (-> (f x y) ret_type)
+        expr))
+
+
+-- function definition with type signature
+def f x y :: def_type =
+  expr
+
+(def (= (:: (f x y) def_type)
+        expr))
+
+
+-- function definition with block
+def f x
+  expr
+end
+
+(def (f x) expr)
+
+
+-- function definition with patterns
+def f pat1 = expr1
+  | f pat2 = expr2
+
+def ((f pat1 = expr1) | (f pat2 = expr2))
+
+(def (| (= (f pat1) expr1)
+        (= (f pat2) expr2)))
+
+(def (| (= (f pat1) expr1)
+        (= (f pat2) expr2)))
+
+
+-- function definition with multi-patterns
+def f pat1 = expr1
+  | f pat2 = expr2
+  | f pat3
+  | f pat3' = expr3
+
+def fib 0
+  | fib 1 = 1
+  | fib n = fib (n - 1) + fib (n - 2)
+
+def fib (0|1) = 1
+  | fib   n   = fib (n - 1) + fib (n - 2)
+
+
+
+
+def f pat = expr
+  | f pat = expr
+  | f pat
+  | f pat
+  | f pat = expr
+  | f pat
+  | f pat = expr
+  | f pat = expr
+
+
+(def
+   (| (= (f pat) expr)
+      (= (f pat) expr)
+      (= (| (f pat) (f pat) (f pat)) expr)
+      (= (| (f pat) (f pat)) expr)
+      (= (f pat) expr)))
+
+
+
+macro
+  | `def name `= expr
+  | `def (f args)... `= expr
+end
+
+

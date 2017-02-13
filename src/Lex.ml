@@ -29,6 +29,8 @@ module Literal = struct
     | Int    x -> string_of_int x
     | String x -> "\"%s\"" % x
     | Symbol x -> x
+
+  let eof = Symbol "EOF"
 end
 
 
@@ -50,7 +52,7 @@ module Location = struct
     end)
 
   let to_string self =
-    "%d/%d-%d" % (self.line, self.column, self.length)
+    "%d,%d/%d" % (self.line, self.column, self.length)
 end
 
 
@@ -67,8 +69,9 @@ module Token = struct
     end)
 
   let to_string (loc, lit) =
-    Literal.to_string lit
+    "<%s: %s>" % (Location.to_string loc, Literal.to_string lit)
 end
+
 
 
 let decimal_literal =
@@ -216,8 +219,7 @@ module Lexer = struct
         error self "unbalanced parenthesis"
 
     (* EOF symbol *)
-    | eof ->
-      Symbol "EOF"
+    | eof -> Literal.eof
 
     (* Everything else is illegal *)
     | any ->
@@ -273,4 +275,5 @@ module Lexer = struct
   let from_channel c =
     from_lexbuf (Sedlexing.Utf8.from_channel c)
 end
+
 

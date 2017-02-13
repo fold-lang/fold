@@ -7,7 +7,9 @@ open Fold.Syntax
 
 
 module Evaluator = struct
-  let eval env expr = env, expr
+  let eval env expr =
+    print "Evaluating stuff...";
+    env, expr
 end
 
 
@@ -15,17 +17,15 @@ let core_env =
   Env.empty
 
 let main () =
-  print "main";
-  let lexer = Lexer.from_channel stdin in
-  let parse = Pratt.parse lexer in
-
   let rec loop env =
+    let lexer = Lexer.from_channel stdin in
+    let parse = Pratt.parse lexer in
     print ~terminator:" " "->";
 
     match parse env with
     | Ok expr ->
       let env', value = Evaluator.eval env expr in
-      Expr.print value;
+      print (" = " ^ Expr.to_string value);
       loop env'
 
     | Error msg ->

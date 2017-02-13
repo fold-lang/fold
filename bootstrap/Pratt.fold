@@ -1,7 +1,7 @@
 
-open Pure
-open Syntax
-open Lex
+use Pure
+use Syntax
+use Lex
 
 data state = {
   lexer :: Lexer,
@@ -15,47 +15,47 @@ module Parser =
 include Parser
 
 
-def empty state =
+fun empty state =
   Error "empty"
 
-def return = pure
+val return = pure
 
-def error msg = _ -> Error msg
+fun error msg = _ -> Error msg
 
-def (p1 <|> p2) = state ->
+fun (p1 <|> p2) = state ->
   match p1 state
   | Error _  -> p2 state
   | Ok value -> Ok value
   end
 
-def between op ed x =
+fun between op ed x =
   op >> x << ed
 
-def option x p = p <|> return x
-def optional p = option () (p >> lazy (return ()))
+fun option x p = p <|> return x
+fun optional p = option () (p >> lazy (return ()))
 
-def skip_many x =
+fun skip_many x =
   optional (x >>= _ -> skip_many x)
 
-def many p =
+fun many p =
   option [] (p >>= x  -> many p
                >>= xs -> return [x & xs])
 
-def satisfy test =
+fun satisfy test =
   get >>= state ->
     if test (Token.value state.token) then
       return (Expr.atom state.token)
     else
       error "could not satisfy test"
 
-def any        = satisfy (const true)
-def exactly x  = satisfy (x ==)
-def one_of  xs = satisfy (x -> List.mem x xs)
-def none_of xs = satisfy (x -> not (List.mem x xs))
-def range s e  = satisfy (x -> s <= x && x <= e)
+val any        = satisfy (const true)
+fun exactly x  = satisfy (x ==)
+fun one_of  xs = satisfy (x -> List.mem x xs)
+fun none_of xs = satisfy (x -> not (List.mem x xs))
+fun range s e  = satisfy (x -> s <= x && x <= e)
 
 
-def (parser <?> label) = s ->
+fun (parser <?> label) = s ->
   match parser s
   | Error _ ->
     let msg =
@@ -72,35 +72,35 @@ def (parser <?> label) = s ->
     Error msg
   | Ok x -> Ok x
 
-def expect x =
+fun expect x =
   exactly x <?> Literal.show x
 
-def advance =
+val advance =
   modify do s ->
     { s with token = Lexer.next s.lexer }
   end
 
-def consume x =
+fun consume x =
   expect x >> lazy advance
 
 type Rule a =
   | Prefix (Parser Expr)
   | Infix  (Expr -> Parser Expr, Int)
 
-def invalid_infix () =
+fun invalid_infix () =
   let parser exp =
     get >>= fun { token } ->
     error ("%s cannot be used in infix position" % Token.show token) in
   Infix (parser, 0)
 
-def invalid_prefix () =
+fun invalid_prefix () =
   let parser =
     get >>= fun { token } ->
     error ("%s cannot be used in prefix position" % Token.show token) in
   Prefix parser
 
 
-def expression right_precedence = undefined
+fun expression right_precedence = undefined
 
 
 {- `parse_rule rule` constructs a parser for a syntax described by [rule].
@@ -120,7 +120,7 @@ def expression right_precedence = undefined
    -- Parse a form.
    parse_rule (form [symbol "f"; symbol "x"; symbol "y"])))
 -}
-def parse_rule rule =
+fun parse_rule rule =
   let loop fqn acc atoms =
     match atoms
     | [] ->
@@ -144,7 +144,7 @@ def parse_rule rule =
     consume lit >> lazy (return atom)
 
 
-let parse_form left =
+fun parse_form left =
   expression 90 >>= fun right ->
   let form_list =
     match left with
@@ -153,29 +153,29 @@ let parse_form left =
   return (Form (List.append form_list [right]))
 
 
-let infix precedence left =
+fun infix precedence left =
   get >>= fun { env; token } ->
   let rule = Env.lookup (Token.value token) env or (Expr.symbol "...") in
   parse_rule rule >>= fun right ->
   fail "todo"
 
 
-let prefix precedence =
+fun prefix precedence =
   get >>= fun { env; token } ->
   let rule = Env.lookup (Token.value token) env or Atom token in
   parse_rule rule >>= fun left ->
   infix precedence left
 
-let expression () =
+fun expression () =
   prefix 0
 
-let parse (lexer : Lexer.t) env =
+fun parse (lexer : Lexer.t) env =
   let state = { lexer; env; token = Lexer.read lexer } in
   match run (expression ()) state with
   | Ok (expr, _) -> expr
   | Error msg    -> Error msg
 
-let parse_string parser str =
+fun parse_string parser str =
   let lexer = Lex.Lexer.from_string str in
   let state = {
     lexer;
