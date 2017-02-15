@@ -3,18 +3,34 @@ open Pure
 open Syntax
 open Lex
 
-type state = {
-  lexer : Lexer.t;
-  token : Token.t;
-  env   : Env.t;
-}
+module M = Map.Make(String)
+module R = Result.Of_error(String)
 
-module State = struct
-  type t = state
+
+module rec State : sig
+  type t = {
+    lex : Lexer.t;
+    tok : Token.t;
+    lbp : int M.t;
+    nud : (Expr.t Parser.t) M.t;
+    led : (Expr.t -> Expr.t Parser.t) M.t;
+  }
+end = struct
+  type t = {
+    lex : Lexer.t;
+    tok : Token.t;
+    lbp : int M.t;
+    nud : (Expr.t Parser.t) M.t;
+    led : (Expr.t -> Expr.t Parser.t) M.t;
+  }
 end
 
-module Parser =
-  StateT (State) (Result.Of_error(String))
+and Parser : sig
+  include StateT
+    with type state = State.t
+     and type 'a monad = 'a R.t
+end = StateT (State) (R)
+
 
 include Parser
 
