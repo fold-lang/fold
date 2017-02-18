@@ -21,8 +21,7 @@ Library fold
   Modules:        Lex,
                   Env,
                   Syntax,
-                  Pratt,
-                  Parser
+                  Pratt
 
 
 Executable fold
@@ -33,12 +32,12 @@ Executable fold
                   pure
 
 
-Executable test_pratt
-  Path:           tests/
-  MainIs:         test_pratt.ml
-  CompiledObject: byte
-  BuildDepends:   fold,
-                  pure
+#Executable test_pratt
+#  Path:           tests/
+#  MainIs:         test_pratt.ml
+#  CompiledObject: byte
+#  BuildDepends:   fold,
+#                  pure
 
 #Executable test_eval
 #  Path:           tests/

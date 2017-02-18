@@ -9,34 +9,74 @@ module R = Result.Of_error(String)
 
 module rec State : sig
   type t = {
-    lex : Lexer.t;
-    tok : Token.t;
-    lbp : int M.t;
-    nud : (Expr.t Parser.t) M.t;
-    led : (Expr.t -> Expr.t Parser.t) M.t;
+    lexer   : Lex.Lexer.t;
+    token   : Lex.Token.t;
+    grammar : Grammar.t;
   }
 end = struct
   type t = {
-    lex : Lexer.t;
-    tok : Token.t;
-    lbp : int M.t;
-    nud : (Expr.t Parser.t) M.t;
-    led : (Expr.t -> Expr.t Parser.t) M.t;
+    lexer   : Lex.Lexer.t;
+    token   : Lex.Token.t;
+    grammar : Grammar.t;
   }
+end
+
+and Grammar : sig
+  type t
+
+  val empty : t
+
+  val lookup_prefix     : string -> t -> Parser.prefix option
+  val lookup_infix      : string -> t -> Parser.infix  option
+  val lookup_precedence : string -> t -> int           option
+
+  val define_prefix     : string -> Parser.prefix -> t -> t
+  val define_infix      : string -> Parser.infix  -> t -> t
+  val define_precedence : string -> int           -> t -> t
+end = struct
+  type t = {
+    precedence : int M.t;
+    prefix     : Parser.prefix M.t;
+    infix      : Parser.infix M.t;
+  }
+
+  let empty = {
+    precedence = M.empty;
+    prefix     = M.empty;
+    infix      = M.empty;
+  }
+
+  let find k m =
+    Option.catch (fun () -> M.find k m)
+
+  let lookup_prefix     key {prefix}     = find key prefix
+  let lookup_infix      key {infix}      = find key infix
+  let lookup_precedence key {precedence} = find key precedence
+
+  let define_prefix     key x self = { self with prefix     = M.add key x self.prefix     }
+  let define_infix      key x self = { self with infix      = M.add key x self.infix      }
+  let define_precedence key x self = { self with precedence = M.add key x self.precedence }
 end
 
 and Parser : sig
   include StateT
-    with type state = State.t
-     and type 'a monad = 'a R.t
-end = StateT (State) (R)
+    with type 'a monad = 'a R.t
+     and type state = State.t
 
+  type prefix = expr t
+  type infix  = expr -> expr t
+end = struct
+  include StateT(State)(R)
 
-include Parser
+  type prefix = Syntax.expr t
+  type infix  = Syntax.expr -> Syntax.expr t
+end
+
+open Parser
 
 let empty state = Error "empty"
 
-let return = pure
+let return = Parser.pure
 
 let error msg = fun _ -> Error msg
 
@@ -55,14 +95,14 @@ let rec skip_many x = optional (x >>= fun _ -> skip_many x)
 
 let rec many p =
   option [] (p >>= fun x  -> many p
-               >>= fun xs -> return (x :: xs))
+             >>= fun xs -> return (x :: xs))
 
 let satisfy test =
-  get >>= fun state ->
-    if test (Token.literal state.token) then
-      return (Expr.atom state.token)
-    else
-      error "could not satisfy test"
+  get >>= fun State.{token} ->
+  if test (Token.literal token) then
+    return (Expr.atom token)
+  else
+    error "could not satisfy test"
 
 let any        = satisfy (const true)
 let exactly x  = satisfy ((=) x)
@@ -75,24 +115,24 @@ let (<?>) parser label s =
   match parser s with
   | Error _ ->
     let msg =
-      if Token.literal s.token = Symbol "EOF" then
+      if Token.literal State.(s.token) = Symbol "EOF" then
         "%s unexpected end of file while reading %s" %
-        (Location.show (Token.location s.token), label)
+        (Location.show (Token.location State.(s.token)), label)
       else
       if label = (Literal.show (Symbol "EOF")) then
-        "parsing stopped at %s" % Token.to_string s.token
+        "parsing stopped at %s" % Token.to_string State.(s.token)
       else
-        "expected %s but %s found" % (label, Token.to_string s.token) in
+        "expected %s but %s found" % (label, Token.to_string State.(s.token)) in
     Error msg
   | Ok x -> Ok x
 
 let expect literal =
-  get >>= fun { token = actual_token } ->
+  get >>= fun State.{ token = actual_token } ->
   exactly literal <?> Token.to_string actual_token
 
 let advance =
   modify begin fun s ->
-    { s with token = Lexer.next s.lexer }
+    State.{ s with token = Lexer.next s.lexer }
   end
 
 let consume literal =
@@ -105,92 +145,28 @@ let inspect f =
 
 
 let inspect_token =
-  inspect begin fun { token } ->
+  inspect begin fun State.{ token } ->
     print ("token: %s" % Lex.Token.show token)
   end
 
 
-type 'a rule =
-  | Prefix of (Expr.t Parser.t)
-  | Infix  of (Expr.t -> 'a Parser.t) * int
-
 let invalid_infix () =
   let parser exp =
-    get >>= fun { token } ->
+    get >>= fun State.{ token } ->
     error ("%s cannot be used in infix position" % Token.show token) in
-  Infix (parser, 0)
+  (parser, 0)
 
 let invalid_prefix () =
   let parser =
-    get >>= fun { token } ->
+    get >>= fun State.{ token } ->
     error ("%s cannot be used in prefix position" % Token.show token) in
-  Prefix parser
-
-(* let parse_prefix right_precedence = *)
-  (* state <- get; *)
-  (* let { rule; grammar } = state in *)
-  (* let default_nud = Option.force (grammar.default rule.sym).nud in *)
-  (* let current_nud = rule.nud or default_nud in *)
-  (* left <- current_nud; *)
-  (* parse_infix rbp left *)
-
-let expression right_precedence =
-  undefined ()
-
-(* XXX: We have an opportunity to define rewrite rules for optimization here! *)
-
-
-(** [parse_rule rule] constructs a parser for a syntax described by [rule].
-
-    {[
-      (* Parse the 'x' symbol. *)
-      parse_rule (symbol "x")
-
-      (* Parse the 42 integer. *)
-      parse_rule (int 42)
-
-      (* Parse the plus operator. *)
-      parse_rule (form [symbol "_"; symbol "+"; symbol "_"]))
-
-      (* Parse the if-then-else expression. *)
-      parse_rule (form (List.map symbol ["if"; "_"; "then"; "_"; "else"; "_"])))
-
-      (* Parse a form. *)
-      parse_rule (form [symbol "f"; symbol "x"; symbol "y"])))
-    ]}
-
- *)
-let parse_with_rule rule =
-  undefined ()
-
-  (* let rec loop fqn acc atoms = *)
-    (* match atoms with *)
-    (* | [] -> *)
-      (* return (Form (Expr.form (List.rev fqn) :: (List.rev acc))) *)
-
-    (* | Atom (_loc, Symbol "_") as slot :: rest -> *)
-      (* any >>= fun expr -> *)
-      (* advance >> lazy (loop (slot :: fqn) (expr :: acc) rest) *)
-
-    (* | Atom tok as keyword :: rest -> *)
-      (* consume (Token.literal tok) >> lazy (loop (keyword :: fqn) acc rest) *)
-
-    (* | Form _ :: _ -> *)
-      (* invalid_arg "invalid rule definition syntax" in *)
-
-  (* match rule with *)
-  (* | Form atoms -> *)
-    (* loop [] [] atoms *)
-
-  (* | (Atom (_loc, lit)) as atom -> *)
-    (* consume lit >> lazy (return atom) *)
+  parser
 
 
 let rec parse_atom token =
   consume (Token.literal token) >> lazy (return (Expr.atom token))
 
-
-and parse_form left =
+let rec parse_form left =
   prefix 90 >>= fun right ->
   let form_list =
     match left with
@@ -200,25 +176,23 @@ and parse_form left =
 
 
 and infix precedence left =
-  get >>= fun { env; token } ->
-  let lit = Token.literal token in
+  get >>= fun s ->
+  let k = Literal.to_string (Token.literal State.(s.token)) in
+  let g = State.(s.grammar) in
 
-  let parser =
-    match Env.lookup_infix lit env with
-    | Some rule -> parse_with_rule rule
-    | None -> parse_form in
-
-  if Env.lookup_precedence lit env > precedence
+  let parser = Grammar.lookup_infix k g or parse_form in
+  if (Grammar.lookup_precedence k g or 0) > precedence
     then parser left >>= infix precedence
     else return left
 
 
 and prefix precedence =
-  get >>= fun { env; token } ->
-  let parser =
-    match Env.lookup_prefix (Token.literal token) env with
-    | Some rule -> parse_with_rule rule
-    | None -> parse_atom token in
+  get >>= fun s ->
+  let k = Literal.to_string (Token.literal State.(s.token)) in
+  let g = State.(s.grammar) in
+
+  let parser = Grammar.lookup_prefix k g or parse_atom State.(s.token) in
+
   parser >>= fun left ->
   infix precedence left
 
@@ -226,8 +200,12 @@ and prefix precedence =
 let expression () = prefix 0
 
 
-let parse lexer env =
-  let state = { lexer; env; token = Lexer.read lexer } in
+let parse lexer =
+  let state = State.{
+      grammar = Grammar.empty;
+      lexer;
+      token = Lexer.read lexer
+    } in
   match run (expression ()) state with
   | Ok (expr, _) -> Ok expr
   | Error msg    -> Error msg
@@ -235,12 +213,12 @@ let parse lexer env =
 
 let parse_string parser str =
   let lexer = Lexer.from_string str in
-  let state =
-    { lexer;
-      token = Lexer.read lexer;
-      env   = Env.empty } in
+  let state = State.{
+      grammar = Grammar.empty;
+      lexer;
+      token = Lexer.read lexer
+    } in
   match run parser state with
   | Ok (expr, _) -> Ok expr
   | Error e -> Error e
-
 

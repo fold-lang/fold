@@ -19,10 +19,10 @@ let core_env =
 let main () =
   let rec loop env =
     let lexer = Lexer.from_channel stdin in
-    let parse = Pratt.parse lexer in
+    let parse = Pratt.parse in
     print ~terminator:" " "->";
 
-    match parse env with
+    match parse lexer with
     | Ok expr ->
       let env', value = Evaluator.eval env expr in
       print (" = " ^ Expr.to_string value);

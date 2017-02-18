@@ -4,17 +4,6 @@ open Fold
 open Pratt
 open Syntax
 
-let parse_string parser str =
-  let lexer = Lex.Lexer.from_string str in
-  let state = {
-    lexer;
-    token = Lex.Lexer.read lexer;
-    env   = Env.empty
-  } in
-  match run parser state with
-  | Ok (expr, _) -> Ok expr
-  | Error e -> Error e
-
 
 let test_parse_atomic_rules () =
   let cases = Expr.[
