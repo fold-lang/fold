@@ -51,5 +51,5 @@ live:
 	utop -init /tmp/fold_init.ml
 
 entr:
-	ls src/*.ml* tests/*.ml | entr -cr sh -c 'make build && ./Main.native'
+	ls src/*.{ml,mli} tests/*.ml | entr -cr sh -c 'make build && ./Main.native'
 

@@ -7,21 +7,52 @@ module M = Map.Make(String)
 module R = Result.Of_error(String)
 
 
+module Precedence = struct
+  (* ASSIGNMENT  = 1; *)
+  (* CONDITIONAL = 2; *)
+  (* SUM         = 3; *)
+  (* PRODUCT     = 4; *)
+  (* EXPONENT    = 5; *)
+  (* PREFIX      = 6; *)
+  (* POSTFIX     = 7; *)
+  (* CALL        = 8; *)
+
+
+  let terminal_precedence = 90
+
+  let lookup name =
+    match name with
+    (* Match atomic symbols. *)
+    | "<EOF>" -> Some 0
+    | ";" -> Some 20
+    (* Match symbols that can start an operator. *)
+    | str ->
+      begin match str.[0] with
+      | '=' -> Some 10
+      | '#' -> Some 20
+      | '+' | '-' -> Some 30
+      | '*' | '/' -> Some 40
+      | '(' | '{' | '[' -> Some 80
+      | _ -> None
+    end
+end
+
+
 module rec State : sig
   type t = {
     lexer   : Lex.Lexer.t;
     token   : Lex.Token.t;
-    grammar : Grammar.t;
+    env : Env.t;
   }
 end = struct
   type t = {
     lexer   : Lex.Lexer.t;
     token   : Lex.Token.t;
-    grammar : Grammar.t;
+    env : Env.t;
   }
 end
 
-and Grammar : sig
+and Env : sig
   type t
 
   val empty : t
@@ -30,17 +61,23 @@ and Grammar : sig
   val lookup_infix      : string -> t -> Parser.infix  option
   val lookup_precedence : string -> t -> int           option
 
+  val lookup_infix_rule : string -> t -> expr option
+
   val define_prefix     : string -> Parser.prefix -> t -> t
   val define_infix      : string -> Parser.infix  -> t -> t
   val define_precedence : string -> int           -> t -> t
 end = struct
   type t = {
+    data       : expr M.t;
+    next       : t option;
     precedence : int M.t;
     prefix     : Parser.prefix M.t;
     infix      : Parser.infix M.t;
   }
 
   let empty = {
+    data       = M.empty;
+    next       = None;
     precedence = M.empty;
     prefix     = M.empty;
     infix      = M.empty;
@@ -52,6 +89,32 @@ end = struct
   let lookup_prefix     key {prefix}     = find key prefix
   let lookup_infix      key {infix}      = find key infix
   let lookup_precedence key {precedence} = find key precedence
+
+
+  let rec lookup_infix_rule name self =
+    let continue () =
+      match self.next with
+      | Some next -> lookup_infix_rule name next
+      | None      -> None in
+
+    if M.mem key self.data then
+      let expr = M.find name self.data in
+      match expr with
+      | Form (Atom (_, Symbol "syntax"); Atom (_, Int prec)) ->
+        Some x
+      | _ -> continue ()
+    else continue ()
+
+
+  let define_syntax_rule rule self =
+    let name =
+      (* find_first *)
+      match rule with
+      | Atom (_, String name) :: _ -> name
+      | Atom (_, Symbol _)
+      | [] -> fail "invalid syntax rule"
+    { self with data = M.add name rule self.data }
+
 
   let define_prefix     key x self = { self with prefix     = M.add key x self.prefix     }
   let define_infix      key x self = { self with infix      = M.add key x self.infix      }
@@ -126,14 +189,17 @@ let (<?>) parser label s =
     Error msg
   | Ok x -> Ok x
 
+
 let expect literal =
   get >>= fun State.{ token = actual_token } ->
   exactly literal <?> Token.to_string actual_token
+
 
 let advance =
   modify begin fun s ->
     State.{ s with token = Lexer.next s.lexer }
   end
+
 
 let consume literal =
   expect literal >> lazy advance
@@ -150,21 +216,21 @@ let inspect_token =
   end
 
 
-let invalid_infix () =
-  let parser exp =
-    get >>= fun State.{ token } ->
-    error ("%s cannot be used in infix position" % Token.show token) in
-  (parser, 0)
+let invalid_infix _left =
+  get >>= fun State.{ token } ->
+  error ("%s cannot be used in infix position" % Token.to_string token)
 
-let invalid_prefix () =
-  let parser =
-    get >>= fun State.{ token } ->
-    error ("%s cannot be used in prefix position" % Token.show token) in
-  parser
+
+let invalid_prefix =
+  get >>= fun State.{ token } ->
+  error ("%s cannot be used in prefix position" % Token.to_string token)
 
 
 let rec parse_atom token =
-  consume (Token.literal token) >> lazy (return (Expr.atom token))
+  advance >> lazy (return (Expr.atom token))
+
+
+
 
 let rec parse_form left =
   prefix 90 >>= fun right ->
@@ -176,33 +242,105 @@ let rec parse_form left =
 
 
 and infix precedence left =
+  print ("infix: precedence = %d, left = %s" % (precedence, Expr.to_string left));
   get >>= fun s ->
-  let k = Literal.to_string (Token.literal State.(s.token)) in
-  let g = State.(s.grammar) in
 
-  let parser = Grammar.lookup_infix k g or parse_form in
-  if (Grammar.lookup_precedence k g or 0) > precedence
+  let name = Literal.to_string (Token.literal State.(s.token)) in
+  let env = State.(s.env) in
+
+  let parser =
+    env
+    |> Env.lookup_infix_rule name
+    |> Option.map parser_for_rule
+    |> Option.with_default parse_form in
+
+  if (Precedence.lookup name or 90) > precedence
     then parser left >>= infix precedence
     else return left
 
 
 and prefix precedence =
+  print ("prefix: precedence = %d" % precedence);
   get >>= fun s ->
   let k = Literal.to_string (Token.literal State.(s.token)) in
-  let g = State.(s.grammar) in
+  let g = State.(s.env) in
 
-  let parser = Grammar.lookup_prefix k g or parse_atom State.(s.token) in
+  let parser =
+    g
+    |> Env.lookup_prefix k
+    |> Option.with_default (parse_atom State.(s.token)) in
 
   parser >>= fun left ->
   infix precedence left
 
 
-let expression () = prefix 0
+(* rule: x "+" y *)
+and parser_for_rule rule left =
+  let rec loop fqn acc atoms =
+    match atoms with
+    | [] ->
+      return (Form (Expr.form (List.rev fqn) :: (List.rev acc)))
+
+    | Atom (_loc, Symbol _) :: rest ->
+      expression () >>= fun expr ->
+      advance >> lazy (loop fqn (expr :: acc) rest)
+
+    | Atom (_loc, (String _ as lit)) as keyword :: rest ->
+      consume lit >> lazy (loop (keyword :: fqn) acc rest)
+
+    | _ ->
+      invalid_arg "invalid rule definition syntax" in
+
+  match rule with
+  | Form atoms ->
+    loop [] [left] atoms
+
+  | Atom (_, lit) as atom ->
+    consume lit >> lazy (return atom)
+
+
+and expression () =
+  prefix 0
+
+
+let add_infix k prec g =
+  let p =
+    fun left ->
+    get >>= fun State.{token} ->
+    advance >> lazy (expression ()) >>= fun right ->
+    return Expr.(form [atom token; left; right]) in
+  g
+  |> Env.define_infix k p
+  |> Env.define_precedence k prec
+
+
+let add_prefix k g =
+  let p =
+    get >>= fun State.{token} ->
+    advance >> lazy (expression ()) >>= fun right ->
+    return Expr.(form [atom token; right]) in
+  g
+  |> Env.define_prefix k p
+
+
+let eof g =
+  g
+  |> Env.define_infix "EOF" invalid_infix
+  |> Env.define_precedence "EOF" 0
+  |> Env.define_prefix "EOF" invalid_prefix
+
+
+let default_grammar =
+  Env.empty
+  |> eof
+  |> add_infix "+" 30
+  |> add_infix "-" 30
+  |> add_prefix "-"
 
 
 let parse lexer =
   let state = State.{
-      grammar = Grammar.empty;
+      env = default_grammar;
       lexer;
       token = Lexer.read lexer
     } in
@@ -214,11 +352,12 @@ let parse lexer =
 let parse_string parser str =
   let lexer = Lexer.from_string str in
   let state = State.{
-      grammar = Grammar.empty;
+      env = Env.empty;
       lexer;
       token = Lexer.read lexer
     } in
   match run parser state with
   | Ok (expr, _) -> Ok expr
   | Error e -> Error e
+
 

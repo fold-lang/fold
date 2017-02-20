@@ -8,12 +8,16 @@ module M : Map.S
 
 module rec State : Type
 
-and Grammar : sig
+and Env : sig
   type t
 
   val lookup_prefix     : string -> t -> Parser.prefix option
   val lookup_infix      : string -> t -> Parser.infix  option
   val lookup_precedence : string -> t -> int           option
+
+  val define_prefix     : string -> Parser.prefix -> t -> t
+  val define_infix      : string -> Parser.infix  -> t -> t
+  val define_precedence : string -> int           -> t -> t
 end
 
 and Parser : sig

@@ -1,6 +1,4 @@
 
-let () = Pervasives.print_endline "Lex"
-
 open Pure
 
 type literal =
@@ -30,7 +28,7 @@ module Literal = struct
     | String x -> "\"%s\"" % x
     | Symbol x -> x
 
-  let eof = Symbol "EOF"
+  let eof = Symbol "<EOF>"
 end
 
 
@@ -209,14 +207,7 @@ module Lexer = struct
     (* Newline symbol *)
     | '\n' ->
       increment_line self;
-
-      if self.group_count = 0 then
-        Symbol "EOL"
-      else
-      if self.group_count > 0 then
-        read_literal self
-      else
-        error self "unbalanced parenthesis"
+      read_literal self
 
     (* EOF symbol *)
     | eof -> Literal.eof
