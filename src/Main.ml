@@ -40,12 +40,15 @@ module Env = Pratt.Env
 module Evaluator = struct
   let eval env expr =
     match expr with
-    | Form (Atom (_, Symbol "syntax") :: rule) ->
-      Env.define_syntax_rule rule
-      env, expr
 
-    | Form (Atom (_, Symbol "infix") :: _) ->
+    (* Syntax Rules *)
+    | Form (Atom (_, Symbol "syntax") :: []) ->
       fail "invalid infix declaration"
+
+    | Form (Atom (_, Symbol "syntax") :: rule) ->
+      print "Eval.eval: defining syntax rule...";
+      let env' = Env.define_syntax_rule rule env in
+      env', expr
 
     | _ ->
       env, expr
@@ -53,7 +56,7 @@ end
 
 
 let core_env =
-  42
+  Env.empty
 
 
 let main () =
