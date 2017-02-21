@@ -6,6 +6,7 @@ open Fold.Lex
 open Fold.Syntax
 
 module Env = Pratt.Env
+module Parselet = Pratt.Parselet
 
 
 (*
@@ -36,8 +37,6 @@ module Env = Pratt.Env
 
  *)
 
-let create_parser rule =
-  let open Pratt in
 
 
 module Evaluator = struct
@@ -46,39 +45,41 @@ module Evaluator = struct
 
     (* Syntax Rules *)
     | Form (Atom (_, Symbol "syntax") :: []) ->
-      fail "invalid infix declaration"
+        fail "invalid infix declaration"
 
     | Form (Atom (_, Symbol "syntax") :: rule) ->
-      print "Eval.eval: defining syntax rule...";
-      let name, parser = create_parser rule in
+        print "Eval.eval: defining syntax rule...";
+      let name, parser = Parselet.create rule |> Result.force in
       let env' = Env.define_syntax name parser env in
+      print "==> New env:";
+      Env.dump env';
       env', expr
 
     | _ ->
-      env, expr
+        env, expr
 end
 
 
 let core_env =
   Env.empty
+  |> Env.define_syntax "<EOF>" (Parselet.Infix  ((fun x -> undefined ()), 0))
 
 
 let main () =
-  let rec loop env =
+  let rec loop (env : Env.t) =
     let lexer = Lexer.from_channel stdin in
-    let parse = Pratt.parse in
     (* print ~terminator:" " "->"; *)
 
-    match parse lexer with
-    | Ok expr ->
+    match Pratt.parse env lexer with
+  | Ok expr ->
       let env', value = Evaluator.eval env expr in
       print (" = " ^ Expr.to_string value);
-      loop env'
+    loop env'
 
-    | Error msg ->
+  | Error msg ->
       print (" * " ^ msg)
-  in
-    loop core_env
+      in
+  loop core_env
 
 
 let () =

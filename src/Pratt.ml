@@ -41,17 +41,17 @@ module Precedence = struct
   let lookup name =
     match name with
     (* Match atomic symbols. *)
-    | "<EOF>" -> Some 0
-    | ";" -> Some 20
+    | "<EOF>" -> 0
+    | ";" -> 20
     (* Match symbols that can start an operator. *)
     | str ->
       begin match str.[0] with
-      | '=' -> Some 10
-      | '#' -> Some 20
-      | '+' | '-' -> Some 30
-      | '*' | '/' -> Some 40
-      | '(' | '{' | '[' -> Some 80
-      | _ -> None
+      | '=' -> 10
+      | '#' -> 20
+      | '+' | '-' -> 30
+      | '*' | '/' -> 40
+      | '(' | '{' | '[' -> 80
+      | _ -> 30 (* default non symbolic? XXX *)
     end
 end
 
@@ -78,57 +78,70 @@ and Env : sig
 
   val empty : t
 
-  val define_syntax_rule : expr list -> t -> t
+  val dump : t -> unit
+
+  val define_syntax : string -> Expr.t Parselet.t -> t -> t
 
   val lookup_prefix : string -> t -> Expr.t Parselet.prefix option
-  val lookup_infix  : string -> t -> Expr.t Parselet.infix option
+  val lookup_infix  : string -> t -> Expr.t Parselet.infix  option
 
 end = struct
-  type t = Env of data * t option
-  and data = {
-    def : expr M.t;
-    nud : Parselet.prefix M.t;
-    led : Parselet.infix M.t;
+  type t = {
+    data   : expr M.t;
+    prefix : Expr.t Parselet.prefix M.t;
+    infix  : Expr.t Parselet.infix M.t;
+    next   : t option;
   }
 
 
-  let empty =
-    let data = {
-      def = M.empty;
-      nud = M.empty;
-      led = M.empty;
-    } in
-    Env (data, None)
+  let empty = {
+    data   = M.empty;
+    infix  = M.empty;
+    prefix = M.empty;
+    next   = None;
+  }
 
 
-  let define_nud_rule name rule (Env (data, next)) =
-    print ("defining nud rule for name %s" % name);
-    Env ({ data with nud = M.add name rule data.nud }, next)
+  let dump self =
+    print "INFIX:";
+    M.iter (fun k (p, prec) -> print ("%s => <infix %d>" % (k, prec))) self.infix;
+    print "";
+    print "PREFIX:";
+    M.iter (fun k p -> print ("%s => <prefix>" % k)) self.prefix;
+    print ""
 
 
-  let define_led_rule name rule (Env (data, next)) =
-    print ("defining led rule for name %s" % name);
-    Env ({ data with led = M.add name rule data.led }, next)
+  let define_syntax name parselet self =
+    match parselet with
+    | Parselet.Infix  p ->
+      print ("defining infix name %s" % name);
+      { self with infix  = M.add name p self.infix  }
+
+    | Parselet.Prefix p ->
+      print ("defining prefix name %s" % name);
+      { self with prefix = M.add name p self.prefix }
 
 
-  let rec lookup_prefix name (Env (data, next)) =
-    match M.find name data.nud with
-    | Some rule -> Some rule
-    | None -> Option.(next >>= lookup_nud_rule name)
+  let rec lookup_prefix name { prefix; next } =
+    match M.find name prefix with
+    | Some rule ->
+      print ("found prefix name %s" % name);
+      Some rule
+
+    | None ->
+      print ("still looking for prefix name %s" % name);
+      Option.(next >>= lookup_prefix name)
 
 
-  let rec lookup_led name (Env (data, next)) =
-    match M.find name data.led with
-    | Some rule -> Some rule
-    | None -> Option.(next >>= lookup_led_rule name)
+  let rec lookup_infix name { infix; next } =
+    match M.find name infix with
+    | Some rule ->
+      print ("found prefix name %s" % name);
+      Some rule
 
-
-  (* TODO: Read the rule only once and have the `Parser.of_rule` return a parser. *)
-  let define_syntax_rule rule self =
-    let key = Result.force (key_for_rule rule) in
-    match key with
-    | `nud name -> define_nud_rule name (Parser.nud_of_rule rule) self
-    | `led name -> define_led_rule name (Parser.led_of_rule rule) self
+    | None ->
+      print ("still looking for infix name %s" % name);
+      Option.(next >>= lookup_infix name)
 end
 
 and Parser : sig
@@ -136,7 +149,11 @@ and Parser : sig
     with type 'a monad = 'a R.t
      and type state = State.t
 
-  val parse : Lexer.t -> Expr.t R.t
+  val expression : unit -> Expr.t Parser.t
+
+  val consume : Literal.t -> unit t
+
+  val parse : Env.t -> Lexer.t -> Expr.t R.t
   val parse_string : Expr.t t -> string -> Expr.t R.t
 end = struct
   include StateT(State)(R)
@@ -247,66 +264,45 @@ end = struct
 
 
   and infix rbp left =
-    print ("infix: rbp = %d, left = %s" % (rbp, Expr.to_string left));
     get >>= fun s ->
-
-    let lit = Token.literal (State.(s.token)) in
-    if lit = Literal.eof then
-      return left
-    else
 
     let name = Literal.to_string (Token.literal State.(s.token)) in
     let env  = State.env s in
 
-    let led, lbp =
-      match
-        (Env.lookup_led name env,
-         Env.lookup_lbp name env)
-      with
-      (* Infix token not defined. No lbp. Use default. *)
-      | (None, None) ->
-        parse_form, 90
-
-      (* Infix token not defined. But we have lbp.
-         Should be an error? *)
-      | (None, Some lbp) ->
-        fail "precedence without infix parser"
-
-      (* Infix token defined and has precedence. Parse as form. *)
-      | (Some led, Some lbp) ->
-        led, lbp
-
-      | (Some _, None) ->
-        fail "infix parser without precedence"
+    let parse, lbp =
+      Env.lookup_infix name env or (parse_form, 90)
     in
+      print (" infix: tok = %s, rbp = %d, lbp = %d, left = %s" % (name, rbp, lbp, Expr.to_string left));
       if lbp > rbp then
-        led left >>= infix rbp
+        advance >> lazy (parse left) >>= infix rbp
       else
         return left
 
 
   and prefix precedence =
-    print ("prefix: precedence = %d" % precedence);
     get >>= fun s ->
+
     let name = Literal.to_string (Token.literal State.(s.token)) in
     let env  = State.env s in
 
-    let parser =
+    print ("prefix: tok = %s, rbp = %d" % (name, precedence));
+
+    let parse =
       env
-      |> Env.lookup_nud name
+      |> Env.lookup_prefix name
       |> Option.with_default (parse_atom State.(s.token)) in
 
-    parser >>= fun left ->
+    parse >>= fun left ->
     infix precedence left
 
 
-  and expression () =
-    prefix 0
+  and expression () = prefix 0
 
 
-  let parse lexer =
+  let parse (env : Env.t) (lexer : Lexer.t) =
+    let e : Env.t = env in
     let state = State.{
-        env = Env.empty;
+        env = e;
         lexer;
         token = Lexer.read lexer
       } in
@@ -329,21 +325,26 @@ end
 
 
 and Parselet : sig
-  type 'a t
-  type 'a prefix
-  type 'a infix
+  type 'a prefix = 'a Parser.t
 
-  val create : expr list -> (expr t, string) result
+  type 'a infix = ('a -> 'a Parser.t) * int
+
+  type 'a t =
+    | Prefix of 'a prefix
+    | Infix  of 'a infix
+
+
+  val create : expr list -> (string * expr t, string) result
   (** [of_rule rule] is a result with a parselet generated based on the
       syntax [rule].
-      
+
       Expressions in the rule define the type of the parselet (prefix or infix).
 
       A valid rule must:
 
       - have a string token (representing a keyword) on the first or second position;
       - (?) not have consecutive symbol tokens (representing expressions);
-      
+
       Here is the list of some valid rules:
 
       {[
@@ -352,7 +353,7 @@ and Parselet : sig
         [a, "+", b]
       ]}
 
-      
+
       Here is the list of some invalid rules:
 
       {[
@@ -364,48 +365,44 @@ and Parselet : sig
       ]}
    *)
 end = struct
-  type 'a prefix =
-    { parse : 'a Parser.t}
+  type 'a prefix = 'a Parser.t
 
-  
-  type 'a infix  =
-    { parse : 'a -> 'a Parser.t;
-      precedence : int }
+  type 'a infix = ('a -> 'a Parser.t) * int
 
 
   type 'a t =
-    | Prefix of string * 'a prefix
-    | Infix  of string * 'a infix
+    | Prefix of 'a prefix
+    | Infix  of 'a infix
 
 
   let create rule =
     let rec go fqn res list =
       match list with
       | [] ->
-        return (Form (Expr.form (List.rev fqn) :: (List.rev res)))
+        Parser.pure (Form (Expr.form (List.rev fqn) :: (List.rev res)))
 
       | Atom (_loc, Symbol _) :: rest ->
-        Parser.expression () >>= fun e ->
-        go fqn (e :: res) rest
+        Parser.(expression () >>= fun e ->
+          go fqn (e :: res) rest)
 
       | Atom (_loc, (String _ as lit)) as keyword :: rest ->
-        Parser.consume lit >> lazy (go (keyword :: fqn) res rest)
+        Parser.(consume lit >> lazy (go (keyword :: fqn) res rest))
 
       | _ ->
         invalid_arg "invalid rule definition syntax"
     in
       match rule with
       | Atom (_, String s) :: Atom (_, _) :: _ ->
-        let parselet = { parse = go [] [] rule } in
-        Prefix (s, parselet)
+        let parselet = go [] [] rule in
+        Ok (s, Prefix parselet)
 
       | Atom (_, _) :: Atom (_, String s) :: _ ->
-        let parselet = { parse = fun left -> go [] [] rule;
-                         precedence = Precedence.lookup s } in
-        Infix (s, parselet)
+        let parse left = go [] [] rule in
+        let precedence = Precedence.lookup s in
+        Ok (s, Infix (parse, precedence))
 
       | _ -> Error "Invalid rule syntax"
-    
+
 end
 
 
