@@ -26,6 +26,7 @@ end
 module R = Result.Of_error(String)
 
 
+
 module Precedence = struct
   let assignment  = 10
   let conditional = 20
@@ -54,7 +55,6 @@ module Precedence = struct
     end
 end
 
-
 module rec State : sig
   type t = {
     lexer   : Lex.Lexer.t;
@@ -80,52 +80,25 @@ and Env : sig
 
   val define_syntax_rule : expr list -> t -> t
 
-  val lookup_nud_rule : string -> t -> Parser.nud option
-  val lookup_led_rule : string -> t -> Parser.led option
+  val lookup_prefix : string -> t -> Expr.t Parselet.prefix option
+  val lookup_infix  : string -> t -> Expr.t Parselet.infix option
 
 end = struct
   type t = Env of data * t option
   and data = {
     def : expr M.t;
-    lbp : int M.t;
-    nud : Parser.nud M.t;
-    led : Parser.led M.t;
+    nud : Parselet.prefix M.t;
+    led : Parselet.infix M.t;
   }
 
 
   let empty =
     let data = {
       def = M.empty;
-      lbp = M.empty;
       nud = M.empty;
       led = M.empty;
     } in
     Env (data, None)
-
-
-  let key_for_rule rule =
-    let apply_rule_type rt key =
-      match rt with
-      | `nud -> `nud key
-      | `led -> `led key in
-
-    let switch_rule_type rt =
-      match rt with
-      | `nud -> `led
-      | `led -> `nud in
-
-    let rec loop rule_type list =
-      match list with
-      | Atom (_, Symbol _) :: xs ->
-        loop (switch_rule_type rule_type) xs
-
-      | Atom (_, String key) :: _ ->
-        Ok (apply_rule_type rule_type key)
-
-      | _ ->
-        Error "Invalid rule syntax"
-    in
-      loop `nud rule
 
 
   let define_nud_rule name rule (Env (data, next)) =
@@ -138,13 +111,13 @@ end = struct
     Env ({ data with led = M.add name rule data.led }, next)
 
 
-  let rec lookup_nud_rule name (Env (data, next)) =
+  let rec lookup_prefix name (Env (data, next)) =
     match M.find name data.nud with
     | Some rule -> Some rule
     | None -> Option.(next >>= lookup_nud_rule name)
 
 
-  let rec lookup_led_rule name (Env (data, next)) =
+  let rec lookup_led name (Env (data, next)) =
     match M.find name data.led with
     | Some rule -> Some rule
     | None -> Option.(next >>= lookup_led_rule name)
@@ -163,20 +136,13 @@ and Parser : sig
     with type 'a monad = 'a R.t
      and type state = State.t
 
-  type nud = expr t
-  type led = expr -> expr t
-
-  val nud_of_rule : expr list -> nud
-  val led_of_rule : expr list -> led
-
   val parse : Lexer.t -> Expr.t R.t
   val parse_string : Expr.t t -> string -> Expr.t R.t
 end = struct
   include StateT(State)(R)
 
-  type nud = Syntax.expr t
-  type led = Syntax.expr -> Syntax.expr t
-
+  type prefix = { parser : expr t}
+  type infix  = { parser : expr -> expr t; precedence : int }
 
   let empty state = Error "empty"
 
@@ -280,22 +246,43 @@ end = struct
     return (Form (List.append form_list [right]))
 
 
-  and infix precedence left =
-    print ("infix: precedence = %d, left = %s" % (precedence, Expr.to_string left));
+  and infix rbp left =
+    print ("infix: rbp = %d, left = %s" % (rbp, Expr.to_string left));
     get >>= fun s ->
+
+    let lit = Token.literal (State.(s.token)) in
+    if lit = Literal.eof then
+      return left
+    else
 
     let name = Literal.to_string (Token.literal State.(s.token)) in
     let env  = State.env s in
 
-    if (Precedence.lookup name or 90) > precedence then
-      let parser =
-        env
-        |> Env.lookup_led_rule name
-        |> Option.with_default parse_form in
+    let led, lbp =
+      match
+        (Env.lookup_led name env,
+         Env.lookup_lbp name env)
+      with
+      (* Infix token not defined. No lbp. Use default. *)
+      | (None, None) ->
+        parse_form, 90
 
-      parser left >>= infix precedence
-    else
-      return left
+      (* Infix token not defined. But we have lbp.
+         Should be an error? *)
+      | (None, Some lbp) ->
+        fail "precedence without infix parser"
+
+      (* Infix token defined and has precedence. Parse as form. *)
+      | (Some led, Some lbp) ->
+        led, lbp
+
+      | (Some _, None) ->
+        fail "infix parser without precedence"
+    in
+      if lbp > rbp then
+        led left >>= infix rbp
+      else
+        return left
 
 
   and prefix precedence =
@@ -306,7 +293,7 @@ end = struct
 
     let parser =
       env
-      |> Env.lookup_nud_rule name
+      |> Env.lookup_nud name
       |> Option.with_default (parse_atom State.(s.token)) in
 
     parser >>= fun left ->
@@ -315,33 +302,6 @@ end = struct
 
   and expression () =
     prefix 0
-
-
-  let of_rule acc rule =
-    let rec loop fqn acc atoms =
-      match atoms with
-      | [] ->
-        return (Form (Expr.form (List.rev fqn) :: (List.rev acc)))
-
-      | Atom (_loc, Symbol _) :: rest ->
-        expression () >>= fun expr ->
-        advance >> lazy (loop fqn (expr :: acc) rest)
-
-      | Atom (_loc, (String _ as lit)) as keyword :: rest ->
-        consume lit >> lazy (loop (keyword :: fqn) acc rest)
-
-      | _ ->
-        invalid_arg "invalid rule definition syntax" in
-
-    loop [] acc rule
-
-
-  let nud_of_rule rule =
-    of_rule [] rule
-
-
-  let led_of_rule rule =
-    fun left -> of_rule [left] rule
 
 
   let parse lexer =
@@ -367,5 +327,88 @@ end = struct
     | Error e -> Error e
 end
 
+
+and Parselet : sig
+  type 'a t
+  type 'a prefix
+  type 'a infix
+
+  val create : expr list -> (expr t, string) result
+  (** [of_rule rule] is a result with a parselet generated based on the
+      syntax [rule].
+      
+      Expressions in the rule define the type of the parselet (prefix or infix).
+
+      A valid rule must:
+
+      - have a string token (representing a keyword) on the first or second position;
+      - (?) not have consecutive symbol tokens (representing expressions);
+      
+      Here is the list of some valid rules:
+
+      {[
+        ["-", a]
+        ["let", "rec", name, "=", expr, "in", body]
+        [a, "+", b]
+      ]}
+
+      
+      Here is the list of some invalid rules:
+
+      {[
+        [a, b]
+        (?) ["unless", test, body]
+        [a]
+        ["hey"]
+        []
+      ]}
+   *)
+end = struct
+  type 'a prefix =
+    { parse : 'a Parser.t}
+
+  
+  type 'a infix  =
+    { parse : 'a -> 'a Parser.t;
+      precedence : int }
+
+
+  type 'a t =
+    | Prefix of string * 'a prefix
+    | Infix  of string * 'a infix
+
+
+  let create rule =
+    let rec go fqn res list =
+      match list with
+      | [] ->
+        return (Form (Expr.form (List.rev fqn) :: (List.rev res)))
+
+      | Atom (_loc, Symbol _) :: rest ->
+        Parser.expression () >>= fun e ->
+        go fqn (e :: res) rest
+
+      | Atom (_loc, (String _ as lit)) as keyword :: rest ->
+        Parser.consume lit >> lazy (go (keyword :: fqn) res rest)
+
+      | _ ->
+        invalid_arg "invalid rule definition syntax"
+    in
+      match rule with
+      | Atom (_, String s) :: Atom (_, _) :: _ ->
+        let parselet = { parse = go [] [] rule } in
+        Prefix (s, parselet)
+
+      | Atom (_, _) :: Atom (_, String s) :: _ ->
+        let parselet = { parse = fun left -> go [] [] rule;
+                         precedence = Precedence.lookup s } in
+        Infix (s, parselet)
+
+      | _ -> Error "Invalid rule syntax"
+    
+end
+
+
 include Parser
+
 

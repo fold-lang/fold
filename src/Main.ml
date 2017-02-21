@@ -36,6 +36,9 @@ module Env = Pratt.Env
 
  *)
 
+let create_parser rule =
+  let open Pratt in
+
 
 module Evaluator = struct
   let eval env expr =
@@ -47,7 +50,8 @@ module Evaluator = struct
 
     | Form (Atom (_, Symbol "syntax") :: rule) ->
       print "Eval.eval: defining syntax rule...";
-      let env' = Env.define_syntax_rule rule env in
+      let name, parser = create_parser rule in
+      let env' = Env.define_syntax name parser env in
       env', expr
 
     | _ ->
