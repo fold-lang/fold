@@ -114,33 +114,27 @@ end = struct
   let define_syntax name parselet self =
     match parselet with
     | Parselet.Infix  p ->
-      print ("defining infix name %s" % name);
       { self with infix  = M.add name p self.infix  }
 
     | Parselet.Prefix p ->
-      print ("defining prefix name %s" % name);
       { self with prefix = M.add name p self.prefix }
 
 
   let rec lookup_prefix name { prefix; next } =
     match M.find name prefix with
     | Some rule ->
-      print ("found prefix name %s" % name);
       Some rule
 
     | None ->
-      print ("still looking for prefix name %s" % name);
       Option.(next >>= lookup_prefix name)
 
 
   let rec lookup_infix name { infix; next } =
     match M.find name infix with
     | Some rule ->
-      print ("found prefix name %s" % name);
       Some rule
 
     | None ->
-      print ("still looking for infix name %s" % name);
       Option.(next >>= lookup_infix name)
 end
 
@@ -152,6 +146,7 @@ and Parser : sig
   val expression : unit -> Expr.t Parser.t
 
   val consume : Literal.t -> unit t
+  val advance : unit t
 
   val parse : Env.t -> Lexer.t -> Expr.t R.t
   val parse_string : Expr.t t -> string -> Expr.t R.t
@@ -186,13 +181,16 @@ end = struct
 
   let satisfy test =
     get >>= fun State.{token} ->
+    print ("testing token %s" % Token.to_string token);
     if test (Token.literal token) then
-      return (Expr.atom token)
+      (print "ok";
+       return (Expr.atom token))
     else
-      error "could not satisfy test"
+      (print "no";
+       error "could not satisfy test")
 
   let any        = satisfy (const true)
-  let exactly x  = satisfy ((=) x)
+  let exactly x  = satisfy (fun lit -> print ("comparing %s and %s" % (Literal.to_string lit, Literal.to_string x)); lit = x)
   let one_of  xs = satisfy (fun x -> List.mem x xs)
   let none_of xs = satisfy (fun x -> not (List.mem x xs))
   let range s e  = satisfy (fun x -> s <= x && x <= e)
@@ -221,7 +219,8 @@ end = struct
 
   let advance =
     modify begin fun s ->
-      State.{ s with token = Lexer.next s.lexer }
+      let token = Lexer.next s.State.lexer in
+      State.{ s with token }
     end
 
 
@@ -250,17 +249,18 @@ end = struct
     error ("%s cannot be used in prefix position" % Token.to_string token)
 
 
-  let rec parse_atom token =
-    advance >> lazy (return (Expr.atom token))
+  let rec parse_atom =
+    get >>= fun State.{ token } ->
+    consume (Token.literal token) >> lazy (return (Expr.atom token))
 
 
   let rec parse_form left =
     prefix 90 >>= fun right ->
     let form_list =
       match left with
-      | Form xs -> xs
-      | atom    -> [atom] in
-    return (Form (List.append form_list [right]))
+      | Form xs -> List.append xs [right]
+      | atom    -> [atom; right] in
+    return (Form form_list)
 
 
   and infix rbp left =
@@ -274,7 +274,7 @@ end = struct
     in
       print (" infix: tok = %s, rbp = %d, lbp = %d, left = %s" % (name, rbp, lbp, Expr.to_string left));
       if lbp > rbp then
-        advance >> lazy (parse left) >>= infix rbp
+        parse left >>= infix rbp
       else
         return left
 
@@ -285,12 +285,12 @@ end = struct
     let name = Literal.to_string (Token.literal State.(s.token)) in
     let env  = State.env s in
 
-    print ("prefix: tok = %s, rbp = %d" % (name, precedence));
-
     let parse =
       env
       |> Env.lookup_prefix name
-      |> Option.with_default (parse_atom State.(s.token)) in
+      |> Option.with_default parse_atom in
+
+    print ("prefix: tok = %s, rbp = %d" % (name, precedence));
 
     parse >>= fun left ->
     infix precedence left
@@ -376,30 +376,39 @@ end = struct
 
 
   let create rule =
-    let rec go fqn res list =
+    let rec go fname res list =
+      print ("rule: %s" % (Expr.to_string (Form list)));
       match list with
       | [] ->
-        Parser.pure (Form (Expr.form (List.rev fqn) :: (List.rev res)))
+        Parser.pure (Form (Expr.symbol fname :: List.rev res))
 
-      | Atom (_loc, Symbol _) :: rest ->
+      | Atom (_loc, Symbol x) :: rest ->
+        print ("parselet: parsing symbol %s" % x);
         Parser.(expression () >>= fun e ->
-          go fqn (e :: res) rest)
+          go fname (e :: res) rest)
 
-      | Atom (_loc, (String _ as lit)) as keyword :: rest ->
-        Parser.(consume lit >> lazy (go (keyword :: fqn) res rest))
+      | Atom (_loc, (String x as lit)) :: rest ->
+        print ("parselet: parsing string %s" % x);
+        Parser.(consume lit >> lazy (go fname res rest))
 
       | _ ->
         invalid_arg "invalid rule definition syntax"
     in
       match rule with
-      | Atom (_, String s) :: Atom (_, _) :: _ ->
-        let parselet = go [] [] rule in
-        Ok (s, Prefix parselet)
+      | Atom (_, (String s)) :: xs ->
+        let parselet =
+          Parser.(consume (Symbol s) >> lazy (go s [] xs))
+        in
+          Ok (s, Prefix parselet)
 
-      | Atom (_, _) :: Atom (_, String s) :: _ ->
-        let parse left = go [] [] rule in
-        let precedence = Precedence.lookup s in
-        Ok (s, Infix (parse, precedence))
+      | Atom (_, _) :: Atom (_, (String s)) :: xs ->
+        let parse left =
+          Parser.(consume (Symbol s) >> lazy (go s [left] xs)) in
+
+        let precedence =
+          Precedence.lookup s
+        in
+          Ok (s, Infix (parse, precedence))
 
       | _ -> Error "Invalid rule syntax"
 

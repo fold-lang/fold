@@ -45,18 +45,16 @@ module Evaluator = struct
 
     (* Syntax Rules *)
     | Form (Atom (_, Symbol "syntax") :: []) ->
-        fail "invalid infix declaration"
+      fail "invalid infix declaration"
 
     | Form (Atom (_, Symbol "syntax") :: rule) ->
-        print "Eval.eval: defining syntax rule...";
+      print "Eval.eval: defining syntax rule...";
       let name, parser = Parselet.create rule |> Result.force in
       let env' = Env.define_syntax name parser env in
-      print "==> New env:";
-      Env.dump env';
       env', expr
 
     | _ ->
-        env, expr
+      env, expr
 end
 
 
@@ -66,19 +64,24 @@ let core_env =
 
 
 let main () =
-  let rec loop (env : Env.t) =
+  let rec loop env =
     let lexer = Lexer.from_channel stdin in
-    (* print ~terminator:" " "->"; *)
+
+      print ">>>";
+      Env.dump env;
+      print "<<<";
+
+    print ~terminator:" " "->";
 
     match Pratt.parse env lexer with
-  | Ok expr ->
+    | Ok expr ->
       let env', value = Evaluator.eval env expr in
       print (" = " ^ Expr.to_string value);
-    loop env'
+      loop env'
 
-  | Error msg ->
+    | Error msg ->
       print (" * " ^ msg)
-      in
+  in
   loop core_env
 
 
