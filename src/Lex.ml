@@ -190,7 +190,7 @@ module Lexer = struct
     (* let lexeme = current_lexeme self in *)
     (* Symbol (String.sub lexeme 1 (String.length lexeme - 1)) *)
 
-    | '"',  (Compl '"'), '"' ->
+    | '"',  Star (Compl '"'), '"' ->
       let lexeme = current_lexeme self in
       String (String.sub lexeme 1 (String.length lexeme - 2))
 

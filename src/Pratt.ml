@@ -181,16 +181,13 @@ end = struct
 
   let satisfy test =
     get >>= fun State.{token} ->
-    print ("testing token %s" % Token.to_string token);
     if test (Token.literal token) then
-      (print "ok";
-       return (Expr.atom token))
+       return (Expr.atom token)
     else
-      (print "no";
-       error "could not satisfy test")
+       error "could not satisfy test"
 
   let any        = satisfy (const true)
-  let exactly x  = satisfy (fun lit -> print ("comparing %s and %s" % (Literal.to_string lit, Literal.to_string x)); lit = x)
+  let exactly x  = satisfy ((=) x)
   let one_of  xs = satisfy (fun x -> List.mem x xs)
   let none_of xs = satisfy (fun x -> not (List.mem x xs))
   let range s e  = satisfy (fun x -> s <= x && x <= e)
@@ -200,21 +197,21 @@ end = struct
     match parser s with
     | Error _ ->
       let msg =
-        if Token.literal State.(s.token) = Symbol "EOF" then
+        if Token.literal State.(s.token) = Literal.eof then
           "%s unexpected end of file while reading %s" %
           (Location.show (Token.location State.(s.token)), label)
         else
         if label = (Literal.show (Symbol "EOF")) then
           "parsing stopped at %s" % Token.to_string State.(s.token)
         else
-          "expected %s but %s found" % (label, Token.to_string State.(s.token)) in
+          "expected %s but %s found" % (label, Token.show State.(s.token)) in
       Error msg
     | Ok x -> Ok x
 
 
   let expect literal =
     get >>= fun State.{ token = actual_token } ->
-    exactly literal <?> Token.to_string actual_token
+    exactly literal <?> Token.show actual_token
 
 
   let advance =
@@ -387,9 +384,9 @@ end = struct
         Parser.(expression () >>= fun e ->
           go fname (e :: res) rest)
 
-      | Atom (_loc, (String x as lit)) :: rest ->
+      | Atom (_loc, String x) :: rest ->
         print ("parselet: parsing string %s" % x);
-        Parser.(consume lit >> lazy (go fname res rest))
+        Parser.(consume (Symbol x) >> lazy (go fname res rest))
 
       | _ ->
         invalid_arg "invalid rule definition syntax"
