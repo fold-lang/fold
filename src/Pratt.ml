@@ -78,7 +78,13 @@ and Env : sig
 
   val empty : t
 
+  val default : t
+
   val dump : t -> unit
+
+  val new_scope : t -> t
+
+  val pop_scope : t -> t
 
   val define_syntax : string -> Expr.t Parselet.t -> t -> t
 
@@ -100,6 +106,14 @@ end = struct
     prefix = M.empty;
     next   = None;
   }
+
+
+  let new_scope self =
+    { empty with next = Some self }
+
+
+  let pop_scope self =
+    self.next or self
 
 
   let dump self =
@@ -136,6 +150,13 @@ end = struct
 
     | None ->
       Option.(next >>= lookup_infix name)
+
+
+  let default =
+    empty
+    |> define_syntax "<EOF>" (Parselet.Infix  ((fun x -> undefined ()), 0))
+    |> define_syntax "<EOF>" (Parselet.Prefix Parser.invalid_prefix)
+
 end
 
 and Parser : sig
@@ -143,7 +164,11 @@ and Parser : sig
     with type 'a monad = 'a R.t
      and type state = State.t
 
+  val empty : 'a t
   val expression : unit -> Expr.t Parser.t
+
+  val invalid_infix  : Expr.t -> Expr.t Parser.t
+  val invalid_prefix : Expr.t Parser.t
 
   val consume : Literal.t -> unit t
   val advance : unit t
@@ -311,7 +336,7 @@ end = struct
   let parse_string parser str =
     let lexer = Lexer.from_string str in
     let state = State.{
-        env = Env.empty;
+        env = Env.default;
         lexer;
         token = Lexer.read lexer
       } in
@@ -331,7 +356,7 @@ and Parselet : sig
     | Infix  of 'a infix
 
 
-  val create : expr list -> (string * expr t, string) result
+  val create : expr list -> (string * expr t) list
   (** [of_rule rule] is a result with a parselet generated based on the
       syntax [rule].
 
@@ -366,49 +391,54 @@ end = struct
 
   type 'a infix = ('a -> 'a Parser.t) * int
 
-
   type 'a t =
     | Prefix of 'a prefix
     | Infix  of 'a infix
 
 
+  let infix_delimiter = Infix (Parser.invalid_infix, 0)
+
+
+  let delimiters list =
+    List.fold_left
+      begin fun r a ->
+        match a with
+        | Atom (_loc, String x) -> (x, infix_delimiter) :: r
+        | _ -> r
+      end
+      []
+      list
+
   let create rule =
-    let rec go fname res list =
-      print ("rule: %s" % (Expr.to_string (Form list)));
+    let rec go name args list =
       match list with
       | [] ->
-        Parser.pure (Form (Expr.symbol fname :: List.rev res))
+        Parser.pure (Form (Expr.symbol name :: List.rev args))
 
       | Atom (_loc, Symbol x) :: rest ->
-        print ("parselet: parsing symbol %s" % x);
         Parser.(expression () >>= fun e ->
-          go fname (e :: res) rest)
+          go name (e :: args) rest)
 
       | Atom (_loc, String x) :: rest ->
-        print ("parselet: parsing string %s" % x);
-        Parser.(consume (Symbol x) >> lazy (go fname res rest))
+        let open Parser in
+        consume (Symbol x) >> lazy (go name args rest)
 
       | _ ->
         invalid_arg "invalid rule definition syntax"
     in
       match rule with
-      | Atom (_, (String s)) :: xs ->
-        let parselet =
-          Parser.(consume (Symbol s) >> lazy (go s [] xs))
-        in
-          Ok (s, Prefix parselet)
+      | Atom (_, (String name)) :: xs ->
+        Parser.(name, Prefix (consume (Symbol name) >> lazy (go name [] xs)))
+        :: (delimiters xs)
 
-      | Atom (_, _) :: Atom (_, (String s)) :: xs ->
-        let parse left =
-          Parser.(consume (Symbol s) >> lazy (go s [left] xs)) in
-
+      | Atom (_, _) :: Atom (_, (String name)) :: xs ->
+        let parser left =
+          Parser.(consume (Symbol name) >> lazy (go name [left] xs)) in
         let precedence =
-          Precedence.lookup s
-        in
-          Ok (s, Infix (parse, precedence))
-
-      | _ -> Error "Invalid rule syntax"
-
+          Precedence.lookup name in
+        (name, Infix (parser, precedence))
+        :: (delimiters xs)
+      | _ -> []
 end
 
 

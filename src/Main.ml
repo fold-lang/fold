@@ -49,18 +49,19 @@ module Evaluator = struct
 
     | Form (Atom (_, Symbol "syntax") :: rule) ->
       print "Eval.eval: defining syntax rule...";
-      let name, parser = Parselet.create rule |> Result.force in
-      let env' = Env.define_syntax name parser env in
-      env', expr
+      let env' =
+        List.fold_left
+          begin fun env' (name, parselet) ->
+            Env.define_syntax name parselet env'
+          end
+          env
+          (Parselet.create rule)
+      in
+        env', expr
 
     | _ ->
       env, expr
 end
-
-
-let core_env =
-  Env.empty
-  |> Env.define_syntax "<EOF>" (Parselet.Infix  ((fun x -> undefined ()), 0))
 
 
 let main () =
@@ -82,7 +83,7 @@ let main () =
     | Error msg ->
       print (" * " ^ msg)
   in
-  loop core_env
+  loop Env.default
 
 
 let () =

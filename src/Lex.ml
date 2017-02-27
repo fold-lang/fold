@@ -207,7 +207,8 @@ module Lexer = struct
     (* Newline symbol *)
     | '\n' ->
       increment_line self;
-      read_literal self
+      (* XXX: read_literal self *)
+      Literal.eof
 
     (* EOF symbol *)
     | eof -> Literal.eof

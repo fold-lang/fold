@@ -39,11 +39,11 @@ Executable fold
 #  BuildDepends:   fold,
 #                  pure
 
-#Executable test_eval
-#  Path:           tests/
-#  MainIs:         test_eval.ml
-#  ByteOpt:        -g
-#  CompiledObject: byte
-#  BuildDepends:   fold,
-#                  pure
+Executable test_parselet
+  Path:           tests/
+  MainIs:         test_parselet.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure
 
