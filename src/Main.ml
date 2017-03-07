@@ -9,6 +9,8 @@ module Env = Pratt.Env
 module Parselet = Pratt.Parselet
 
 
+let log = print ~file:stderr
+
 (*
 
   "+" => x + y
@@ -40,15 +42,27 @@ module Parselet = Pratt.Parselet
 
 
 module Evaluator = struct
-  let eval env expr =
+  let rec eval env expr =
     match expr with
+
+    (* Top-level Sequences *)
+    | Form (Atom (_, Symbol ";;") :: []) ->
+      fail "invalid sequenec sytnax"
+
+    | Form (Atom (_, Symbol ";;") :: xs) ->
+      log "Eval.eval: evaluating sequence...";
+
+      List.fold_left
+        (fun (env, _) expr -> eval env expr)
+        (env, Expr.symbol "()")
+        xs
 
     (* Syntax Rules *)
     | Form (Atom (_, Symbol "syntax") :: []) ->
       fail "invalid infix declaration"
 
     | Form (Atom (_, Symbol "syntax") :: rule) ->
-      print "Eval.eval: defining syntax rule...";
+      log "Eval.eval: defining syntax rule...";
       let env' =
         List.fold_left
           begin fun env' (name, parselet) ->
@@ -83,7 +97,7 @@ let main () =
     | Error msg ->
       print (" * " ^ msg)
   in
-  loop Env.default
+    loop Env.default
 
 
 let () =

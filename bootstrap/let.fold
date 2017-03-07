@@ -1,0 +1,4 @@
+syntax "let" x "=" v
+let x = 1
+let y = f x
+

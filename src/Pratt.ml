@@ -28,6 +28,8 @@ module R = Result.Of_error(String)
 
 
 module Precedence = struct
+  let delimiter   =  0
+  let keyword     =  100
   let assignment  = 10
   let conditional = 20
   let sum         = 30
@@ -36,21 +38,22 @@ module Precedence = struct
   let prefix      = 60
   let postfix     = 70
   let call        = 80
+  let group       = 80
   let terminal    = 90
 
   let lookup name =
     match name with
     (* Match atomic symbols. *)
-    | "<EOF>" -> 0
+    | "<EOF>" -> delimiter
     | ";" -> 20
     (* Match symbols that can start an operator. *)
     | str ->
       begin match str.[0] with
-      | '=' -> 10
-      | '#' -> 20
-      | '+' | '-' -> 30
-      | '*' | '/' -> 40
-      | '(' | '{' | '[' -> 80
+      | '=' -> assignment
+      | '#' -> conditional
+      | '+' | '-' -> sum
+      | '*' | '/' -> product
+      | '(' | '{' | '[' -> group
       | _ -> 30 (* default non symbolic? XXX *)
     end
 end
@@ -154,8 +157,8 @@ end = struct
 
   let default =
     empty
-    |> define_syntax "<EOF>" (Parselet.Infix  ((fun x -> undefined ()), 0))
-    |> define_syntax "<EOF>" (Parselet.Prefix Parser.invalid_prefix)
+    |> define_syntax "<EOF>"  (Parselet.Infix  ((fun x -> undefined ()), 0))
+    |> define_syntax "<EOF>"  (Parselet.Prefix Parser.invalid_prefix)
 
 end
 
@@ -166,6 +169,9 @@ and Parser : sig
 
   val empty : 'a t
   val expression : unit -> Expr.t Parser.t
+
+  val infix  : int -> Expr.t -> Expr.t Parser.t
+  val prefix : int -> Expr.t Parser.t
 
   val invalid_infix  : Expr.t -> Expr.t Parser.t
   val invalid_prefix : Expr.t Parser.t
@@ -193,16 +199,21 @@ end = struct
       | Error _  -> p2 state
       | Ok value -> Ok value
 
+
   let between op ed x = op >> x << ed
+
 
   let option x p = p <|> return x
   let optional p = option () (p >> lazy (return ()))
 
+
   let rec skip_many x = optional (x >>= fun _ -> skip_many x)
+
 
   let rec many p =
     option [] (p >>= fun x  -> many p
-               >>= fun xs -> return (x :: xs))
+                 >>= fun xs -> return (x :: xs))
+
 
   let satisfy test =
     get >>= fun State.{token} ->
@@ -396,7 +407,7 @@ end = struct
     | Infix  of 'a infix
 
 
-  let infix_delimiter = Infix (Parser.invalid_infix, 0)
+  let infix_delimiter = Infix (Parser.invalid_infix, Precedence.delimiter)
 
 
   let delimiters list =
@@ -408,6 +419,20 @@ end = struct
       end
       []
       list
+
+
+  let keyword name =
+    let precedence = Precedence.keyword in
+    let parser left =
+      let open Parser in
+      consume (Symbol name) >> lazy begin
+        infix Precedence.keyword (Expr.symbol name) >>= fun kw_expr ->
+        print ("parselet/left = %s" % Expr.to_string left);
+        pure Expr.(form [symbol ";;"; left; kw_expr])
+      end
+    in
+      (name, Infix (parser, precedence))
+
 
   let create rule =
     let rec go name args list =
@@ -429,7 +454,8 @@ end = struct
       match rule with
       | Atom (_, (String name)) :: xs ->
         Parser.(name, Prefix (consume (Symbol name) >> lazy (go name [] xs)))
-        :: (delimiters xs)
+        :: keyword name
+        :: delimiters xs
 
       | Atom (_, _) :: Atom (_, (String name)) :: xs ->
         let parser left =

@@ -186,3 +186,91 @@ fun parse_string parser str =
   | Ok (expr, _) -> Ok expr
   | Error e -> Error e
 
+
+
+
+
+
+module Parser
+
+  val empty = state -> Error "empty"
+
+  fun parse_atom =
+    State.do
+      let { token } <- get in
+      consume (Token.literal token);
+      return (Expr.atom token)
+    end
+
+
+  fun parse_form left =
+    State.do
+      let right <- prefix 90
+      let form_list =
+        match left
+        | Form xs -> xs ++ [right]
+        | atom    -> [atom, right]
+        end
+      in
+        return (Form form_list)
+    end
+
+
+  fun infix rbp left =
+    State.do
+      let s <- get
+
+      let name = Literal: to_string (Token.literal State.(s.token)),
+          env  = State.env s
+
+      let (parse, lbp) =
+        Env.lookup_infix name env or (parse_form, 90)
+      in
+        print " infix: tok = %s, rbp = %d, lbp = %d, left = %s" name rbp lbp (Expr.to_string left);
+        if lbp > rbp then
+          parse left >>= infix rbp
+        else
+          return left
+    end
+
+
+  fun prefix precedence =
+    use State
+    let s <- get
+
+    do
+      inspect (token >> Token.show);
+      insepct (grammar >> Grammar.show)
+
+    let name = Literal.to_string (Token.literal State.(s.token))
+    let env  = State.env s
+
+    let parse =
+      env
+      |> Env.lookup_prefix name
+      |> Option.with_default parse_atom
+    in
+      print "prefix: tok = %s, rbp = %d" name precedence;
+
+      let left <- parse in
+      infix precedence left
+
+
+  fun expression () =
+    prefix 0
+
+  do print "expr = %s" (Expr.show (expression ()))
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
