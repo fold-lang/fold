@@ -29,7 +29,7 @@ module R = Result.Of_error(String)
 
 module Precedence = struct
   let delimiter   =  0
-  let keyword     =  100
+  let keyword     =  1
   let assignment  = 10
   let conditional = 20
   let sum         = 30
@@ -60,17 +60,17 @@ end
 
 module rec State : sig
   type t = {
-    lexer   : Lex.Lexer.t;
-    token   : Lex.Token.t;
-    env : Env.t;
+    lexer : Lex.Lexer.t;
+    token : Lex.Token.t;
+    env   : Env.t;
   }
 
   val env : t -> Env.t
 end = struct
   type t = {
-    lexer   : Lex.Lexer.t;
-    token   : Lex.Token.t;
-    env : Env.t;
+    lexer : Lex.Lexer.t;
+    token : Lex.Token.t;
+    env   : Env.t;
   }
 
   let env self = self.env
@@ -179,8 +179,8 @@ and Parser : sig
   val consume : Literal.t -> unit t
   val advance : unit t
 
-  val parse : Env.t -> Lexer.t -> Expr.t R.t
-  val parse_string : Expr.t t -> string -> Expr.t R.t
+  val parse : ?env: Env.t -> Lexer.t -> Expr.t R.t
+  val run_parser : ?env: Env.t -> Expr.t t -> Lexer.t -> Expr.t R.t
 end = struct
   include StateT(State)(R)
 
@@ -332,7 +332,7 @@ end = struct
   and expression () = prefix 0
 
 
-  let parse (env : Env.t) (lexer : Lexer.t) =
+  let parse ?(env : Env.t = Env.default) (lexer : Lexer.t) =
     let e : Env.t = env in
     let state = State.{
         env = e;
@@ -344,10 +344,10 @@ end = struct
     | Error msg    -> Error msg
 
 
-  let parse_string parser str =
-    let lexer = Lexer.from_string str in
+  let run_parser ?(env : Env.t = Env.default) parser lexer =
+    let e : Env.t = env in
     let state = State.{
-        env = Env.default;
+        env = e;
         lexer;
         token = Lexer.read lexer
       } in
@@ -421,17 +421,21 @@ end = struct
       list
 
 
+  let (>>=) = Parser.(>>=)
+  let (>>)  = Parser.(>>)
+
   let keyword name =
-    let precedence = Precedence.keyword in
+
     let parser left =
-      let open Parser in
-      consume (Symbol name) >> lazy begin
-        infix Precedence.keyword (Expr.symbol name) >>= fun kw_expr ->
+      print ("consuming %s, have left = %s" % (name, Expr.to_string left));
+      Parser.consume (Symbol name) >> lazy begin
+        print "parsing kw expr";
+        Parser.infix 0 (Expr.symbol name) >>= fun kw_expr ->
         print ("parselet/left = %s" % Expr.to_string left);
-        pure Expr.(form [symbol ";;"; left; kw_expr])
+        Parser.pure Expr.(form [symbol ";;"; left; kw_expr])
       end
     in
-      (name, Infix (parser, precedence))
+      (name, Infix (parser, Precedence.keyword))
 
 
   let create rule =
@@ -441,12 +445,12 @@ end = struct
         Parser.pure (Form (Expr.symbol name :: List.rev args))
 
       | Atom (_loc, Symbol x) :: rest ->
-        Parser.(expression () >>= fun e ->
-          go name (e :: args) rest)
+        Parser.prefix Precedence.keyword >>= fun e ->
+        print ("parsing %s = %s" % (x, Expr.to_string e));
+        go name (e :: args) rest
 
       | Atom (_loc, String x) :: rest ->
-        let open Parser in
-        consume (Symbol x) >> lazy (go name args rest)
+        Parser.consume (Symbol x) >> lazy (go name args rest)
 
       | _ ->
         invalid_arg "invalid rule definition syntax"

@@ -19,7 +19,7 @@ Library fold
                   ppx_deriving.std
   Pack:           true
   Modules:        Lex,
-                  Env,
+                  Eval,
                   Syntax,
                   Pratt
 
@@ -32,17 +32,9 @@ Executable fold
                   pure
 
 
-#Executable test_pratt
-#  Path:           tests/
-#  MainIs:         test_pratt.ml
-#  CompiledObject: byte
-#  BuildDepends:   fold,
-#                  pure
-
-Executable test_parselet
+Executable test_syntax
   Path:           tests/
-  MainIs:         test_parselet.ml
-  ByteOpt:        -g
+  MainIs:         test_syntax.ml
   CompiledObject: byte
   BuildDepends:   fold,
                   pure
