@@ -20,8 +20,9 @@ Library fold
   Pack:           true
   Modules:        Lex,
                   Eval,
-                  Syntax,
-                  Pratt
+                  PEG,
+                  Pratt,
+                  Syntax
 
 
 Executable fold

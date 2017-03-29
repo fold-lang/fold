@@ -169,6 +169,7 @@ and Parser : sig
 
   val empty : 'a t
   val expression : unit -> Expr.t Parser.t
+  val (<|>) : 'a t -> 'a t -> 'a t
 
   val infix  : int -> Expr.t -> Expr.t Parser.t
   val prefix : int -> Expr.t Parser.t
@@ -177,10 +178,12 @@ and Parser : sig
   val invalid_prefix : Expr.t Parser.t
 
   val consume : Literal.t -> unit t
+  val expect : Literal.t -> Expr.t t
   val advance : unit t
 
   val parse : ?env: Env.t -> Lexer.t -> Expr.t R.t
   val run_parser : ?env: Env.t -> Expr.t t -> Lexer.t -> Expr.t R.t
+  val run_parser_with_string : Expr.t t -> string -> Expr.t R.t
 end = struct
   include StateT(State)(R)
 
@@ -189,7 +192,7 @@ end = struct
 
   let empty state = Error "empty"
 
-  let return = Parser.pure
+  let return = pure
 
   let error msg = fun _ -> Error msg
 
@@ -246,8 +249,7 @@ end = struct
 
 
   let expect literal =
-    get >>= fun State.{ token = actual_token } ->
-    exactly literal <?> Token.show actual_token
+    exactly literal <?> Literal.show literal
 
 
   let advance =
@@ -354,6 +356,19 @@ end = struct
     match run parser state with
     | Ok (expr, _) -> Ok expr
     | Error e -> Error e
+
+
+  let run_parser_with_string parser str =
+    let e : Env.t = Env.empty in
+    let lexer = Lexer.from_string str in
+    let state = State.{
+        env = e;
+        lexer;
+        token = Lexer.read lexer
+      } in
+    match run parser state with
+    | Ok (expr, _) -> Ok expr
+    | Error e -> fail e
 end
 
 
