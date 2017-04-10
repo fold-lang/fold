@@ -29,6 +29,14 @@ val combine : 'a t -> 'b t -> ('a * 'b) t
 (** [combine p1 p2] first parses [p1] and then [p2] returning a pair with
     corresponding results. *)
 
+val with_default : 'a -> 'a t -> 'a t
+(** [with_default default p] runs the parser [p] returning the default value in
+    case it fails. *)
+
+val optional : 'a t -> 'a t
+(** [optional p] tries to optionally parse the input with parser [p] without
+    returning its output. *)
+
 val parse : 'a t -> state -> ('a, string) Result.t
 (** [parse p s] runs the parser [p] with input state [s] producing a
     result of type [a] or an [error]. *)
