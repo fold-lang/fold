@@ -3,6 +3,8 @@
 
 _Fold_ is a modern pragmatic functional language with concise, expressive, programmable syntax for development of blazingly fast and robust applications.
 
+![fold-repl](https://github.com/fold-lang/pratt/raw/master/resources/screenshot-1.png)
+
 Currently the language parser is being implemented as a separate parsing library:
 
 - [fold-lang/pratt-parser](https://github.com/fold-lang/pratt-parser)
