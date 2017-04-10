@@ -9,22 +9,12 @@ module Option = struct
 end
 
 
-module Result = struct
-  include Result
-  let force = function Ok x -> x | _ -> undefined ()
-end
-
-
 module M = struct
   include Map.Make(String)
 
   let find k m =
     Option.catch (fun () -> find k m)
 end
-
-
-module R = Result.Of_error(String)
-
 
 
 module Precedence = struct
@@ -164,37 +154,54 @@ end
 
 and Parser : sig
   include StateT
-    with type 'a monad = 'a R.t
+    with type 'a monad = ('a, string) result
      and type state = State.t
 
+  include Functor with type 'a t := 'a t
+
+
+  (* Alternative instance *)
+
   val empty : 'a t
-  val expression : unit -> Expr.t Parser.t
+  (** [empty] is a parser that successfully matches empty input. *)
+
   val (<|>) : 'a t -> 'a t -> 'a t
+  (** [p1 <|> p2] is a parser built by alternative composition of [p1] and
+      [p2]. The result of [p1] is returned in case it succeeds, or [p2]
+      otherwise *)
+
+  val combine : 'a t -> 'b t -> ('a * 'b) t
 
   val infix  : int -> Expr.t -> Expr.t Parser.t
   val prefix : int -> Expr.t Parser.t
 
+  val expression : unit -> Expr.t Parser.t
+
   val invalid_infix  : Expr.t -> Expr.t Parser.t
+
   val invalid_prefix : Expr.t Parser.t
 
   val consume : Literal.t -> unit t
+
   val expect : Literal.t -> Expr.t t
+
   val advance : unit t
 
-  val parse : ?env: Env.t -> Lexer.t -> Expr.t R.t
-  val run_parser : ?env: Env.t -> Expr.t t -> Lexer.t -> Expr.t R.t
-  val run_parser_with_string : Expr.t t -> string -> Expr.t R.t
+  val parse : ?env: Env.t -> Lexer.t -> (Expr.t, string) Result.t
+  val run_parser : ?env: Env.t -> Expr.t t -> Lexer.t -> (Expr.t, string) Result.t
+  val run_parser_with_string : Expr.t t -> string -> (Expr.t, string) Result.t
 end = struct
-  include StateT(State)(R)
+  module StateT      = StateT(State)(Result.Of_error(String))
+  module Functor     = Functor.Of_monad(StateT)
+  module Applicative = Applicative.Of_monad(StateT)
 
-  type prefix = { parser : expr t}
-  type infix  = { parser : expr -> expr t; precedence : int }
+  include StateT
+  include Functor
+  include Applicative
 
-  let empty state = Error "empty"
+  (* Alternative insance *)
+  let empty = fun _ -> Error "empty"
 
-  let return = pure
-
-  let error msg = fun _ -> Error msg
 
   let (<|>) p1 p2 =
     fun state ->
@@ -203,37 +210,39 @@ end = struct
       | Ok value -> Ok value
 
 
-  let between op ed x = op >> x << ed
+  let rec some p =
+    p >>= fun x  -> some p
+      >>= fun xs -> pure (x :: xs)
 
 
-  let option x p = p <|> return x
-  let optional p = option () (p >> lazy (return ()))
+  let many p =
+    some p <|> empty
 
 
-  let rec skip_many x = optional (x >>= fun _ -> skip_many x)
+  let error msg = fun _ -> Error msg
 
 
-  let rec many p =
-    option [] (p >>= fun x  -> many p
-                 >>= fun xs -> return (x :: xs))
+  let combine p1 p2 =
+    p1 >>= fun x ->
+    p2 >>= fun y -> pure (x, y)
 
+  let optional p =
+    p <|> empty
 
-  let satisfy test =
-    get >>= fun State.{token} ->
-    if test (Token.literal token) then
-       return (Expr.atom token)
+  let satisfy predicate =
+    get >>= fun { State.token } ->
+    if predicate token then
+       pure (Expr.atom token)
     else
        error "could not satisfy test"
 
-  let any        = satisfy (const true)
-  let exactly x  = satisfy ((=) x)
-  let one_of  xs = satisfy (fun x -> List.mem x xs)
-  let none_of xs = satisfy (fun x -> not (List.mem x xs))
-  let range s e  = satisfy (fun x -> s <= x && x <= e)
+  let any = satisfy (const true)
 
+  let a x = satisfy ((=) x)
+  let an  = a
 
-  let (<?>) parser label s =
-    match parser s with
+  let (<?>) p label s =
+    match p s with
     | Error _ ->
       let msg =
         if Token.literal State.(s.token) = Literal.eof then
@@ -243,13 +252,13 @@ end = struct
         if label = (Literal.show (Symbol "EOF")) then
           "parsing stopped at %s" % Token.to_string State.(s.token)
         else
-          "expected %s but %s found" % (label, Token.show State.(s.token)) in
+          "expected `%s` but `%s` found" % (label, Token.to_string State.(s.token)) in
       Error msg
     | Ok x -> Ok x
 
 
   let expect literal =
-    exactly literal <?> Literal.show literal
+    a literal <?> Token.to_string literal
 
 
   let advance =
@@ -269,24 +278,24 @@ end = struct
 
 
   let inspect_token =
-    inspect begin fun State.{ token } ->
+    inspect begin fun { State.token } ->
       print ("token: %s" % Lex.Token.show token)
     end
 
 
   let invalid_infix _left =
-    get >>= fun State.{ token } ->
+    get >>= fun { State.token } ->
     error ("%s cannot be used in infix position" % Token.to_string token)
 
 
   let invalid_prefix =
-    get >>= fun State.{ token } ->
+    get >>= fun { State.token } ->
     error ("%s cannot be used in prefix position" % Token.to_string token)
 
 
   let rec parse_atom =
-    get >>= fun State.{ token } ->
-    consume (Token.literal token) >> lazy (return (Expr.atom token))
+    get >>= fun { State.token } ->
+    consume (Token.literal token) >> lazy (pure (Expr.atom token))
 
 
   let rec parse_form left =
@@ -295,7 +304,7 @@ end = struct
       match left with
       | Form xs -> List.append xs [right]
       | atom    -> [atom; right] in
-    return (Form form_list)
+    pure (Form form_list)
 
 
   and infix rbp left =
@@ -311,7 +320,7 @@ end = struct
       if lbp > rbp then
         parse left >>= infix rbp
       else
-        return left
+        pure left
 
 
   and prefix precedence =
@@ -346,27 +355,27 @@ end = struct
     | Error msg    -> Error msg
 
 
-  let run_parser ?(env : Env.t = Env.default) parser lexer =
+  let run_parser ?(env : Env.t = Env.default) p lexer =
     let e : Env.t = env in
     let state = State.{
         env = e;
         lexer;
         token = Lexer.read lexer
       } in
-    match run parser state with
+    match run p state with
     | Ok (expr, _) -> Ok expr
     | Error e -> Error e
 
 
-  let run_parser_with_string parser str =
-    let e : Env.t = Env.empty in
+  let run_parser_with_string p str =
+    let e : Env.t = Env.default in
     let lexer = Lexer.from_string str in
     let state = State.{
         env = e;
         lexer;
         token = Lexer.read lexer
       } in
-    match run parser state with
+    match run p state with
     | Ok (expr, _) -> Ok expr
     | Error e -> fail e
 end
@@ -429,7 +438,7 @@ end = struct
     List.fold_left
       begin fun r a ->
         match a with
-        | Atom (_loc, String x) -> (x, infix_delimiter) :: r
+        | Atom (String x) -> (x, infix_delimiter) :: r
         | _ -> r
       end
       []
@@ -441,7 +450,7 @@ end = struct
 
   let keyword name =
 
-    let parser left =
+    let p left =
       print ("consuming %s, have left = %s" % (name, Expr.to_string left));
       Parser.consume (Symbol name) >> lazy begin
         print "parsing kw expr";
@@ -450,7 +459,7 @@ end = struct
         Parser.pure Expr.(form [symbol ";;"; left; kw_expr])
       end
     in
-      (name, Infix (parser, Precedence.keyword))
+      (name, Infix (p, Precedence.keyword))
 
 
   let create rule =
@@ -459,34 +468,32 @@ end = struct
       | [] ->
         Parser.pure (Form (Expr.symbol name :: List.rev args))
 
-      | Atom (_loc, Symbol x) :: rest ->
+      | Atom (Symbol x) :: rest ->
         Parser.prefix Precedence.keyword >>= fun e ->
-        print ("parsing %s = %s" % (x, Expr.to_string e));
         go name (e :: args) rest
 
-      | Atom (_loc, String x) :: rest ->
+      | Atom (String x) :: rest ->
         Parser.consume (Symbol x) >> lazy (go name args rest)
 
       | _ ->
         invalid_arg "invalid rule definition syntax"
     in
       match rule with
-      | Atom (_, (String name)) :: xs ->
+      | Atom (String name) :: xs ->
         Parser.(name, Prefix (consume (Symbol name) >> lazy (go name [] xs)))
         :: keyword name
         :: delimiters xs
 
-      | Atom (_, _) :: Atom (_, (String name)) :: xs ->
-        let parser left =
+      | Atom _ :: Atom (String name) :: xs ->
+        let p left =
           Parser.(consume (Symbol name) >> lazy (go name [left] xs)) in
         let precedence =
           Precedence.lookup name in
-        (name, Infix (parser, precedence))
+        (name, Infix (p, precedence))
         :: (delimiters xs)
       | _ -> []
 end
 
 
 include Parser
-
 

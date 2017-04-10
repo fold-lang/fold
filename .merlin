@@ -7,5 +7,6 @@ PKG sedlex
 PKG compiler-libs.bytecomp
 PKG ppx_deriving.std
 PKG pure
+PKG iter
 PKG ppx_format
 

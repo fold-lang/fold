@@ -1,4 +1,5 @@
 #require "pure";;
+#require "iter";;
 #require "sedlex";;
 #require "ppx_deriving.std";;
 #directory "_build/src";;
@@ -6,3 +7,5 @@
 open Fold;;
 print "==> Fold library loaded";;
 
+module P = Fold.Parser;;
+open Lex;;

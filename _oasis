@@ -14,14 +14,16 @@ Library fold
   CompiledObject: best
   BuildDepends:   sedlex,
                   pure,
+                  iter,
                   ppx_format,
                   compiler-libs.bytecomp,
                   ppx_deriving.std
   Pack:           true
   Modules:        Lex,
                   Eval,
-                  PEG,
+                  #PEG,
                   Pratt,
+                  Parser,
                   Syntax
 
 
@@ -33,9 +35,9 @@ Executable fold
                   pure
 
 
-Executable test_syntax
+Executable test_parser
   Path:           tests/
-  MainIs:         test_syntax.ml
+  MainIs:         test_parser.ml
   CompiledObject: byte
   BuildDepends:   fold,
                   pure

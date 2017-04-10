@@ -55,19 +55,18 @@ end
 
 
 module Token = struct
-  type t = (Location.t * Literal.t)
+  type t = Literal.t
     [@@deriving show]
 
-  let location = fst
-  let literal  = snd
+  let location _ = Location.empty
+  let literal  = id
 
   include Printable.Make(struct
       type nonrec t = t
       let pp = pp
     end)
 
-  let to_string (loc, lit) =
-    "<%s: %s>" % (Location.to_string loc, Literal.to_string lit)
+  let to_string lit = Literal.to_string lit
 end
 
 
@@ -222,8 +221,8 @@ module Lexer = struct
 
   let read self =
     let literal  = read_literal self in
-    let location = current_location self in
-    (location, literal)
+    let _location = current_location self in
+    literal
 
 
   let next self =
