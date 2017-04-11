@@ -33,7 +33,7 @@ val with_default : 'a -> 'a t -> 'a t
 (** [with_default default p] runs the parser [p] returning the default value in
     case it fails. *)
 
-val optional : 'a t -> 'a t
+val optional : 'a t -> unit t
 (** [optional p] tries to optionally parse the input with parser [p] without
     returning its output. *)
 

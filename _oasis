@@ -38,6 +38,7 @@ Executable fold
 Executable test_parser
   Path:           tests/
   MainIs:         test_parser.ml
+  ByteOpt:        -g
   CompiledObject: byte
   BuildDepends:   fold,
                   pure
