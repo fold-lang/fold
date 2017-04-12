@@ -41,5 +41,7 @@ Executable test_parser
   ByteOpt:        -g
   CompiledObject: byte
   BuildDepends:   fold,
-                  pure
+                  pure,
+                  fmt,
+                  alcotest
 

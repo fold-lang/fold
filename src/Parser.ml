@@ -75,13 +75,13 @@ let next =
   get >>= fun state ->
   match Iter.view state with
   | Some (x, rest) -> put rest >> lazy (pure x)
-  | None -> error "empty input"
+  | None -> empty
 
 
 let satisfy predicate =
   next >>= fun token ->
   if predicate token then pure token
-  else error ("token `%s` did not satisfy test" % Token.to_string token)
+  else error ("token %s did not satisfy test" % Token.to_string token)
 
 
 let exactly x = satisfy ((=) x)

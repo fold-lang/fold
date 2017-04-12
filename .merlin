@@ -9,4 +9,5 @@ PKG ppx_deriving.std
 PKG pure
 PKG iter
 PKG ppx_format
+PKG alcotest
 
