@@ -51,7 +51,7 @@ docker-build:
 	@echo "==> [$@] Building development docker image..."
 	docker build -t fold -t foldlang/fold .
 
-docker-run: docker-build
+docker-run:
 	@echo "==> [$@] Running docker image..."
 	docker run -it -v "${PWD}:/fold" fold bash
 

@@ -33,7 +33,7 @@ git clone https://github.com/fold-lang/fold ~/fold
 cd ~/fold
 
 # Start the docker container (the image will be fetched from the registry)
-docker run -it -v $PWD:/fold foldlang/fold bash
+make docker-run
 
 # Now inside the container run "make".
 make build
