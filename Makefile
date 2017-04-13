@@ -47,6 +47,18 @@ configure:
 
 # OASIS_STOP
 
+docker-build:
+	@echo "==> [$@] Building development docker image..."
+	docker build -t fold -t foldlang/fold .
+
+docker-run: docker-build
+	@echo "==> [$@] Running docker image..."
+	docker run -it -v "${PWD}:/fold" fold bash
+
+docker-push: docker-build
+	@echo "==> [$@] Pushing docker image to registry..."
+	docker push foldlang/fold
+
 setup:
 	cat ~/.ocamlinit init.ml > /tmp/fold_init.ml
 
