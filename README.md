@@ -27,10 +27,15 @@ Thank you for your interest and have a nice day.
 
 The project can be built with docker. The official image `foldlang/fold` can be used to build and test the compiler.
 
+Make sure that you have [OCaml and OPAM](http://www.ocaml.org/docs/install.html) installed.
+
 ```bash
-# Clone the repository (change ~/fold to preferred path)
-git clone https://github.com/fold-lang/fold ~/fold
-cd ~/fold
+# Clone the repository (If path is not specified, 'fold' folder will be created in the current path)
+git clone https://github.com/fold-lang/fold [path]
+cd [path | fold]
+
+# Build the docker container
+make docker-build
 
 # Start the docker container (the image will be fetched from the registry)
 make docker-run
