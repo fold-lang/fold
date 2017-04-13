@@ -38,7 +38,7 @@ let () =
     P.empty Iter.empty => Error "parsing error: empty";
 
   test "empty parser with some input"
-    P.empty (Iter.of_list [Char 'x']) => Error "parser did not consume entire input";
+    P.empty (Iter.of_list [Char 'x']) => Error "parsing error: empty";
 
   test "parse the 'x' token"
     (P.exactly x) (Iter.of_list [x]) => Ok x;
