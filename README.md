@@ -35,7 +35,7 @@ cd ~/fold
 # Start the docker container (the image will be fetched from the registry)
 make docker-run
 
-# Now inside the container run "make".
+# Now inside the container we can built the project.
 make build
 
 # Fold compiler will be locally called as "Main.native".
@@ -43,7 +43,7 @@ make build
 ./Main.native
 ```
 
-If you wish to build the image locally a [`Dockerfile`]() is provided. All
+If you wish to build the image locally a [`Dockerfile`](https://github.com/fold-lang/fold/blob/master/Dockerfile) is provided. All
 changes to the dependencies should be added to the `Dockerfile` to ensure that
 the image can be always rebuild.
 
