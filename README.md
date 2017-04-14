@@ -55,7 +55,7 @@ the image can be always rebuild.
 
 - [**Sedlex**](https://github.com/alainfrisch/sedlex) – Unicode-friendly lexer generator.
 - [**Pure**](https://github.com/rizo/pure) – Small and modular base library.
-- [**Iter**](https://github.com/rizo/pure) – Efficient functorized iterators.
+- [**Iter**](https://github.com/rizo/iter) – Efficient functorized iterators.
 - [**Fmt**](https://github.com/dbuenzli/fmt) – Format pretty-printer combinators.
 - [**ppx_format**](https://github.com/rizo/ppx_format) – Simple Python-inspired syntax for string formatters.
 - [**ppx_deriving**](https://github.com/whitequark/ppx_deriving) – Type-driven code generation.
