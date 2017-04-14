@@ -29,8 +29,8 @@ The project can be built with docker. The official image `foldlang/fold` can be 
 
 ```bash
 # Clone the repository (If path is not specified, 'fold' folder will be created in the current path)
-git clone https://github.com/fold-lang/fold [path]
-cd [path | fold]
+git clone https://github.com/fold-lang/fold
+cd fold
 
 # Build the docker container
 make docker-build

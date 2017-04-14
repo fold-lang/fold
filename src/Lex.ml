@@ -31,6 +31,7 @@ module Literal = struct
   let eof = Symbol "<EOF>"
 end
 
+let eof = Literal.eof
 
 module Location = struct
   type t =
@@ -60,6 +61,8 @@ module Token = struct
 
   let location _ = Location.empty
   let literal  = id
+
+  let eof = Literal.eof
 
   include Printable.Make(struct
       type nonrec t = t

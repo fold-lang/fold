@@ -1,7 +1,6 @@
 
 open Pure
 open Fold.Lex
-open Fold.Syntax
 
 module P = Fold.Parser
 module C = Colors
@@ -28,42 +27,43 @@ let (=>)  f x = f x show_expr_result
 let (=>*) f x = f x show_expr_results
 
 
-
 let x = Char 'x'
 let y = Char 'y'
+
+let iter = Iter.of_list
 
 let () =
   (* Empty *)
   test "empty parser with empty input"
-    P.empty Iter.empty => Error "parsing error: empty";
+    P.empty (iter []) => Error "parsing error: empty";
 
   test "empty parser with some input"
-    P.empty (Iter.of_list [Char 'x']) => Error "parser did not consume entire input";
+    P.empty (iter [x]) => Error "parsing error: empty";
 
   test "parse the 'x' token"
-    (P.exactly x) (Iter.of_list [x]) => Ok x;
+    (P.exactly x) (iter [x]) => Ok x;
 
   test "parse the 'x' token with remining input"
-    (P.exactly x) (Iter.of_list [x; y]) => Error "parser did not consume entire input";
+    (P.exactly x) (iter [x; y]) => Error "parser did not consume entire input";
 
   (* Many *)
   test "parse many 'x' tokens with empty input"
-    (P.many (P.exactly x)) (Iter.of_list []) =>* Ok [];
+    (P.many (P.exactly x)) (iter []) =>* Ok [];
 
   test "parse many 'x' tokens with 'y' token as input"
-    (P.many (P.exactly x)) (Iter.of_list [y]) =>* Error "parser did not consume entire input";
+    (P.many (P.exactly x)) (iter [y]) =>* Error "parser did not consume entire input";
 
   test "parse many 'x' tokens"
-    (P.many (P.exactly x)) (Iter.of_list [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];
+    (P.many (P.exactly x)) (iter [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];
 
   (* Some *)
   test "parse some 'x' tokens with empty input"
-    (P.some (P.exactly x)) (Iter.of_list []) =>* Error "parsing error: empty";
+    (P.some (P.exactly x)) (iter []) =>* Error "parsing error: empty";
 
   test "parse some 'x' tokens with 'y' token as input"
-    (P.some (P.exactly x)) (Iter.of_list [y]) =>* Error "parsing error: token 'y' did not satisfy test";
+    (P.some (P.exactly x)) (iter [y]) =>* Error "parsing error: token 'y' did not satisfy test";
 
   test "parse some 'x' tokens"
-    (P.some (P.exactly x)) (Iter.of_list [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];
+    (P.some (P.exactly x)) (iter [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];
 
 

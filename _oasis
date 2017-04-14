@@ -21,7 +21,7 @@ Library fold
   Pack:           true
   Modules:        Lex,
                   Eval,
-                  #PEG,
+                  PEG,
                   Pratt,
                   Parser,
                   Syntax
@@ -38,6 +38,15 @@ Executable fold
 Executable test_parser
   Path:           tests/
   MainIs:         test_parser.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure,
+                  fmt
+
+Executable test_peg
+  Path:           tests/
+  MainIs:         test_peg.ml
   ByteOpt:        -g
   CompiledObject: byte
   BuildDepends:   fold,
