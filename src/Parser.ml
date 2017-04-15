@@ -19,7 +19,7 @@ let error_to_string e =
   match e with
   | Empty -> "empty"
   | Unexpected_end { expected } ->
-    "unexpected end of input while expecting `%s`" % Token.to_string expected
+    "end of input while expecting `%s`" % Token.to_string expected
   | Unexpected_token { expected; actual } ->
     "expected `%s` but got `%s`" % (Token.to_string expected, Token.to_string actual)
   | Failed_satisfy token ->
@@ -95,23 +95,7 @@ let token =
   get >>= fun state ->
   match Iter.view state with
   | Some (x, _) -> pure x
-  | None -> empty
-
-
-let (<?>) p label = fun s ->
-  match p s with
-  | Error _ ->
-    let current = Option.map fst (Iter.view s) or Lex.eof in
-    let msg =
-      if current = Lex.eof then
-        "unexpected end of file while reading `%s`" % label
-      else
-      if label = (Token.to_string eof) then
-        "parsing stopped at `%s`" % Token.to_string current
-      else
-        "expected `%s` but got `%s`" % (label, Token.to_string current) in
-    Error msg
-  | Ok x -> Ok x
+  | None -> pure Token.eof
 
 
 let satisfy predicate =
@@ -122,8 +106,8 @@ let satisfy predicate =
 
 let expect expected =
   token >>= function
-  | tok when tok <> expected -> error (Unexpected_token { expected; actual = tok })
   | tok when tok = Token.eof -> error (Unexpected_end   { expected })
+  | tok when tok <> expected -> error (Unexpected_token { expected; actual = tok })
   | tok -> pure tok
 
 
