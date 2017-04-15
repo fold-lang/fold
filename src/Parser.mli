@@ -47,6 +47,17 @@ val error : string -> 'a t
 val next : Token.t t
 (** [next] parser the next token from the input state. *)
 
+val consume : Token.t -> unit t
+(** [advance tok] checks if the current token is equal to [tok] and advances
+    the parser to the next token, or fails tokens are different. *)
+
+val expect : Token.t -> Token.t t
+(** [expect tok] checks if the current token is equal to [tok] failing if
+    tokens are different. *)
+
+val advance : unit t
+(** [advance] advances the parser to the next token. *)
+
 val satisfy : (Token.t -> bool) -> Token.t t
 (** [satisfy test] is a parser that returns the current input token if it
     satisfies [test] predicate or fails otherwise. *)

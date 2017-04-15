@@ -1,6 +1,9 @@
 
 open Pure
 
+let (>>=) = Parser.(>>=)
+let (>>) = Parser.(>>)
+
 
 type t =
   | Epsilon                 (* ε         *)
@@ -13,6 +16,27 @@ type t =
   | Some         of t       (* a+        *)
 
 
+let rec to_string self =
+  match self with
+  | Epsilon         -> "ε"
+  | Terminal     x  -> "\"" ^ x ^ "\""
+  | Non_terminal x  -> x
+  | Sequence     xs -> "(" ^ String.concat " "   (List.map to_string xs) ^ ")"
+  | Alternative  xs -> "(" ^ String.concat " | " (List.map to_string xs) ^ ")"
+  | Optional     x  -> to_string x ^ "?"
+  | Many         x  -> to_string x ^ "*"
+  | Some         x  -> to_string x ^ "+"
 
+
+let parse self =
+  match self with
+  | Epsilon ->
+    Parser.pure []
+
+  | Terminal x ->
+    Parser.expect (Lex.Symbol x) >>= fun tok ->
+    Parser.advance >> lazy (Parser.pure [tok])
+
+  | _ -> Parser.error "undefined"
 
 

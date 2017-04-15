@@ -64,7 +64,7 @@ let parse parser state =
   match parser state with
   | Ok (a, s) when Iter.is_empty s -> Ok a
   | Ok _leftover -> Error "parser did not consume entire input"
-  | Error msg -> Error ("parsing error: " ^ msg)
+  | Error msg -> Error msg
 
 
 let error msg =
@@ -78,10 +78,45 @@ let next =
   | None -> empty
 
 
+let token =
+  get >>= fun state ->
+  match Iter.view state with
+  | Some (x, _) -> pure x
+  | None -> empty
+
+
+let (<?>) p label = fun s ->
+  match p s with
+  | Error _ ->
+    let current = Option.map fst (Iter.view s) or Lex.eof in
+    let msg =
+      if current = Lex.eof then
+        "unexpected end of file while reading `%s`" % label
+      else
+      if label = (Token.to_string eof) then
+        "parsing stopped at `%s`" % Token.to_string current
+      else
+        "expected `%s` but got `%s`" % (label, Token.to_string current) in
+    Error msg
+  | Ok x -> Ok x
+
+
 let satisfy predicate =
-  next >>= fun token ->
-  if predicate token then pure token
-  else error ("token %s did not satisfy test" % Token.to_string token)
+  token >>= fun t ->
+  if predicate t then pure t
+  else error ("token %s did not satisfy test" % Token.to_string t)
+
+
+let expect token =
+  satisfy ((=) token) <?> Token.to_string token
+
+
+let advance = modify Iter.tail
+
+
+let consume tok =
+  expect tok >> lazy advance
+
 
 
 let exactly x = satisfy ((=) x)
