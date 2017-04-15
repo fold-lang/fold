@@ -12,9 +12,18 @@ open Lex
  * expression.
  *)
 
+type error =
+  | Empty
+  | Unexpected_end   of { expected : Token.t }
+  | Unexpected_token of { expected : Token.t; actual : Token.t }
+  | Input_leftover   of Token.t Iter.t
+  | Failed_satisfy   of Token.t
+
+val error_to_string : error -> string
 
 include StateT
   with type state = Token.t Iter.t
+   and type 'a monad = ('a, error) Result.t
 
 include Functor
   with type 'a t := 'a t
@@ -24,6 +33,7 @@ include Applicative
 
 include Alternative
   with type 'a t := 'a t
+
 
 val combine : 'a t -> 'b t -> ('a * 'b) t
 (** [combine p1 p2] first parses [p1] and then [p2] returning a pair with
@@ -37,12 +47,12 @@ val optional : 'a t -> unit t
 (** [optional p] tries to optionally parse the input with parser [p] without
     returning its output. *)
 
-val parse : 'a t -> state -> ('a, string) Result.t
+(* val parse : 'a t -> state -> ('a, string) Result.t *)
 (** [parse p s] runs the parser [p] with input state [s] producing a
     result of type [a] or an [error]. *)
 
-val error : string -> 'a t
-(** [error msg] is a parser that always fails with error message [msg]. *)
+val error : error -> 'a t
+(** [error e] is a parser that always fails with error [e]. *)
 
 val next : Token.t t
 (** [next] parser the next token from the input state. *)

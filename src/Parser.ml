@@ -8,8 +8,28 @@ module Input = struct
 end
 
 
+type error =
+  | Empty
+  | Unexpected_end   of { expected : Token.t }
+  | Unexpected_token of { expected : Token.t; actual : Token.t }
+  | Input_leftover   of Input.t
+  | Failed_satisfy   of Token.t
+
+let error_to_string e =
+  match e with
+  | Empty -> "empty"
+  | Unexpected_end { expected } ->
+    "unexpected end of input while expecting `%s`" % Token.to_string expected
+  | Unexpected_token { expected; actual } ->
+    "expected `%s` but got `%s`" % (Token.to_string expected, Token.to_string actual)
+  | Failed_satisfy token ->
+    "token `%s` did not satisfy predicate" % Token.to_string token
+  | Input_leftover _ ->
+    "parser did not consume entire input"
+
+
 module Result =
-  Result.Of_error(String)
+  Result.Of_error(struct type t = error end)
 
 
 module StateT =
@@ -30,7 +50,7 @@ include Applicative
 
 
 (* Alternative instance *)
-let empty = fun _state -> Error "empty"
+let empty = fun _state -> Error Empty
 
 let (<|>) p1 p2 = fun state ->
   match p1 state with
@@ -60,15 +80,8 @@ let rec some p =
   combine p (many p) >>= fun (x, xs) -> pure (x :: xs)
 
 
-let parse parser state =
-  match parser state with
-  | Ok (a, s) when Iter.is_empty s -> Ok a
-  | Ok _leftover -> Error "parser did not consume entire input"
-  | Error msg -> Error msg
-
-
-let error msg =
-  fun _state -> Error msg
+let error e =
+  fun _state -> Error e
 
 
 let next =
@@ -104,11 +117,14 @@ let (<?>) p label = fun s ->
 let satisfy predicate =
   token >>= fun t ->
   if predicate t then pure t
-  else error ("token %s did not satisfy test" % Token.to_string t)
+  else error (Failed_satisfy t)
 
 
-let expect token =
-  satisfy ((=) token) <?> Token.to_string token
+let expect expected =
+  token >>= function
+  | tok when tok <> expected -> error (Unexpected_token { expected; actual = tok })
+  | tok when tok = Token.eof -> error (Unexpected_end   { expected })
+  | tok -> pure tok
 
 
 let advance = modify Iter.tail

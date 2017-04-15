@@ -37,6 +37,6 @@ let parse self =
     Parser.expect (Lex.Symbol x) >>= fun tok ->
     Parser.advance >> lazy (Parser.pure [tok])
 
-  | _ -> Parser.error "undefined"
+  | _ -> Parser.(error Empty)
 
 

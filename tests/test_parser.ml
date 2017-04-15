@@ -5,6 +5,13 @@ open Fold.Lex
 module P = Fold.Parser
 module C = Colors
 
+module Result = struct
+  include Result
+
+  let map f = function
+    | Ok x -> Ok (f x)
+    | Error e -> Error e
+end
 
 let show_expr_result =
   Result.show Token.pp Format.pp_print_string
@@ -13,14 +20,18 @@ let show_expr_results =
   Result.show (Fmt.Dump.list Token.pp) Format.pp_print_string
 
 let test desc parser input expected show =
-  let actual = P.parse parser input in
-  if actual = expected then
-    print ("%s %s" % (C.bright_green "✓", C.bright_white desc))
-  else begin
+  match P.run parser input with
+  | Ok (actual, _rest) ->
+    if Ok actual = expected then
+      print ("%s %s" % (C.bright_green "✓", C.bright_white desc))
+    else begin
+      print ("%s %s" % (C.bright_red "✗", C.bright_white desc));
+      print ("  - Expected: %s" % C.green (show expected));
+      print ("  - Actual:   %s" % C.red (show (Ok actual)))
+    end
+  | Error e ->
     print ("%s %s" % (C.bright_red "✗", C.bright_white desc));
-    print ("  - Expected: %s" % C.green (show expected));
-    print ("  - Actual:   %s" % C.red (show actual))
-  end
+    print ("  - Error: %s" % C.red (P.error_to_string e))
 
 
 let (=>)  f x = f x show_expr_result

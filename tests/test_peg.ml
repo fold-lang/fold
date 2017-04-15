@@ -6,13 +6,22 @@ open Fold.Lex
 
 module C = Colors
 
-let show =
-  Result.show (Fmt.Dump.list Token.pp) Format.pp_print_string
+module Result = struct
+  include Result
+
+  let map f = function
+    | Ok x -> Ok (f x)
+    | Error e -> Error e
+end
+
+let show = function
+  | Ok xs -> "[" ^ String.concat "; " (List.map Token.to_string xs) ^ "]"
+  | Error e -> Parser.error_to_string e
 
 
 let (=>) (peg, input) (expected, leftover) =
   let parser = PEG.parse peg in
-  let actual = Parser.parse parser input in
+  let actual = Result.map fst (Parser.run parser input) in
   let desc = Fmt.strf "(%s, %a)" (PEG.to_string peg) (Fmt.Dump.list Token.pp) (Iter.to_list input) in
   if actual = expected then
     print ("%s %s" % (C.bright_green "✓", C.bright_white desc))
@@ -40,8 +49,8 @@ let () =
   PEG.(Epsilon, iter []) => (Ok [], []);
   PEG.(Epsilon, iter [a]) => (Ok [], [a]);
   PEG.(Terminal "a", iter [a]) => (Ok [a], []);
-  PEG.(Terminal "a", iter []) => (Error "unexpected end of file while reading `a`", []);
-  PEG.(Terminal "a", iter [b]) => (Error "expected `a` but got `b`", [b]);
+  PEG.(Terminal "a", iter []) => (Error (Parser.Unexpected_end { expected = a }), []);
+  PEG.(Terminal "a", iter [b]) => (Error (Parser.Unexpected_token { expected = a; actual = b }), [b]);
   PEG.(Terminal "a", iter [a; b]) => (Ok [a], [b]);
   PEG.(Many (Terminal "a"), iter []) => (Ok [], []);
   PEG.(Many (Terminal "a"), iter [a; b]) => (Ok [a], [b]);
