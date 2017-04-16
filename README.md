@@ -32,9 +32,6 @@ The project can be built with docker. The official image `foldlang/fold` can be 
 git clone https://github.com/fold-lang/fold
 cd fold
 
-# Build the docker container
-make docker-build
-
 # Start the docker container (the image will be fetched from the registry)
 make docker-run
 
