@@ -53,11 +53,20 @@ let () = begin
   PEG.(Terminal "a", iter []) => (Error (Parser.Unexpected_end { expected = a }), []);
   PEG.(Terminal "a", iter [b]) => (Error (Parser.Unexpected_token { expected = a; actual = b }), [b]);
   PEG.(Terminal "a", iter [a; b]) => (Ok [a], [b]);
-  PEG.(Many (Terminal "a"), iter []) => (Ok [], []);
-  PEG.(Many (Terminal "a"), iter [a; b]) => (Ok [a], [b]);
-  PEG.(Many (Terminal "a"), iter [a; a; a]) => (Ok [a; a; a], []);
+  PEG.(Sequence [Terminal "a"; Terminal "b"], iter [a; b]) => (Ok [a; b], []);
+  PEG.(Sequence [Terminal "a"; Terminal "b"], iter [a]) => (Error (Parser.Unexpected_end { expected = b }), []);
+  PEG.(Sequence [Terminal "a"; Terminal "b"; Terminal "c"], iter [a; b; c]) => (Ok [a; b; c], []);
   PEG.(Alternative [Terminal "a"; Terminal "b"], iter [a]) => (Ok [a], []);
   PEG.(Alternative [Terminal "a"; Terminal "b"], iter [b]) => (Ok [b], []);
   PEG.(Alternative [Terminal "a"; Terminal "b"; Terminal "c"], iter [c]) => (Ok [c], []);
+  PEG.(Optional (Terminal "a"), iter []) => (Ok [], []);
+  PEG.(Optional (Terminal "a"), iter [a]) => (Ok [a], []);
+  PEG.(Many (Terminal "a"), iter []) => (Ok [], []);
+  PEG.(Many (Terminal "a"), iter [a; b]) => (Ok [a], [b]);
+  PEG.(Many (Terminal "a"), iter [a; a; a]) => (Ok [a; a; a], []);
+  PEG.(Some (Terminal "a"), iter []) => (Error (Parser.Unexpected_end { expected = a }), []);
+  PEG.(Some (Terminal "a"), iter [b; a]) => (Error (Parser.Unexpected_token { expected = a; actual = b }), [b; a]);
+  PEG.(Some (Terminal "a"), iter [a; b]) => (Ok [a], [b]);
+  PEG.(Some (Terminal "a"), iter [a; a; a]) => (Ok [a; a; a], []);
 end
 

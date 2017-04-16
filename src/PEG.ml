@@ -38,6 +38,9 @@ let rec parse self : 'a list Parser.t =
     Parser.expect (Lex.Symbol x) >>= fun tok ->
     Parser.advance >> lazy (Parser.pure [tok])
 
+  | Alternative [] ->
+    Parser.pure []
+
   | Alternative [x] ->
     parse x
 
@@ -47,9 +50,21 @@ let rec parse self : 'a list Parser.t =
   | Alternative (x::xs) ->
     List.fold_left (<|>) (parse x) (List.map parse xs)
 
+  | Sequence [] ->
+    Parser.pure []
+
+  | Sequence [x] ->
+    parse x
+
+  | Sequence xs ->
+    Parser.sequence (List.map parse xs) >>= fun xss -> Parser.pure (List.concat xss)
+
+  | Optional x ->
+    parse x <|> Parser.pure []
+
   | Many peg ->
     Parser.many (parse peg) >>= fun xss -> Parser.pure (List.concat xss)
 
-  | _ -> Parser.(error Empty)
-
+  | Some peg ->
+    Parser.some (parse peg) >>= fun xss -> Parser.pure (List.concat xss)
 
