@@ -1,9 +1,22 @@
 
 open Pure
+open Lex
 
-let (>>=) = Parser.(>>=)
-let (<|>) = Parser.(<|>)
-let (>>)  = Parser.(>>)
+module Token_input = struct
+  type t = Token.t Iter.t
+  type item = Token.t
+
+  let item_to_string = Token.to_string
+
+  let next input = Iter.view input
+end
+
+module P = Parser.Make(Token_input)
+
+
+let (>>=) = P.(>>=)
+let (<|>) = P.(<|>)
+let (>>)  = P.(>>)
 
 
 type t =
@@ -29,17 +42,20 @@ let rec to_string self =
   | Some         x  -> to_string x ^ "+"
 
 
-let rec parse self : 'a list Parser.t =
+let rec parse self : 'a list P.t =
   match self with
   | Epsilon ->
-    Parser.pure []
+    P.pure []
 
   | Terminal x ->
-    Parser.expect (Lex.Symbol x) >>= fun tok ->
-    Parser.advance >> lazy (Parser.pure [tok])
+    P.expect (Symbol x) >>= fun tok ->
+    P.advance >> lazy (P.pure [tok])
+
+  | Non_terminal x ->
+    fail "not implemented"
 
   | Alternative [] ->
-    Parser.pure []
+    P.pure []
 
   | Alternative [x] ->
     parse x
@@ -51,20 +67,20 @@ let rec parse self : 'a list Parser.t =
     List.fold_left (<|>) (parse x) (List.map parse xs)
 
   | Sequence [] ->
-    Parser.pure []
+    P.pure []
 
   | Sequence [x] ->
     parse x
 
   | Sequence xs ->
-    Parser.sequence (List.map parse xs) >>= fun xss -> Parser.pure (List.concat xss)
+    P.sequence (List.map parse xs) >>= fun xss -> P.pure (List.concat xss)
 
   | Optional x ->
-    parse x <|> Parser.pure []
+    parse x <|> P.pure []
 
   | Many peg ->
-    Parser.many (parse peg) >>= fun xss -> Parser.pure (List.concat xss)
+    P.many (parse peg) >>= fun xss -> P.pure (List.concat xss)
 
   | Some peg ->
-    Parser.some (parse peg) >>= fun xss -> Parser.pure (List.concat xss)
+    P.some (parse peg) >>= fun xss -> P.pure (List.concat xss)
 

@@ -1,8 +1,20 @@
 
 open Pure
-open Fold.Lex
+open Fold
+open Lex
 
-module P = Fold.Parser
+module Token_input = struct
+  type t = Token.t Iter.t
+  type item = Token.t
+
+  let item_to_string = Token.to_string
+
+  let next input = Iter.view input
+end
+
+module P = Parser.Make(Token_input)
+
+
 module C = Colors
 
 module Result = struct
@@ -13,25 +25,24 @@ module Result = struct
     | Error e -> Error e
 end
 
-let show_expr_result =
-  Result.show Token.pp Format.pp_print_string
+let show_expr_result = function
+  | Ok x -> Token.to_string x
+  | Error e -> P.error_to_string e
 
-let show_expr_results =
-  Result.show (Fmt.Dump.list Token.pp) Format.pp_print_string
+let show_expr_results = function
+  | Ok xs -> "[" ^ String.concat "; " (List.map Token.to_string xs) ^ "]"
+  | Error e -> P.error_to_string e
+
 
 let test desc parser input expected show =
-  match P.run parser input with
-  | Ok (actual, _rest) ->
-    if Ok actual = expected then
-      print ("%s %s" % (C.bright_green "✓", C.bright_white desc))
-    else begin
-      print ("%s %s" % (C.bright_red "✗", C.bright_white desc));
-      print ("  - Expected: %s" % C.green (show expected));
-      print ("  - Actual:   %s" % C.red (show (Ok actual)))
-    end
-  | Error e ->
+  let actual = Result.map fst (P.run parser input) in
+  if actual = expected then
+    print ("%s %s" % (C.bright_green "✓", C.bright_white desc))
+  else begin
     print ("%s %s" % (C.bright_red "✗", C.bright_white desc));
-    print ("  - Error: %s" % C.red (P.error_to_string e))
+    print ("  - Expected: %s" % C.green (show expected));
+    print ("  - Actual:   %s" % C.red (show actual))
+  end
 
 
 let (=>)  f x = f x show_expr_result
@@ -46,33 +57,33 @@ let iter = Iter.of_list
 let () =
   (* Empty *)
   test "empty parser with empty input"
-    P.empty (iter []) => Error "parsing error: empty";
+    P.empty (iter []) => Error P.Empty;
 
   test "empty parser with some input"
-    P.empty (iter [x]) => Error "parsing error: empty";
+    P.empty (iter [x]) => Error P.Empty;
 
   test "parse the 'x' token"
     (P.exactly x) (iter [x]) => Ok x;
 
   test "parse the 'x' token with remining input"
-    (P.exactly x) (iter [x; y]) => Error "parser did not consume entire input";
+    (P.exactly x) (iter [x; y]) => Ok x;
 
   (* Many *)
   test "parse many 'x' tokens with empty input"
     (P.many (P.exactly x)) (iter []) =>* Ok [];
 
   test "parse many 'x' tokens with 'y' token as input"
-    (P.many (P.exactly x)) (iter [y]) =>* Error "parser did not consume entire input";
+    (P.many (P.exactly x)) (iter [y]) =>* Ok [];
 
   test "parse many 'x' tokens"
     (P.many (P.exactly x)) (iter [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];
 
   (* Some *)
   test "parse some 'x' tokens with empty input"
-    (P.some (P.exactly x)) (iter []) =>* Error "parsing error: empty";
+    (P.some (P.exactly x)) (iter []) =>* Error (P.Unexpected_end { expected = x });
 
   test "parse some 'x' tokens with 'y' token as input"
-    (P.some (P.exactly x)) (iter [y]) =>* Error "parsing error: token 'y' did not satisfy test";
+    (P.some (P.exactly x)) (iter [y]) =>* Error (P.Unexpected_token { expected = x; actual = y });
 
   test "parse some 'x' tokens"
     (P.some (P.exactly x)) (iter [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];

@@ -4,6 +4,7 @@ open Pure
 open Fold
 open Fold.Lex
 
+module P = PEG.P
 module C = Colors
 
 module Result = struct
@@ -16,12 +17,12 @@ end
 
 let show = function
   | Ok xs -> "[" ^ String.concat "; " (List.map Token.to_string xs) ^ "]"
-  | Error e -> Parser.error_to_string e
+  | Error e -> P.error_to_string e
 
 
 let (=>) (peg, input) (expected, leftover) =
   let parser = PEG.parse peg in
-  let actual = Result.map fst (Parser.run parser input) in
+  let actual = Result.map fst (P.run parser input) in
   let desc = Fmt.strf "(%s, %a)" (PEG.to_string peg) (Fmt.Dump.list Token.pp) (Iter.to_list input) in
   if actual = expected then
     print ("%s %s" % (C.bright_green "✓", C.bright_white desc))
@@ -50,11 +51,11 @@ let () = begin
   PEG.(Epsilon, iter []) => (Ok [], []);
   PEG.(Epsilon, iter [a]) => (Ok [], [a]);
   PEG.(Terminal "a", iter [a]) => (Ok [a], []);
-  PEG.(Terminal "a", iter []) => (Error (Parser.Unexpected_end { expected = a }), []);
-  PEG.(Terminal "a", iter [b]) => (Error (Parser.Unexpected_token { expected = a; actual = b }), [b]);
+  PEG.(Terminal "a", iter []) => (Error (P.Unexpected_end { expected = a }), []);
+  PEG.(Terminal "a", iter [b]) => (Error (P.Unexpected_token { expected = a; actual = b }), [b]);
   PEG.(Terminal "a", iter [a; b]) => (Ok [a], [b]);
   PEG.(Sequence [Terminal "a"; Terminal "b"], iter [a; b]) => (Ok [a; b], []);
-  PEG.(Sequence [Terminal "a"; Terminal "b"], iter [a]) => (Error (Parser.Unexpected_end { expected = b }), []);
+  PEG.(Sequence [Terminal "a"; Terminal "b"], iter [a]) => (Error (P.Unexpected_end { expected = b }), []);
   PEG.(Sequence [Terminal "a"; Terminal "b"; Terminal "c"], iter [a; b; c]) => (Ok [a; b; c], []);
   PEG.(Alternative [Terminal "a"; Terminal "b"], iter [a]) => (Ok [a], []);
   PEG.(Alternative [Terminal "a"; Terminal "b"], iter [b]) => (Ok [b], []);
@@ -64,8 +65,8 @@ let () = begin
   PEG.(Many (Terminal "a"), iter []) => (Ok [], []);
   PEG.(Many (Terminal "a"), iter [a; b]) => (Ok [a], [b]);
   PEG.(Many (Terminal "a"), iter [a; a; a]) => (Ok [a; a; a], []);
-  PEG.(Some (Terminal "a"), iter []) => (Error (Parser.Unexpected_end { expected = a }), []);
-  PEG.(Some (Terminal "a"), iter [b; a]) => (Error (Parser.Unexpected_token { expected = a; actual = b }), [b; a]);
+  PEG.(Some (Terminal "a"), iter []) => (Error (P.Unexpected_end { expected = a }), []);
+  PEG.(Some (Terminal "a"), iter [b; a]) => (Error (P.Unexpected_token { expected = a; actual = b }), [b; a]);
   PEG.(Some (Terminal "a"), iter [a; b]) => (Ok [a], [b]);
   PEG.(Some (Terminal "a"), iter [a; a; a]) => (Ok [a; a; a], []);
 end
