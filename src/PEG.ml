@@ -2,7 +2,8 @@
 open Pure
 
 let (>>=) = Parser.(>>=)
-let (>>) = Parser.(>>)
+let (<|>) = Parser.(<|>)
+let (>>)  = Parser.(>>)
 
 
 type t =
@@ -28,7 +29,7 @@ let rec to_string self =
   | Some         x  -> to_string x ^ "+"
 
 
-let parse self =
+let rec parse self : 'a list Parser.t =
   match self with
   | Epsilon ->
     Parser.pure []
@@ -36,6 +37,18 @@ let parse self =
   | Terminal x ->
     Parser.expect (Lex.Symbol x) >>= fun tok ->
     Parser.advance >> lazy (Parser.pure [tok])
+
+  | Alternative [x] ->
+    parse x
+
+  | Alternative [x; y] ->
+    parse x <|> parse y
+
+  | Alternative (x::xs) ->
+    List.fold_left (<|>) (parse x) (List.map parse xs)
+
+  | Many peg ->
+    Parser.many (parse peg) >>= fun xss -> Parser.pure (List.concat xss)
 
   | _ -> Parser.(error Empty)
 

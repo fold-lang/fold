@@ -34,10 +34,11 @@ let (=>) (peg, input) (expected, leftover) =
 
 let a = Symbol "a"
 let b = Symbol "b"
+let c = Symbol "c"
 
 let iter = Iter.of_list
 
-let () =
+let () = begin
   (* (p, s) => (r, s')
    *
    * where p  is the parsing expression
@@ -56,5 +57,7 @@ let () =
   PEG.(Many (Terminal "a"), iter [a; b]) => (Ok [a], [b]);
   PEG.(Many (Terminal "a"), iter [a; a; a]) => (Ok [a; a; a], []);
   PEG.(Alternative [Terminal "a"; Terminal "b"], iter [a]) => (Ok [a], []);
-  PEG.(Alternative [Terminal "a"; Terminal "b"], iter [b]) => (Ok [b], [])
+  PEG.(Alternative [Terminal "a"; Terminal "b"], iter [b]) => (Ok [b], []);
+  PEG.(Alternative [Terminal "a"; Terminal "b"; Terminal "c"], iter [c]) => (Ok [c], []);
+end
 
