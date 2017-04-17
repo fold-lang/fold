@@ -3,17 +3,7 @@ open Pure
 open Fold
 open Lex
 
-module Token_input = struct
-  type t = Token.t Iter.t
-  type item = Token.t
-
-  let item_to_string = Token.to_string
-
-  let next input = Iter.view input
-end
-
-module P = Parser.Make(Token_input)
-
+module P = Parser.Default
 
 module C = Colors
 

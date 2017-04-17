@@ -229,13 +229,18 @@ module Lexer = struct
 
 
   let next self =
-    match self.peek_cache with
-    | None ->
-      read self
+    let token =
+      match self.peek_cache with
+      | None ->
+        (* FIXME: Make read_literal return option *)
+        read self
 
-    | Some x ->
-      self.peek_cache <- None;
-      x
+      | Some x ->
+        self.peek_cache <- None;
+        x
+    in
+      if token = Literal.eof then None
+      else Some token
 
 
   let peek self =

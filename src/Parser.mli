@@ -16,25 +16,24 @@ module type Input = sig
   type t
   type item
 
-  val item_to_string : item -> string
-
   val next : t -> (item * t) option
 end
 
 
-module Make(Input : Input) : sig
+module type Type = sig
+  type token
+
   type error =
     | Empty
-    | Unexpected_end   of { expected : Input.item }
-    | Unexpected_token of { expected : Input.item; actual : Input.item }
-    | Input_leftover   of Input.t
-    | Failed_satisfy   of Input.item
+    | Unexpected_end   of { expected : token }
+    | Unexpected_token of { expected : token; actual : token }
+    | Failed_satisfy   of token
+    | With_message     of string
 
   val error_to_string : error -> string
 
   include StateT
-    with type state = Input.t
-     and type 'a monad = ('a, error) Result.t
+      with type 'a monad = ('a, error) Result.t
 
   include Functor
     with type 'a t := 'a t
@@ -65,33 +64,51 @@ module Make(Input : Input) : sig
   val error : error -> 'a t
   (** [error e] is a parser that always fails with error [e]. *)
 
-  val token : Input.item t
+  val token : token t
   (** [token] is the current token in the input state. *)
 
-  val consume : Input.item -> unit t
+  val consume : token -> unit t
   (** [advance tok] checks if the current token is equal to [tok] and advances
       the parser to the next token, or fails tokens are different. *)
 
-  val expect : Input.item -> Input.item t
+  val expect : token -> token t
   (** [expect tok] checks if the current token is equal to [tok] failing if
       tokens are different. *)
 
   val advance : unit t
   (** [advance] advances the parser to the next token. *)
 
-  val satisfy : (Input.item -> bool) -> Input.item t
+  val satisfy : (token -> bool) -> token t
   (** [satisfy test] is a parser that returns the current input token if it
       satisfies [test] predicate or fails otherwise. *)
 
-  val exactly : Input.item -> Input.item t
+  val exactly : token -> token t
   (** [exactly token] parses *exactly* [token]. *)
 
-  val one_of : Input.item list -> Input.item t
+  val any : token t
+  (** [any] is a parser that accepts any input token. *)
+
+  val one_of : token list -> token t
   (** [one_of tokens] parses any token present in list [tokens]. *)
 
-  val none_of : Input.item list -> Input.item t
+  val none_of : token list -> token t
   (** [none_of tokens] parses any token *not* present in list [tokens]. *)
 end
 
+
+module Make(Token : Printable)(Input : Input with type item = Token.t) :
+  Type with type token = Token.t
+        and type state = Input.t
+
+
+module Input : sig
+  type t = Token.t Iter.t
+  type item = Token.t
+
+  val next : t -> (item * t) option
+end
+
+
+module Default : (module type of Make(Token)(Input))
 
 

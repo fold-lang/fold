@@ -3,36 +3,90 @@ open Base
 open Lex
 
 
+
 module type Input = sig
   type t
   type item
-
-  val item_to_string : item -> string
 
   val next : t -> (item * t) option
 end
 
 
-module Make(Input : Input) = struct
+module type Type = sig
+  type token
+
   type error =
     | Empty
-    | Unexpected_end   of { expected : Input.item }
-    | Unexpected_token of { expected : Input.item; actual : Input.item }
-    | Input_leftover   of Input.t
-    | Failed_satisfy   of Input.item
+    | Unexpected_end   of { expected : token }
+    | Unexpected_token of { expected : token; actual : token }
+    | Failed_satisfy   of token
+    | With_message     of string
+
+  val error_to_string : error -> string
+
+  include StateT
+    with type 'a monad = ('a, error) Result.t
+
+  include Functor
+    with type 'a t := 'a t
+
+  include Applicative
+    with type 'a t := 'a t
+
+  include Alternative
+    with type 'a t := 'a t
+
+
+  val combine : 'a t -> 'b t -> ('a * 'b) t
+
+  val with_default : 'a -> 'a t -> 'a t
+
+  val optional : 'a t -> unit t
+
+  val error : error -> 'a t
+
+  val token : token t
+
+  val consume : token -> unit t
+
+  val expect : token -> token t
+
+  val advance : unit t
+
+  val satisfy : (token -> bool) -> token t
+
+  val exactly : token -> token t
+
+  val any : token t
+
+  val one_of : token list -> token t
+
+  val none_of : token list -> token t
+end
+
+
+module Make(Token : Printable)(Input : Input with type item = Token.t) = struct
+  type token = Token.t
+
+  type error =
+    | Empty
+    | Unexpected_end   of { expected : token }
+    | Unexpected_token of { expected : token; actual : token }
+    | Failed_satisfy   of token
+    | With_message     of string
 
 
   let error_to_string e =
     match e with
     | Empty -> "empty"
     | Unexpected_end { expected } ->
-      "end of input while expecting `%s`" % Input.item_to_string expected
+      "end of input while expecting `%s`" % Token.show expected
     | Unexpected_token { expected; actual } ->
-      "expected `%s` but got `%s`" % (Input.item_to_string expected, Input.item_to_string actual)
+      "expected `%s` but got `%s`" % (Token.show expected, Token.show actual)
     | Failed_satisfy token ->
-      "token `%s` did not satisfy predicate" % Input.item_to_string token
-    | Input_leftover _ ->
-      "parser did not consume entire input"
+      "token `%s` did not satisfy predicate" % Token.show token
+    | With_message msg ->
+      msg
 
 
   module Result =
@@ -132,6 +186,9 @@ module Make(Input : Input) = struct
   let exactly x = expect x >>= fun x -> advance >> lazy (pure x)
 
 
+  let any = satisfy (const true)
+
+
   let one_of list =
     satisfy (fun x -> List.mem x list)
 
@@ -139,4 +196,17 @@ module Make(Input : Input) = struct
   let none_of list =
     satisfy (fun x -> not (List.mem x list))
 end
+
+
+
+module Input = struct
+  type t = Token.t Iter.t
+  type item = Token.t
+
+  let next input = Iter.view input
+end
+
+
+module Default = Make(Token)(Input)
+
 
