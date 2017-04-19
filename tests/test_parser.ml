@@ -43,7 +43,7 @@ let x = Char 'x'
 let y = Char 'y'
 
 let () =
-  print "Testing Fold.Parser...";
+  print ("-- %s" % C.bright_blue "Testing Fold.Parser...");
 
   (* Empty *)
   test "empty parser with empty input"
@@ -77,5 +77,7 @@ let () =
 
   test "parse some 'x' tokens"
     (P.some (P.exactly x)) [x; x; x; x; x; x; x] =>* Ok [x; x; x; x; x; x; x];
+
+  print ""
 
 

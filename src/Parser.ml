@@ -36,7 +36,6 @@ module type Type = sig
   include Alternative
     with type 'a t := 'a t
 
-
   val combine : 'a t -> 'b t -> ('a * 'b) t
 
   val with_default : 'a -> 'a t -> 'a t

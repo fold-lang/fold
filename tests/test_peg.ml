@@ -38,7 +38,7 @@ let b = Symbol "b"
 let c = Symbol "c"
 
 let () = begin
-  print "Testing Fold.PEG...";
+  print ("-- %s" % C.bright_blue "Testing Fold.PEG...");
   (* (p, s) => (r, s')
    *
    * where p  is the parsing expression
@@ -68,6 +68,7 @@ let () = begin
   PEG.(Some (Terminal "a"), [b; a]) => (Error (P.Unexpected_token { expected = a; actual = b }), [b; a]);
   PEG.(Some (Terminal "a"), [a; b]) => (Ok [a], [b]);
   PEG.(Some (Terminal "a"), [a; a; a]) => (Ok [a; a; a], []);
+  print ""
 end
 
 

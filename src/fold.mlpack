@@ -1,7 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2da4a7cf5f76a03550dffcd02a32a36d)
+# DO NOT EDIT (digest: 99e2fb98aa389646375ef258fecf3a1e)
 Lex
 Eval
+PEG
 Pratt
 Parser
 Syntax

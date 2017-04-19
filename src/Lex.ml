@@ -20,6 +20,7 @@ module Token = struct
       let pp = pp
     end)
 
+  (* XXX *)
   let to_string = function
     | Bool   x -> String.capitalize_ascii (string_of_bool x)
     | Char   x -> "'%c'" % x
@@ -27,6 +28,7 @@ module Token = struct
     | Int    x -> string_of_int x
     | String x -> "\"%s\"" % x
     | Symbol x -> x
+  let show = to_string
 end
 
 
@@ -189,7 +191,7 @@ module Lexer = struct
       read self
 
     (* EOF symbol *)
-    | eof -> None
+    | eof -> Some (Symbol "__EOF__")
 
     (* Everything else is illegal *)
     | any ->

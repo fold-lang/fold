@@ -19,6 +19,12 @@ module rec Grammar : sig
   val empty : t
   (** [empty] is a grammar without any rule definitions. *)
 
+  val define_prefix : string -> prefix -> t -> t
+  (** [define_prefix name rule g] defines a new prefix [rule] with [name]. *)
+
+  val define_infix : string -> infix -> t -> t
+  (** [define_infix name rule g] defines a new infix [rule] with [name]. *)
+
   val lookup_prefix : string -> t -> prefix option
   (** [lookup_prefix name g] is a prefix parsing rule defined as [name]. *)
 
@@ -51,6 +57,10 @@ val prefix : int -> expr Parser.t
 val expression : unit -> expr Parser.t
 (** [expression ()] parser an expression, equivalent to [prefix 0]. *)
 
-val parse : Lexer.t -> (expr, string) result
+val parse : ?grammar: Grammar.t -> Lexer.t -> (expr, string) result
 (** [parse lexer] parses an expression reading from [lexer]. *)
+
+val invalid_infix  : expr -> expr Parser.t
+
+val invalid_prefix : expr Parser.t
 
