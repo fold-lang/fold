@@ -16,13 +16,6 @@ Currently the language parser is being implemented as a separate parsing library
 - [Language Reference](https://github.com/fold-lang/fold/wiki/Language-Reference) – defines the formal specification of the language.
 
 
-### Contributing
-
-Any and all contributions are very much welcomed. Please fork the repository and send a pull request to the master branch.
-
-Thank you for your interest and have a nice day.
-
-
 ### Building
 
 The project can be built with docker. The official image `foldlang/fold` can be used to build and test the compiler.
@@ -58,4 +51,11 @@ the image can be always rebuild.
 - [**ppx_format**](https://github.com/rizo/ppx_format) – Simple Python-inspired syntax for string formatters.
 - [**ppx_deriving**](https://github.com/whitequark/ppx_deriving) – Type-driven code generation.
 - [**Cmdliner**](https://github.com/dbuenzli/cmdliner) – Declarative definition of command line interfaces.
+
+
+### Contributing
+
+Any and all contributions are very much welcomed. Please fork the repository and send a pull request to the master branch.
+
+Thank you for your interest and have a nice day.
 
