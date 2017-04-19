@@ -35,10 +35,11 @@ cd fold
 # Start the docker container (the image will be fetched from the registry)
 make docker-run
 
-# Now inside the container we can built the project.
+# Now inside the container we can setup and built the project
+oasis setup
 make build
 
-# Fold compiler will be locally called as "Main.native".
+# Fold compiler will be locally called as "Main.native"
 ./test_parser.byte
 ./Main.native
 ```
