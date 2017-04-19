@@ -16,7 +16,8 @@ module type Input = sig
   type t
   type item
 
-  val next : t -> (item * t) option
+  val current : t -> item option
+  val advance : t -> t
 end
 
 
@@ -101,14 +102,10 @@ module Make(Token : Printable)(Input : Input with type item = Token.t) :
         and type state = Input.t
 
 
-module Input : sig
-  type t = Token.t Iter.t
-  type item = Token.t
+module Default_input : Input
+  with type item = Token.t
+   and type t = Token.t list
 
-  val next : t -> (item * t) option
-end
-
-
-module Default : (module type of Make(Token)(Input))
+module Default : (module type of Make(Token)(Default_input))
 
 

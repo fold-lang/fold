@@ -44,6 +44,17 @@ Executable test_parser
                   pure,
                   fmt
 
+
+Executable test_pratt
+  Path:           tests/
+  MainIs:         test_pratt.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure,
+                  fmt
+
+
 Executable test_peg
   Path:           tests/
   MainIs:         test_peg.ml

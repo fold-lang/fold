@@ -31,7 +31,7 @@ module Expr = struct
     end)
 
   let rec to_string = function
-    | Atom x  -> Literal.to_string (Token.literal x)
+    | Atom x  -> Token.to_string x
     | Form xs -> "(%s)" % (String.concat " " (List.map to_string xs))
 
   let atom x  = Atom x

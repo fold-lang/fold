@@ -2,12 +2,7 @@
 open Pure
 open Lex
 
-module P = Parser.Default
 
-
-let (>>=) = P.(>>=)
-let (<|>) = P.(<|>)
-let (>>)  = P.(>>)
 
 
 type t =
@@ -33,7 +28,12 @@ let rec to_string self =
   | Some         x  -> to_string x ^ "+"
 
 
-let rec parse self : 'a list P.t =
+let rec to_parser self =
+  let module P = Parser.Default in
+  let (>>=) = P.(>>=) in
+  let (<|>) = P.(<|>) in
+  let (>>)  = P.(>>) in
+
   match self with
   | Epsilon ->
     P.pure []
@@ -49,29 +49,79 @@ let rec parse self : 'a list P.t =
     P.pure []
 
   | Alternative [x] ->
-    parse x
+    to_parser x
 
   | Alternative [x; y] ->
-    parse x <|> parse y
+    to_parser x <|> to_parser y
 
   | Alternative (x::xs) ->
-    List.fold_left (<|>) (parse x) (List.map parse xs)
+    List.fold_left (<|>) (to_parser x) (List.map to_parser xs)
 
   | Sequence [] ->
     P.pure []
 
   | Sequence [x] ->
-    parse x
+    to_parser x
 
   | Sequence xs ->
-    P.sequence (List.map parse xs) >>= fun xss -> P.pure (List.concat xss)
+    P.sequence (List.map to_parser xs) >>= fun xss -> P.pure (List.concat xss)
 
   | Optional x ->
-    parse x <|> P.pure []
+    to_parser x <|> P.pure []
 
   | Many peg ->
-    P.many (parse peg) >>= fun xss -> P.pure (List.concat xss)
+    P.many (to_parser peg) >>= fun xss -> P.pure (List.concat xss)
 
   | Some peg ->
-    P.some (parse peg) >>= fun xss -> P.pure (List.concat xss)
+    P.some (to_parser peg) >>= fun xss -> P.pure (List.concat xss)
+
+
+
+let rec to_pratt self : Syntax.expr list Pratt.Parser.t =
+  let module PP = Pratt.Parser in
+  let (>>=) = PP.(>>=) in
+  let (<|>) = PP.(<|>) in
+  let (>>)  = PP.(>>) in
+
+  match self with
+  | Epsilon ->
+    PP.pure []
+
+  | Terminal x ->
+    PP.consume (Symbol x) >> lazy (PP.pure [])
+
+  | Non_terminal _ ->
+    Pratt.expression () >>= fun expr ->
+    PP.pure [expr]
+
+  | Alternative [] ->
+    PP.pure []
+
+  | Alternative [x] ->
+    to_pratt x
+
+  | Alternative [x; y] ->
+    to_pratt x <|> to_pratt y
+
+  | Alternative (x::xs) ->
+    List.fold_left (<|>) (to_pratt x) (List.map to_pratt xs)
+
+  | Sequence [] ->
+    PP.pure []
+
+  | Sequence [x] ->
+    to_pratt x
+
+  | Sequence xs ->
+    PP.sequence (List.map to_pratt xs) >>= fun xss -> PP.pure (List.concat xss)
+
+  | Optional x ->
+    to_pratt x <|> PP.pure []
+
+  | Many peg ->
+    PP.many (to_pratt peg) >>= fun xss -> PP.pure (List.concat xss)
+
+  | Some peg ->
+    PP.some (to_pratt peg) >>= fun xss -> PP.pure (List.concat xss)
+
 

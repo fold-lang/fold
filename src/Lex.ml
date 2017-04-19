@@ -1,7 +1,7 @@
 
 open Pure
 
-type literal =
+type token =
   | Bool   of bool         (* True False       *)
   | Char   of char         (* 'x' '-' '0' '\t' *)
   | Float  of float        (* 3.14 00.1 1.0000 *)
@@ -10,14 +10,14 @@ type literal =
   | Symbol of string       (* a foo Bar + >>=  *)
 [@@deriving show, ord]
 
-module Literal = struct
-  type t = literal
 
-  let compare = compare_literal
+module Token = struct
+  type t = token
+    [@@deriving show]
 
   include Printable.Make(struct
       type nonrec t = t
-      let pp = pp_literal
+      let pp = pp
     end)
 
   let to_string = function
@@ -27,11 +27,8 @@ module Literal = struct
     | Int    x -> string_of_int x
     | String x -> "\"%s\"" % x
     | Symbol x -> x
-
-  let eof = Symbol "<EOF>"
 end
 
-let eof = Literal.eof
 
 module Location = struct
   type t =
@@ -53,25 +50,6 @@ module Location = struct
   let to_string self =
     "%d,%d/%d" % (self.line, self.column, self.length)
 end
-
-
-module Token = struct
-  type t = Literal.t
-    [@@deriving show]
-
-  let location _ = Location.empty
-  let literal  = id
-
-  let eof = Literal.eof
-
-  include Printable.Make(struct
-      type nonrec t = t
-      let pp = pp
-    end)
-
-  let to_string lit = Literal.to_string lit
-end
-
 
 
 let decimal_literal =
@@ -119,7 +97,6 @@ let white_space =
 module Lexer = struct
   type t =
     { mutable lexbuf      : Sedlexing.lexbuf;
-      mutable peek_cache  : Token.t option;
       mutable line_start  : int;
       mutable line_count  : int;
       mutable group_count : int }
@@ -154,29 +131,29 @@ module Lexer = struct
     raise (Error { message; lexeme; location })
 
 
-  let rec read_literal self =
+  let rec read self =
     let lexbuf = self.lexbuf in
     match%sedlex lexbuf with
     (* Whitespace and comment *)
     | Plus (white_space | comment) ->
-      read_literal self
+      read self
 
     (* Int literal *)
     | int_literal ->
-      Int (int_of_string (current_lexeme self))
+      Some (Int (int_of_string (current_lexeme self)))
 
     (* Float literal *)
     | float_literal ->
-      Float (float_of_string (current_lexeme self))
+      Some (Float (float_of_string (current_lexeme self)))
 
     (* Unit literal *)
     | '(', Star ((white_space | '\n') | comment), ')' ->
-      Symbol "()"
+      Some (Symbol "()")
 
     (* Group start *)
     | '('  ->
       self.group_count <- (self.group_count + 1);
-      Symbol (current_lexeme self)
+      Some (Symbol (current_lexeme self))
 
     (* Group end *)
     | ')' ->
@@ -185,7 +162,7 @@ module Lexer = struct
       if self.group_count < 0 then
         error self "unbalanced parenthesis"
       else
-        Symbol (current_lexeme self)
+        Some (Symbol (current_lexeme self))
 
     (* XXX: Quoted symbols are not part of the lexer for now. *)
     (* | '`',  (name_literal | Plus identifier_char) -> *)
@@ -194,25 +171,25 @@ module Lexer = struct
 
     | '"',  Star (Compl '"'), '"' ->
       let lexeme = current_lexeme self in
-      String (String.sub lexeme 1 (String.length lexeme - 2))
+      Some (String (String.sub lexeme 1 (String.length lexeme - 2)))
 
     | '\'', Compl '\'', '\'' ->
-      Char (String.get (current_lexeme self) 1)
+      Some (Char (String.get (current_lexeme self) 1))
 
-    | "True"  -> Bool true
-    | "False" -> Bool false
+    | "True"  -> Some (Bool true)
+    | "False" -> Some (Bool false)
 
     (* Names (operators and identifiers) *)
     | name_literal | Plus identifier_char ->
-      Symbol (current_lexeme self)
+      Some (Symbol (current_lexeme self))
 
     (* Newline symbol *)
     | '\n' ->
       increment_line self;
-      read_literal self
+      read self
 
     (* EOF symbol *)
-    | eof -> Literal.eof
+    | eof -> None
 
     (* Everything else is illegal *)
     | any ->
@@ -222,45 +199,8 @@ module Lexer = struct
     | _ -> undefined ()
 
 
-  let read self =
-    let literal  = read_literal self in
-    let _location = current_location self in
-    literal
-
-
-  let next self =
-    let token =
-      match self.peek_cache with
-      | None ->
-        (* FIXME: Make read_literal return option *)
-        read self
-
-      | Some x ->
-        self.peek_cache <- None;
-        x
-    in
-      if token = Literal.eof then None
-      else Some token
-
-
-  let peek self =
-    match self.peek_cache with
-    | Some x ->
-      x
-
-    | None ->
-      let token = read self in
-      self.peek_cache <- Some token;
-      token
-
-
-  let junk self =
-    ignore (next self)
-
-
   let from_lexbuf lexbuf =
     { lexbuf;
-      peek_cache  = None;
       line_start  = 0;
       line_count  = 0;
       group_count = 0 }

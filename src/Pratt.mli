@@ -38,7 +38,7 @@ and State : sig
   (** [init ?grammar ~lexer ()] is a new state with [lexer] and optional [grammar] *)
 end
 
-and Parser : P.Type
+and Parser : P.Type with type token = Token.t
 (** Module implementing the [Parser] interface with Pratt state. *)
 
 val infix : int -> expr -> expr Parser.t

@@ -42,40 +42,40 @@ let (=>*) f x = f x show_expr_results
 let x = Char 'x'
 let y = Char 'y'
 
-let iter = Iter.of_list
-
 let () =
+  print "Testing Fold.Parser...";
+
   (* Empty *)
   test "empty parser with empty input"
-    P.empty (iter []) => Error P.Empty;
+    P.empty [] => Error P.Empty;
 
   test "empty parser with some input"
-    P.empty (iter [x]) => Error P.Empty;
+    P.empty [x] => Error P.Empty;
 
   test "parse the 'x' token"
-    (P.exactly x) (iter [x]) => Ok x;
+    (P.exactly x) [x] => Ok x;
 
   test "parse the 'x' token with remining input"
-    (P.exactly x) (iter [x; y]) => Ok x;
+    (P.exactly x) [x; y] => Ok x;
 
   (* Many *)
   test "parse many 'x' tokens with empty input"
-    (P.many (P.exactly x)) (iter []) =>* Ok [];
+    (P.many (P.exactly x)) [] =>* Ok [];
 
   test "parse many 'x' tokens with 'y' token as input"
-    (P.many (P.exactly x)) (iter [y]) =>* Ok [];
+    (P.many (P.exactly x)) [y] =>* Ok [];
 
   test "parse many 'x' tokens"
-    (P.many (P.exactly x)) (iter [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];
+    (P.many (P.exactly x)) [x; x; x; x; x; x; x] =>* Ok [x; x; x; x; x; x; x];
 
   (* Some *)
   test "parse some 'x' tokens with empty input"
-    (P.some (P.exactly x)) (iter []) =>* Error (P.Unexpected_end { expected = x });
+    (P.some (P.exactly x)) [] =>* Error (P.Unexpected_end { expected = x });
 
   test "parse some 'x' tokens with 'y' token as input"
-    (P.some (P.exactly x)) (iter [y]) =>* Error (P.Unexpected_token { expected = x; actual = y });
+    (P.some (P.exactly x)) [y] =>* Error (P.Unexpected_token { expected = x; actual = y });
 
   test "parse some 'x' tokens"
-    (P.some (P.exactly x)) (iter [x; x; x; x; x; x; x]) =>* Ok [x; x; x; x; x; x; x];
+    (P.some (P.exactly x)) [x; x; x; x; x; x; x] =>* Ok [x; x; x; x; x; x; x];
 
 

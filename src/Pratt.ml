@@ -60,6 +60,7 @@ and State : sig
   type t = {
     lexer   : Lexer.t;
     grammar : Grammar.t;
+    token   : Token.t option;
   }
 
   include P.Input with type t := t
@@ -70,17 +71,21 @@ end = struct
   type t = {
     lexer   : Lexer.t;
     grammar : Grammar.t;
+    token   : Token.t option;
   }
 
   type item = Token.t
 
-  let next self =
-    match Lexer.next self.lexer with
-    | Some token -> Some (token, self)
-    | None -> None
+
+  let current self = self.token
+
+
+  let advance self =
+    { self with token = Lexer.read self.lexer }
+
 
   let init ?(grammar = Grammar.empty) ~lexer () =
-    { lexer; grammar }
+    { lexer; grammar; token = Lexer.read lexer }
 end
 
 
@@ -102,11 +107,15 @@ let invalid_prefix () =
   Parser.error (Parser.With_message ("%s cannot be used in prefix position" % Token.to_string tok))
 
 
-let rec parse_atom =
-  Parser.token >>= fun tok -> Parser.consume tok >> lazy (Parser.pure (Expr.atom tok))
+(* define_syntax "<EOF>"  (Parselet.Infix  ((fun x -> undefined ()), 0)) *)
+(* define_syntax "<EOF>"  (Parselet.Prefix Parser.invalid_prefix) *)
+
+let default_prefix =
+  Parser.token >>= fun token ->
+  Parser.consume token >> lazy (Parser.pure (Expr.atom token))
 
 
-let rec parse_form left =
+let rec default_infix left =
   prefix 90 >>= fun right ->
   let form_list =
     match left with
@@ -116,17 +125,22 @@ let rec parse_form left =
 
 
 and infix rbp left =
-  Parser.get >>= fun { State.grammar } ->
-  Parser.token >>= fun token ->
-
-  let name = Token.to_string token in
-
-  let (parser, lbp) =
-    Grammar.lookup_infix name grammar or (parse_form, 90) in
-  if lbp > rbp then
-    parser left >>= infix rbp
-  else
+  Parser.get >>= fun state ->
+  if State.current state = None then
     Parser.pure left
+  else
+    Parser.token >>= fun token ->
+
+    let grammar = State.(state.grammar) in
+    let name = Token.to_string token in
+
+    let (parser, lbp) =
+      Grammar.lookup_infix name grammar or (default_infix, 90) in
+    (* print (" infix: tok = %s, rbp = %d, lbp = %d, left = %s" % (name, rbp, lbp, Expr.to_string left)); *)
+    if lbp > rbp then
+      parser left >>= infix rbp
+    else
+      Parser.pure left
 
 
 and prefix precedence =
@@ -135,7 +149,8 @@ and prefix precedence =
 
   let name = Token.to_string token in
 
-  let parser = Grammar.lookup_prefix name grammar or parse_atom in
+  let parser = Grammar.lookup_prefix name grammar or default_prefix in
+  (* print ("prefix: tok = %s, rbp = %d" % (name, precedence)); *)
   parser >>= fun left ->
   infix precedence left
 
@@ -149,4 +164,5 @@ let parse lexer =
   match Parser.run parser state with
   | Ok (expr, state') -> Ok expr
   | Error e -> Error (Parser.error_to_string e)
+
 

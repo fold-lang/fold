@@ -3,12 +3,12 @@ open Base
 open Lex
 
 
-
 module type Input = sig
   type t
   type item
 
-  val next : t -> (item * t) option
+  val current : t -> item option
+  val advance : t -> t
 end
 
 
@@ -146,37 +146,28 @@ module Make(Token : Printable)(Input : Input with type item = Token.t) = struct
 
   let token =
     get >>= fun state ->
-    match Input.next state with
-    | Some (x, _) -> pure x
+    match Input.current state with
+    | Some x -> pure x
     | None -> empty
 
 
-  let next =
-    get >>= fun state ->
-    match Input.next state with
-    | Some (x, rest) -> put rest >> lazy (pure x)
-    | None -> empty
-
-
-  let satisfy predicate =
-    next >>= fun t ->
-    if predicate t then pure t
+  let satisfy pred =
+    token >>= fun t ->
+    if pred t then pure t
     else error (Failed_satisfy t)
 
 
   let expect expected =
     get >>= fun state ->
-    match Input.next state with
-    | Some (actual, _) when actual = expected -> pure actual
-    | Some (actual, _) -> error (Unexpected_token { expected; actual })
+    match Input.current state with
+    | Some actual when actual = expected -> pure actual
+    | Some actual ->  error (Unexpected_token { expected; actual })
     | None -> error (Unexpected_end { expected })
 
 
   let advance =
     get >>= fun state ->
-    match Input.next state with
-    | Some (_, state') -> put state'
-    | None -> empty
+    put (Input.advance state)
 
 
   let consume tok =
@@ -199,14 +190,15 @@ end
 
 
 
-module Input = struct
-  type t = Token.t Iter.t
+module Default_input = struct
+  type t = Token.t list
   type item = Token.t
 
-  let next input = Iter.view input
+  let current l = Option.catch (fun () -> List.hd l)
+  let advance l = List.tl l
 end
 
 
-module Default = Make(Token)(Input)
+module Default = Make(Token)(Default_input)
 
 
