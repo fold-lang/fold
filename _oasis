@@ -11,16 +11,18 @@ Plugins: META (0.4), DevFiles (0.4)
 
 Library fold
   Path:           src
-  CompiledObject: best
+  CompiledObject: native
   BuildDepends:   sedlex,
                   pure,
-                  iter,
+                  pure,
+                  fmt,
                   ppx_format,
                   compiler-libs.bytecomp,
                   ppx_deriving.std
   Pack:           true
   Modules:        Lex,
                   Eval,
+                  Lang,
                   PEG,
                   Pratt,
                   Parser,
@@ -58,6 +60,16 @@ Executable test_pratt
 Executable test_peg
   Path:           tests/
   MainIs:         test_peg.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure,
+                  fmt
+
+
+Executable test_pratt_peg
+  Path:           tests/
+  MainIs:         test_pratt_peg.ml
   ByteOpt:        -g
   CompiledObject: byte
   BuildDepends:   fold,

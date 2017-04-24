@@ -160,7 +160,7 @@ module Make(Token : Printable)(Input : Input with type item = Token.t) = struct
     get >>= fun state ->
     match Input.current state with
     | Some actual when actual = expected -> pure actual
-    | Some actual ->  error (Unexpected_token { expected; actual })
+    | Some actual -> error (Unexpected_token { expected; actual })
     | None -> error (Unexpected_end { expected })
 
 

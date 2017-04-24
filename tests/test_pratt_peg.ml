@@ -58,33 +58,28 @@ let group s e =
 let grammar =
   Grammar.empty
   |> Grammar.define_prefix "("       (group "(" ")")
-  |> Grammar.define_prefix ")"        Pratt.invalid_prefix
-  |> Grammar.define_infix  ")"       (Pratt.invalid_infix, 0)
 
-  |> Grammar.define_prefix "__EOF__"  Pratt.invalid_prefix
-  |> Grammar.define_infix  "__EOF__" (Pratt.invalid_infix, 0)
+  |> Lang.define_delimiter ")"
+  |> Lang.define_delimiter "__EOF__"
 
 
-(* Tests *)
+let plus_rule input =
+  let open PEG.DSL in
+  let peg = seq [t "let"; n "a"; t "="; n "b"] in
+  let parser = PEG.to_pratt peg in
+  let state = Pratt.State.init ~grammar ~lexer:(Lexer.from_string input) () in
+  print ("peg = %s" % PEG.to_string peg);
+  match Parser.run parser state with
+  | Ok (r, _) -> Fmt.pr "Ok: [%s]\n" (String.concat ", " (List.map Expr.to_string r))
+  | Error e -> Fmt.pr "Error: %s\n" (Parser.error_to_string e)
 
-let (=>) = test grammar
+
+let () =
+  plus_rule "let result = 42"
 
 
-let () = begin
-  print ("-- %s" % C.bright_blue "Testing Fold.Pratt...");
-  "x" => Ok x;
-  "42" => Ok i42;
-  "3.14" => Ok f3_14;
-  "True" => Ok bT;
 
-  "f x" => Ok (f1 x);
-  "f x y z" => Ok (f3 x y z);
-  "f True 42 3.14" => Ok (f3 bT i42 f3_14);
 
-  "(x)" => Ok x;
-  "f (f x)" => Ok (f1 (f1 x));
-  "f 42 (f (f (True) 3.14) x (f x y))" => Ok (f2 i42 (f3 (f2 bT f3_14) x (f2 x y)));
-  print ""
-end
+
 
 

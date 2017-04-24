@@ -18,6 +18,10 @@ module rec Grammar : sig
   type prefix = expr Parser.t
   type infix  = (expr -> expr Parser.t) * int
 
+  type rule =
+    | Infix  of infix
+    | Prefix of prefix
+
   type t = {
     prefix : prefix M.t;
     infix  : infix  M.t;
@@ -28,12 +32,17 @@ module rec Grammar : sig
 
   val define_prefix : string -> prefix -> t -> t
   val define_infix : string -> infix -> t -> t
+  val define : string -> rule -> t -> t
 
   val lookup_prefix : string -> t -> prefix option
   val lookup_infix : string -> t -> infix option
 end = struct
   type prefix = expr Parser.t
   type infix  = (expr -> expr Parser.t) * int
+
+  type rule =
+    | Infix  of infix
+    | Prefix of prefix
 
   type t = {
     prefix : prefix M.t;
@@ -57,6 +66,12 @@ end = struct
       { self with prefix = M.add name rule self.prefix }
 
 
+  let define name rule =
+    match rule with
+    | Infix  infix  -> define_infix  name infix
+    | Prefix prefix -> define_prefix name prefix
+
+
   let rec lookup_prefix name { prefix; next } =
     match M.find name prefix with
     | None -> Option.(next >>= lookup_prefix name)
@@ -77,6 +92,8 @@ and State : sig
     token   : Token.t option;
   }
 
+  val grammar : t -> Grammar.t
+
   include P.Input with type t := t
                    and type item = Token.t
 
@@ -87,6 +104,8 @@ end = struct
     grammar : Grammar.t;
     token   : Token.t option;
   }
+
+  let grammar self = self.grammar
 
   type item = Token.t
 
@@ -121,19 +140,22 @@ let invalid_prefix =
   Parser.error (Parser.With_message ("%s cannot be used in prefix position" % Token.to_string tok))
 
 
-
 let default_prefix =
   Parser.token >>= fun token ->
   Parser.consume token >> lazy (Parser.pure (Expr.atom token))
 
 
-let rec default_infix left =
+let juxtaposition left =
   prefix 90 >>= fun right ->
   let form_list =
     match left with
     | Form xs -> List.append xs [right]
     | atom    -> [atom; right] in
   Parser.pure (Form form_list)
+
+
+let rec default_infix left =
+  juxtaposition left
 
 
 and infix rbp left =
@@ -163,14 +185,16 @@ and prefix precedence =
   infix precedence left
 
 
-let expression () = prefix 0
+let expression = prefix 0
 
 
-let parse ?grammar lexer =
+let run parser ?grammar lexer =
   let state = State.init ?grammar ~lexer () in
-  let parser = expression () in
   match Parser.run parser state with
   | Ok (expr, state') -> Ok expr
   | Error e -> Error (Parser.error_to_string e)
 
+
+let parse ?grammar lexer =
+  run expression ?grammar lexer
 
