@@ -136,8 +136,9 @@ let invalid_infix = fun _left ->
 
 
 let invalid_prefix =
-  Parser.token >>= fun tok ->
-  Parser.error (Parser.With_message ("%s cannot be used in prefix position" % Token.to_string tok))
+  Parser.token >>= fun token ->
+  let msg = "%s cannot be used in prefix position" % Token.to_string token in
+  Parser.error (Parser.With_message msg)
 
 
 let default_prefix =
@@ -145,18 +146,27 @@ let default_prefix =
   Parser.consume token >> lazy (Parser.pure (Expr.atom token))
 
 
-let juxtaposition left =
-  prefix 90 >>= fun right ->
-  let form_list =
-    match left with
-    | Form xs -> List.append xs [right]
-    | atom    -> [atom; right] in
-  Parser.pure (Form form_list)
+
+let rec juxtaposition =
+  let parser left =
+    prefix 90 >>= fun right ->
+    let form_list =
+      match left with
+      | Form xs -> List.append xs [right]
+      | atom    -> [atom; right] in
+    Parser.pure (Form form_list) in
+  (parser, 90)
 
 
-let rec default_infix left =
-  juxtaposition left
-
+and lookup_default_infix name =
+  let binary_infix token precedence =
+    fun x -> Parser.consume token >> lazy begin
+        prefix precedence >>= fun y -> Parser.pure (Form [Atom token; x; y])
+      end in
+  let precedence = Precedence.lookup name in
+  match precedence with
+  | Some p -> Some (binary_infix (Symbol name) p, p)
+  | None -> None
 
 and infix rbp left =
   Parser.get >>= fun { State.grammar } ->
@@ -165,7 +175,10 @@ and infix rbp left =
   let name = Token.to_string token in
 
   let (parser, lbp) =
-    Grammar.lookup_infix name grammar or (default_infix, 90) in
+    Grammar.lookup_infix name grammar
+    or (lookup_default_infix name)
+    or juxtaposition in
+
   (* print (" infix: tok = %s, rbp = %d, lbp = %d, left = %s" % (name, rbp, lbp, Expr.to_string left)); *)
   if lbp > rbp then
     parser left >>= infix rbp

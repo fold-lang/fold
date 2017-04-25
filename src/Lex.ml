@@ -10,6 +10,7 @@ type token =
   | Symbol of string       (* a foo Bar + >>=  *)
 [@@deriving show, ord]
 
+let eof = Symbol "__eof__"
 
 module Token = struct
   type t = token
@@ -191,7 +192,7 @@ module Lexer = struct
       read self
 
     (* EOF symbol *)
-    | eof -> Some (Symbol "__EOF__")
+    | eof -> Some eof
 
     (* Everything else is illegal *)
     | any ->

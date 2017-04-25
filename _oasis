@@ -26,6 +26,7 @@ Library fold
                   PEG,
                   Pratt,
                   Parser,
+                  Precedence,
                   Syntax
 
 

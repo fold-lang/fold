@@ -15,15 +15,16 @@ let terminal    = 90
 let lookup name =
   match name with
   (* Match atomic symbols. *)
-  | "<EOF>" -> delimiter
-  | ";" -> 20
+  | "__eof__" -> Some delimiter
+  | ";" -> Some 20
   (* Match symbols that can start an operator. *)
   | str ->
     begin match str.[0] with
-      | '=' -> assignment
-      | '#' -> conditional
-      | '+' | '-' -> sum
-      | '*' | '/' -> product
-      | '(' | '{' | '[' -> group
-      | _ -> 30 (* default non symbolic? XXX *)
+      | '=' -> Some assignment
+      | '#' -> Some conditional
+      | '+' | '-' -> Some sum
+      | '*' | '/' -> Some product
+      | '(' | '{' | '[' -> Some group
+      | _ -> None
     end
+
