@@ -1,7 +1,6 @@
 ## The _Fold_ Programming Language
 
-_Fold_ is an expressive, pragmatic functional language with type checking and
-inference designed for development of fast and robust applications.
+_Fold_ is an expressive, pragmatic functional language designed for development of fast and robust applications.
 
 <table>
   <tbody>
