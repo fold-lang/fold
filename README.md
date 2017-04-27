@@ -1,6 +1,37 @@
 ## The _Fold_ Programming Language
 
-_Fold_ is a modern pragmatic functional language with concise, expressive, programmable syntax for development of blazingly fast and robust applications.
+_Fold_ is an expressive, pragmatic functional language with type checking and
+inference designed for development of fast and robust applications.
+
+<table>
+  <tbody>
+    <tr>
+      <td><strong>Paradigms</strong></td>
+      <td>functional, compiled, imperative, generic</td>
+    </tr>
+    <tr>
+      <td><strong>Type discipline</strong></td>
+      <td>static, strong, inferred, structural, nominal</td>
+    </tr>
+        <tr>
+      <td><strong>Influenced by</strong></td>
+      <td>OCaml, D, Lisp, Python</td>
+    </tr>
+        <tr>
+      <td><strong>Platform</strong></td>
+      <td>X86-64, ARM 32-64, JavaScript</td>
+    </tr>
+        <tr>
+      <td><strong>Operating System</strong></td>
+      <td>Linux, macOS, Windows, FreeBSD, Android, iOS</td>
+    </tr>
+        <tr>
+      <td><strong>License</strong></td>
+      <td>MIT</td>
+    </tr>
+  </tbody>
+</table>
+
 
 ![fold-repl](https://github.com/fold-lang/pratt/raw/master/resources/screenshot-1.png)
 
