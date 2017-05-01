@@ -12,6 +12,12 @@ module type Input = sig
 end
 
 
+(* module Input : sig *)
+(*   module String  : Input *)
+(*   module Channel : Input *)
+(* end *)
+
+
 module type Type = sig
   type token
 

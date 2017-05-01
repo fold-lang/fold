@@ -14,7 +14,7 @@ let eof = Symbol "__eof__"
 
 module Token = struct
   type t = token
-    [@@deriving show]
+    [@@deriving show, ord]
 
   include Printable.Make(struct
       type nonrec t = t

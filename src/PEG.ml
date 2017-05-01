@@ -3,6 +3,7 @@ open Pure
 open Lex
 
 
+module Pratt = Pratt.Make(Syntax.Expr)
 
 
 type t =
@@ -104,60 +105,60 @@ let terminals =
     loop []
 
 
-let to_pratt self : Syntax.expr list Pratt.Parser.t =
-  let module PP = Pratt.Parser in
-  let (>>=) = PP.(>>=) in
-  let (<|>) = PP.(<|>) in
-  let (>>)  = PP.(>>) in
+(* let to_pratt self : Syntax.expr list Pratt.Parser.t = *)
+(*   let module PP = Pratt.Parser in *)
+(*   let (>>=) = PP.(>>=) in *)
+(*   let (<|>) = PP.(<|>) in *)
+(*   let (>>)  = PP.(>>) in *)
 
-  let rec loop = function
-    | Epsilon ->
-      PP.pure []
+(*   let rec loop = function *)
+(*     | Epsilon -> *)
+(*       PP.pure [] *)
 
-    | Terminal x ->
-      PP.consume (Symbol x) >> lazy (PP.pure [])
+(*     | Terminal x -> *)
+(*       PP.consume (Symbol x) >> lazy (PP.pure []) *)
 
-    | Non_terminal _ ->
-      Pratt.expression >>= fun expr ->
-      PP.pure [expr]
+(*     | Non_terminal _ -> *)
+(*       Pratt.expression >>= fun expr -> *)
+(*       PP.pure [expr] *)
 
-    | Alternative [] ->
-      PP.pure []
+(*     | Alternative [] -> *)
+(*       PP.pure [] *)
 
-    | Alternative [x] ->
-      loop x
+(*     | Alternative [x] -> *)
+(*       loop x *)
 
-    | Alternative [x; y] ->
-      loop x <|> loop y
+(*     | Alternative [x; y] -> *)
+(*       loop x <|> loop y *)
 
-    | Alternative (x::xs) ->
-      List.fold_left (<|>) (loop x) (List.map loop xs)
+(*     | Alternative (x::xs) -> *)
+(*       List.fold_left (<|>) (loop x) (List.map loop xs) *)
 
-    | Sequence [] ->
-      PP.pure []
+(*     | Sequence [] -> *)
+(*       PP.pure [] *)
 
-    | Sequence [x] ->
-      loop x
+(*     | Sequence [x] -> *)
+(*       loop x *)
 
-    | Sequence xs ->
-      PP.sequence (List.map loop xs) >>= fun xss -> PP.pure (List.concat xss)
+(*     | Sequence xs -> *)
+(*       PP.sequence (List.map loop xs) >>= fun xss -> PP.pure (List.concat xss) *)
 
-    | Optional x ->
-      loop x <|> PP.pure []
+(*     | Optional x -> *)
+(*       loop x <|> PP.pure [] *)
 
-    | Many peg ->
-      PP.many (loop peg) >>= fun xss -> PP.pure (List.concat xss)
+(*     | Many peg -> *)
+(*       PP.many (loop peg) >>= fun xss -> PP.pure (List.concat xss) *)
 
-    | Some peg ->
-      PP.some (loop peg) >>= fun xss -> PP.pure (List.concat xss)
-  in begin
-    let ts = terminals self in
-    PP.modify begin fun s ->
-      Fmt.(pr "Adding delimiters %a\n" (Dump.list string) ts);
-      let g = Pratt.State.(s.grammar) in
-      let g = List.fold_left (flip Lang.define_delimiter) g ts in
-      { s with Pratt.State.grammar = g }
-    end >> lazy (loop self)
-  end
+(*     | Some peg -> *)
+(*       PP.some (loop peg) >>= fun xss -> PP.pure (List.concat xss) *)
+(*   in begin *)
+(*     let ts = terminals self in *)
+(*     PP.modify begin fun s -> *)
+(*       Fmt.(pr "Adding delimiters %a\n" (Dump.list string) ts); *)
+(*       let g = Pratt.State.(s.grammar) in *)
+(*       let g = List.fold_left (flip Lang.define_delimiter) g ts in *)
+(*       { s with Pratt.State.grammar = g } *)
+(*     end >> lazy (loop self) *)
+(*   end *)
 
 

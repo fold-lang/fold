@@ -6,10 +6,12 @@ open Fold.Lex
 open Fold.Syntax
 open Fold.Pratt
 
-module Grammar = Fold.Pratt.Grammar
+module Pratt = Pratt.Make(Expr)
+module Grammar = Pratt.Grammar
+module Parser = Pratt.Parser
 
-let (>>=) = Parser.(>>=)
-let (>>)  = Parser.(>>)
+let (>>=) = Pratt.Parser.(>>=)
+let (>>)  = Pratt.Parser.(>>)
 
 
 let group s e =
@@ -17,24 +19,24 @@ let group s e =
   lazy (Pratt.expression >>= fun expr ->
         Parser.consume (Symbol e) >> lazy (Parser.pure expr))
 
-let grammar =
-  Grammar.empty
-  |> Grammar.define_prefix "("       (group "(" ")")
+(* let grammar = *)
+  (* Grammar.empty *)
+  (* |> Grammar.define_prefix "("       (group "(" ")") *)
 
-  |> Lang.define_delimiter ")"
-  |> Lang.define_delimiter "__eof__"
+  (* |> Lang.define_delimiter ")" *)
+  (* |> Lang.define_delimiter "__eof__" *)
 
 
-let () =
-  let rec loop () =
-    print ~terminator:"" "-> ";
-    match Pratt.parse ~grammar (Lexer.from_string (read_line ())) with
-    | Ok expr ->
-      print (" = " ^ Expr.to_string expr);
-      loop ()
+(* let () = *)
+(*   let rec loop () = *)
+(*     print ~terminator:"" "-> "; *)
+(*     match Pratt.parse ~grammar (Lexer.from_string (read_line ())) with *)
+(*     | Ok expr -> *)
+(*       print (" = " ^ Expr.to_string expr); *)
+(*       loop () *)
 
-    | Error msg ->
-      print (" * " ^ msg)
-  in
-    loop ()
+(*     | Error msg -> *)
+(*       print (" * " ^ msg) *)
+(*   in *)
+(*     loop () *)
 

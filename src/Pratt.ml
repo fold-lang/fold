@@ -3,211 +3,216 @@ open Syntax
 open Lex
 
 
-module P = Parser
-
-
 module M = struct
-  include Map.Make(String)
+  include Map.Make(Token)
 
   let find k m =
     Option.catch (fun () -> find k m)
 end
 
-
-module rec Grammar : sig
-  type prefix = expr Parser.t
-  type infix  = (expr -> expr Parser.t) * int
-
-  type rule =
-    | Infix  of infix
-    | Prefix of prefix
-
-  type t = {
-    prefix : prefix M.t;
-    infix  : infix  M.t;
-    next   : t option;
-  }
-
-  val empty : t
-
-  val define_prefix : string -> prefix -> t -> t
-  val define_infix : string -> infix -> t -> t
-  val define : string -> rule -> t -> t
-
-  val lookup_prefix : string -> t -> prefix option
-  val lookup_infix : string -> t -> infix option
-end = struct
-  type prefix = expr Parser.t
-  type infix  = (expr -> expr Parser.t) * int
-
-  type rule =
-    | Infix  of infix
-    | Prefix of prefix
-
-  type t = {
-    prefix : prefix M.t;
-    infix  : infix  M.t;
-    next   : t option;
-  }
+module P = Parser
 
 
-  let empty = {
-    prefix = M.empty;
-    infix  = M.empty;
-    next   = None;
-  }
+module Make(Expr : Pure.Type) = struct
+
+  module rec Grammar : sig
+    type t
+
+    type prefix = Expr.t Parser.t
+    type infix  = (Expr.t -> Expr.t Parser.t) * int
+
+    type rule =
+      | Prefix of prefix
+      | Infix of infix
+
+    val init : atom: prefix -> ?form: infix -> (Token.t * rule) list -> t
+
+    val define : Token.t -> rule -> t -> t
+
+    val prefix : Token.t -> t -> prefix
+    val infix  : Token.t -> t -> infix
+  end = struct
+    type prefix = Expr.t Parser.t
+    type infix  = (Expr.t -> Expr.t Parser.t) * int
+
+    type rule =
+      | Prefix of prefix
+      | Infix of infix
+
+    type t = {
+      prefix : prefix M.t;
+      infix  : infix  M.t;
+      next   : t option;
+      atom   : prefix;
+      form   : infix;
+    }
 
 
-  let define_infix name rule self =
-    { self with infix = M.add name rule self.infix  }
+    let invalid_infix token =
+      let parse left =
+        let msg = "%s cannot be used in infix position" % Token.to_string token in
+        Parser.(error (With_message msg)) in
+      (parse, 0)
 
 
-  let define_prefix name rule self =
-      { self with prefix = M.add name rule self.prefix }
+    let invalid_prefix token =
+      let msg = "%s cannot be used in prefix position" % Token.to_string token in
+      Parser.(error (With_message msg))
 
 
-  let define name rule =
-    match rule with
-    | Infix  infix  -> define_infix  name infix
-    | Prefix prefix -> define_prefix name prefix
+    let define token rule self =
+      match rule with
+      | Prefix x -> { self with prefix = M.add token x self.prefix }
+      | Infix  x -> { self with infix  = M.add token x self.infix  }
 
 
-  let rec lookup_prefix name { prefix; next } =
-    match M.find name prefix with
-    | None -> Option.(next >>= lookup_prefix name)
-    | some -> some
+    let init ~atom ?form scope =
+      let empty = {
+        prefix = M.empty;
+        infix  = M.empty;
+        next   = None;
+        atom;
+        form   = invalid_infix  (Symbol "__xxx__");
+      } in
+      List.fold_left
+        (fun self (token, rule) -> define token rule self)
+        (* { empty with atom } *)
+        empty
+        scope
+      |> define Lex.eof (Prefix (invalid_prefix Lex.eof))
+      |> define Lex.eof (Infix  (invalid_infix Lex.eof))
 
 
-  let rec lookup_infix name { infix; next } =
-    match M.find name infix with
-    | None -> Option.(next >>= lookup_infix name)
-    | some -> some
+    let prefix token self =
+      let rec loop {prefix; next} =
+        match M.find token prefix with
+        | None -> Option.(next >>= loop)
+        | some -> some in
+      loop self or self.atom
+
+
+    let infix token self =
+      let rec loop {infix; next} =
+        match M.find token infix with
+        | None -> Option.(next >>= loop)
+        | some -> some in
+      loop self or self.form
+  end
+
+  and State : sig
+    type t = {
+      lexer   : Lexer.t;
+      grammar : Grammar.t;
+      token   : Token.t option;
+    }
+
+    include P.Input with type t := t
+                     and type item = Token.t
+
+    val init : grammar: Grammar.t -> lexer: Lexer.t -> unit -> t
+  end = struct
+    type t = {
+      lexer   : Lexer.t;
+      grammar : Grammar.t;
+      token   : Token.t option;
+    }
+
+    type item = Token.t
+
+
+    let current self = self.token
+
+
+    let advance self =
+      { self with token = Lexer.read self.lexer }
+
+
+    let init ~grammar ~lexer () =
+      { lexer; grammar; token = Lexer.read lexer }
+  end
+
+
+  and Parser : (P.Type with type token = Token.t
+                        and type state = State.t) = P.Make(Token)(State)
+
+  let (>>=) = Parser.(>>=)
+  let (>>)  = Parser.(>>)
+
+
+  let rec prefix precedence =
+    Parser.get >>= fun { State.grammar } ->
+    Parser.token >>= fun token ->
+
+    let parse = Grammar.prefix token grammar in
+    parse >>= fun left ->
+    infix precedence left
+
+
+  and infix rbp left =
+    Parser.get >>= fun { State.grammar } ->
+    Parser.token >>= fun token ->
+
+    let (parse, precedence) = Grammar.infix token grammar in
+    if precedence > rbp then
+      parse left >>= infix rbp
+    else
+      Parser.pure left
+
+
+  let expression =
+    prefix 0
+
+
+  let run parser ~grammar lexer =
+    let state = State.init ~grammar ~lexer () in
+    match Parser.run parser state with
+    | Ok (expr, _) -> Ok expr
+    | Error e -> Error (Parser.error_to_string e)
+
+
+  let parse ~grammar lexer =
+    run expression ~grammar lexer
+
+
+  let atom f =
+    Parser.token >>= fun token ->
+    Parser.advance >>= fun () ->
+    Parser.pure (f token)
+
+
+  let binary_infix precedence f =
+    let parse x =
+      Parser.advance >>= fun () ->
+      prefix precedence >>= fun y ->
+      Parser.pure (f x y) in
+    Grammar.Infix (parse, precedence)
+
+
+  let unary_prefix f =
+    let parse =
+      Parser.advance >>= fun () ->
+      expression >>= fun x ->
+      Parser.pure (f x) in
+    Grammar.Prefix parse
+
+
+  let unary_postfix precedence f =
+    let parse x =
+      Parser.advance >>= fun () ->
+      Parser.pure (f x) in
+    Grammar.Infix (parse, precedence)
+
+
+  let group e =
+    let parse =
+      Parser.advance >>= fun () ->
+      expression >>= fun x ->
+      Parser.consume e >>= fun () ->
+      Parser.pure x in
+    Grammar.Prefix parse
 end
 
 
-and State : sig
-  type t = {
-    lexer   : Lexer.t;
-    grammar : Grammar.t;
-    token   : Token.t option;
-  }
-
-  val grammar : t -> Grammar.t
-
-  include P.Input with type t := t
-                   and type item = Token.t
-
-  val init : ?grammar: Grammar.t -> lexer: Lexer.t -> unit -> t
-end = struct
-  type t = {
-    lexer   : Lexer.t;
-    grammar : Grammar.t;
-    token   : Token.t option;
-  }
-
-  let grammar self = self.grammar
-
-  type item = Token.t
 
 
-  let current self = self.token
-
-
-  let advance self =
-    { self with token = Lexer.read self.lexer }
-
-
-  let init ?(grammar = Grammar.empty) ~lexer () =
-    { lexer; grammar; token = Lexer.read lexer }
-end
-
-
-and Parser : (P.Type with type token = Token.t
-                      and type state = State.t) = P.Make(Token)(State)
-
-
-let (>>=) = Parser.(>>=)
-let (>>)  = Parser.(>>)
-
-
-let invalid_infix = fun _left ->
-  Parser.token >>= fun tok ->
-  Parser.error (Parser.With_message ("%s cannot be used in infix position" % Token.to_string tok))
-
-
-let invalid_prefix =
-  Parser.token >>= fun token ->
-  let msg = "%s cannot be used in prefix position" % Token.to_string token in
-  Parser.error (Parser.With_message msg)
-
-
-let default_prefix =
-  Parser.token >>= fun token ->
-  Parser.consume token >> lazy (Parser.pure (Expr.atom token))
-
-
-
-let rec juxtaposition =
-  let parser left =
-    prefix 90 >>= fun right ->
-    let form_list =
-      match left with
-      | Form xs -> List.append xs [right]
-      | atom    -> [atom; right] in
-    Parser.pure (Form form_list) in
-  (parser, 90)
-
-
-and lookup_default_infix name =
-  let binary_infix token precedence =
-    fun x -> Parser.consume token >> lazy begin
-        prefix precedence >>= fun y -> Parser.pure (Form [Atom token; x; y])
-      end in
-  let precedence = Precedence.lookup name in
-  match precedence with
-  | Some p -> Some (binary_infix (Symbol name) p, p)
-  | None -> None
-
-and infix rbp left =
-  Parser.get >>= fun { State.grammar } ->
-  Parser.token >>= fun token ->
-
-  let name = Token.to_string token in
-
-  let (parser, lbp) =
-    Grammar.lookup_infix name grammar
-    or (lookup_default_infix name)
-    or juxtaposition in
-
-  (* print (" infix: tok = %s, rbp = %d, lbp = %d, left = %s" % (name, rbp, lbp, Expr.to_string left)); *)
-  if lbp > rbp then
-    parser left >>= infix rbp
-  else
-    Parser.pure left
-
-
-and prefix precedence =
-  Parser.get >>= fun { State.grammar } ->
-  Parser.token >>= fun token ->
-
-  let name = Token.to_string token in
-
-  let parser = Grammar.lookup_prefix name grammar or default_prefix in
-  (* print ("prefix: tok = %s, rbp = %d" % (name, precedence)); *)
-  parser >>= fun left ->
-  infix precedence left
-
-
-let expression = prefix 0
-
-
-let run parser ?grammar lexer =
-  let state = State.init ?grammar ~lexer () in
-  match Parser.run parser state with
-  | Ok (expr, state') -> Ok expr
-  | Error e -> Error (Parser.error_to_string e)
-
-
-let parse ?grammar lexer =
-  run expression ?grammar lexer
 

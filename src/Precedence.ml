@@ -1,4 +1,6 @@
 
+module Token = Lex.Token
+
 let delimiter   =  0
 let keyword     =  1
 let assignment  = 10
@@ -12,8 +14,8 @@ let call        = 80
 let group       = 80
 let terminal    = 90
 
-let lookup name =
-  match name with
+let lookup token =
+  match Token.to_string token with
   (* Match atomic symbols. *)
   | "__eof__" -> Some delimiter
   | ";" -> Some 20
