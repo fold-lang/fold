@@ -196,7 +196,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     let parse _ = Parser.error (Parser.With_message "unexpected delimiter") in
     Grammar.Infix (parse, 0)
 
-  let binary_infix precedence f =
+  let infix precedence f =
     let parse x =
       Parser.advance >>= fun () ->
       prefix precedence >>= fun y ->
@@ -204,7 +204,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     Grammar.Infix (parse, precedence)
 
 
-  let unary_prefix f =
+  let prefix f =
     let parse =
       Parser.advance >>= fun () ->
       expression >>= fun x ->
@@ -212,7 +212,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     Grammar.Prefix parse
 
 
-  let unary_postfix precedence f =
+  let postfix precedence f =
     let parse x =
       Parser.advance >>= fun () ->
       Parser.pure (f x) in
