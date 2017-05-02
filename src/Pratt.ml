@@ -204,6 +204,14 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     Grammar.Infix (parse, precedence)
 
 
+  let infixr precedence f =
+    let parse x =
+      Parser.advance >>= fun () ->
+      prefix (precedence - 1) >>= fun y ->
+      Parser.pure (f x y) in
+    Grammar.Infix (parse, precedence)
+
+
   let prefix f =
     let parse =
       Parser.advance >>= fun () ->
