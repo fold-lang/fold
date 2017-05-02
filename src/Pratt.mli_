@@ -19,10 +19,6 @@ module rec Grammar : sig
   val empty : t
   (** [empty] is a grammar without any rule definitions. *)
 
-  val invalid_infix  : expr -> expr Parser.t
-
-  val invalid_prefix : expr Parser.t
-
   val define_prefix : string -> prefix -> t -> t
   (** [define_prefix name rule g] defines a new prefix [rule] with [name]. *)
 

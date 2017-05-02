@@ -33,17 +33,18 @@ let scope = [
   Symbol "+", binary_infix 30 (fun x y -> x + y);
   Symbol "*", binary_infix 40 (fun x y -> x * y);
   Symbol "/", binary_infix 40 (fun x y -> x / y);
-  Symbol "(", group (Symbol ")")
+  Symbol "(", group (Symbol ")");
+  Symbol ")", delimiter;
 ]
 
-let number =
-  atom (function
-  | Int n -> n
-  | token -> fail ("unsupported atom: %s" % (Token.to_string token)))
+
+let atom = function
+  | Int n -> singleton n
+  | token -> Grammar.invalid_prefix token
 
 
 let grammar =
-  Grammar.init ~atom:number scope
+  Grammar.init ~atom scope
 
 let (=>) =
   test grammar
@@ -55,13 +56,15 @@ let () =
   "2 + 2"       => Ok 4;
   "2 + -2"      => Ok 0;
   "2 + 2 * 2"   => Ok 6;
-  "(2 + 2) * 2" => Ok 8
+  "(2 + 2) * 2" => Ok 8;
 
+  "- - - - - 1" => Ok (-1);
+  "(((((0)))))" => Ok 0;
 
-
-
-
-
-
-
+  "x"           => Error "x cannot be used in prefix position";
+  "()"          => Error "() cannot be used in prefix position";
+  "2 +"         => Error "unexpected end of file";
+  "2 1"         => Error "1 cannot be used in infix position";
+  "2 * 2 0"     => Error "0 cannot be used in infix position";
+  "/ 2"         => Error "/ cannot be used in prefix position";
 

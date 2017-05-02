@@ -2,6 +2,12 @@ open Pure
 open Syntax
 open Lex
 
+let debug = ref false
+
+let log =
+  let ignore ?file ?terminator ?flush x = () in
+  if !debug then print else ignore
+
 
 module M = struct
   include Map.Make(Token)
@@ -13,7 +19,7 @@ end
 module P = Parser
 
 
-module Make(Expr : Pure.Type) = struct
+module Make(Expr : sig type t val to_string : t -> string end) = struct
 
   module rec Grammar : sig
     type t
@@ -25,12 +31,16 @@ module Make(Expr : Pure.Type) = struct
       | Prefix of prefix
       | Infix of infix
 
-    val init : atom: prefix -> ?form: infix -> (Token.t * rule) list -> t
+    val init : atom: (Token.t -> prefix) -> ?form: (Token.t -> infix) -> (Token.t * rule) list -> t
 
     val define : Token.t -> rule -> t -> t
 
     val prefix : Token.t -> t -> prefix
     val infix  : Token.t -> t -> infix
+
+    val invalid_infix  : ?lbp: int -> Token.t -> infix
+    val invalid_prefix : Token.t -> prefix
+
   end = struct
     type prefix = Expr.t Parser.t
     type infix  = (Expr.t -> Expr.t Parser.t) * int
@@ -43,20 +53,22 @@ module Make(Expr : Pure.Type) = struct
       prefix : prefix M.t;
       infix  : infix  M.t;
       next   : t option;
-      atom   : prefix;
-      form   : infix;
+      atom   : Token.t -> prefix;
+      form   : Token.t -> infix;
     }
 
 
-    let invalid_infix token =
+    let invalid_infix ?(lbp = 0) token =
       let parse left =
         let msg = "%s cannot be used in infix position" % Token.to_string token in
         Parser.(error (With_message msg)) in
-      (parse, 0)
+      (parse, lbp)
 
 
     let invalid_prefix token =
-      let msg = "%s cannot be used in prefix position" % Token.to_string token in
+      let msg = if token = Lex.eof
+        then "unexpected end of file"
+        else "%s cannot be used in prefix position" % Token.to_string token in
       Parser.(error (With_message msg))
 
 
@@ -72,7 +84,7 @@ module Make(Expr : Pure.Type) = struct
         infix  = M.empty;
         next   = None;
         atom;
-        form   = invalid_infix  (Symbol "__xxx__");
+        form   = fun tok -> invalid_infix ~lbp:90 tok;
       } in
       List.fold_left
         (fun self (token, rule) -> define token rule self)
@@ -80,7 +92,7 @@ module Make(Expr : Pure.Type) = struct
         empty
         scope
       |> define Lex.eof (Prefix (invalid_prefix Lex.eof))
-      |> define Lex.eof (Infix  (invalid_infix Lex.eof))
+      |> define Lex.eof (Infix  (invalid_infix  Lex.eof))
 
 
     let prefix token self =
@@ -88,7 +100,7 @@ module Make(Expr : Pure.Type) = struct
         match M.find token prefix with
         | None -> Option.(next >>= loop)
         | some -> some in
-      loop self or self.atom
+      loop self or self.atom token
 
 
     let infix token self =
@@ -96,7 +108,7 @@ module Make(Expr : Pure.Type) = struct
         match M.find token infix with
         | None -> Option.(next >>= loop)
         | some -> some in
-      loop self or self.form
+      loop self or self.form token
   end
 
   and State : sig
@@ -139,21 +151,23 @@ module Make(Expr : Pure.Type) = struct
   let (>>)  = Parser.(>>)
 
 
-  let rec prefix precedence =
+  let rec prefix rbp =
     Parser.get >>= fun { State.grammar } ->
     Parser.token >>= fun token ->
 
     let parse = Grammar.prefix token grammar in
+    log ("nud: tok = %s, rbp = %d" % (Token.to_string token, rbp));
     parse >>= fun left ->
-    infix precedence left
+    infix rbp left
 
 
   and infix rbp left =
     Parser.get >>= fun { State.grammar } ->
     Parser.token >>= fun token ->
 
-    let (parse, precedence) = Grammar.infix token grammar in
-    if precedence > rbp then
+    let (parse, lbp) = Grammar.infix token grammar in
+    log ("led: tok = %s, rbp = %d, lbp = %d, left = %s" % (Token.to_string token, rbp, lbp, Expr.to_string left));
+    if lbp > rbp then
       parse left >>= infix rbp
     else
       Parser.pure left
@@ -174,11 +188,13 @@ module Make(Expr : Pure.Type) = struct
     run expression ~grammar lexer
 
 
-  let atom f =
-    Parser.token >>= fun token ->
+  let singleton x =
     Parser.advance >>= fun () ->
-    Parser.pure (f token)
+    Parser.pure x
 
+  let delimiter =
+    let parse _ = Parser.error (Parser.With_message "unexpected delimiter") in
+    Grammar.Infix (parse, 0)
 
   let binary_infix precedence f =
     let parse x =
