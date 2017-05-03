@@ -35,14 +35,12 @@ let test grammar input expected =
     print ("  - Actual:   %s" % C.red (show actual))
   end
 
-  (* XXX infixr *)
 
-let scope = [
+let scope = Rule.[
   Symbol "+", prefix     (fun x -> +x);
   Symbol "+", infix   30 (fun x y -> x + y);
   Symbol "-", prefix     (fun x -> -x);
   Symbol "-", infix   30 (fun x y -> x - y);
-  Symbol "+", infix   30 (fun x y -> x + y);
   Symbol "*", infix   40 (fun x y -> x * y);
   Symbol "/", infix   40 (fun x y -> x / y);
   Symbol "^", infixr  50 Int.pow;
@@ -52,7 +50,7 @@ let scope = [
 ]
 
 let atom = function
-  | Int n -> singleton n
+  | Int n -> Rule.singleton n
   | token -> Grammar.invalid_prefix token
 
 

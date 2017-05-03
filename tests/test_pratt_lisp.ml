@@ -1,16 +1,13 @@
 
 open Pure
 open Fold
-open Fold.Pratt
 open Fold.Lex
 open Fold.Syntax
 
-module Grammar = Fold.Pratt.Grammar
 module C = Colors
 
-
-let (>>=) = Parser.(>>=)
-let (>>)  = Parser.(>>)
+module Pratt = Pratt.Make(Expr)
+open Pratt
 
 
 let show = function
@@ -32,6 +29,30 @@ let test grammar input expected =
   end
 
 
+(* Grammar definition *)
+
+let juxtaposition tok =
+  let precedence = 90 in
+  let parse x =
+    Pratt.prefix precedence >>= fun y ->
+    let list =
+      match x with
+      | Form xs -> List.append xs [y]
+      | atom    -> [atom; y] in
+    Parser.pure (Form list) in
+  (parse, precedence)
+
+
+let grammar =
+  let open Rule in
+  Grammar.init [
+    Symbol "(", group (Symbol ")");
+    Symbol ")", delimiter;
+  ]
+  ~atom:(fun x -> singleton (Atom x))
+  ~form:juxtaposition
+
+
 (* Some helper definitions *)
 
 let x, y, z =
@@ -48,43 +69,18 @@ let f1, f2, f3 =
   (fun x y z -> Form [Atom (Symbol "f"); x; y; z])
 
 
-(* Definitions *)
-
-let group s e =
-  Parser.consume (Symbol s) >>
-  lazy (Pratt.expression >>= fun expr ->
-        Parser.consume (Symbol e) >> lazy (Parser.pure expr))
-
-let grammar =
-  Grammar.empty
-  |> Grammar.define_prefix "("       (group "(" ")")
-  |> Grammar.define_prefix ")"        Pratt.invalid_prefix
-  |> Grammar.define_infix  ")"       (Pratt.invalid_infix, 0)
-
-  |> Grammar.define_prefix "__EOF__"  Pratt.invalid_prefix
-  |> Grammar.define_infix  "__EOF__" (Pratt.invalid_infix, 0)
-
-
-(* Tests *)
-
 let (=>) = test grammar
 
+let () =
+  "0"                                  => Ok (Atom (Int 0));
+  "-42"                                => Ok (Form [Atom (Symbol "-"); Atom (Int 42)]);
 
-let () = begin
-  print ("-- %s" % C.bright_blue "Testing Fold.Pratt...");
-  "x" => Ok x;
-  "42" => Ok i42;
-  "3.14" => Ok f3_14;
-  "True" => Ok bT;
+  "f x"                                => Ok (f1 x);
+  "f x y z"                            => Ok (f3 x y z);
+  "f True 42 3.14"                     => Ok (f3 bT i42 f3_14);
 
-  "f x" => Ok (f1 x);
-  "f x y z" => Ok (f3 x y z);
-  "f True 42 3.14" => Ok (f3 bT i42 f3_14);
-
-  "(x)" => Ok x;
-  "f (f x)" => Ok (f1 (f1 x));
+  "(x)"                                => Ok x;
+  "f (f x)"                            => Ok (f1 (f1 x));
   "f 42 (f (f (True) 3.14) x (f x y))" => Ok (f2 i42 (f3 (f2 bT f3_14) x (f2 x y)));
-  print ""
-end
-
+  "(((((0)))))"                        => Ok (Atom (Int 0))
 

@@ -21,18 +21,6 @@ let atom token =
   Parser.pure (Expr.atom token)
 
 
-let form =
-  let precedence = 90 in
-  let parse left =
-    Pratt.prefix precedence >>= fun right ->
-    let list =
-      match left with
-      | Form xs -> List.append xs [right]
-      | atom    -> [atom; right] in
-    Parser.pure (Form list) in
-  (parse, precedence)
-
-
 let binary_infix token precedence =
   let parse left =
     Parser.consume token >>= fun () ->

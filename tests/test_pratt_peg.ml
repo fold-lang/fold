@@ -1,28 +1,28 @@
 
+module C = Colors
+
 open Pure
 open Fold
-open Fold.Pratt
 open Fold.Lex
 open Fold.Syntax
 
-module Grammar = Fold.Pratt.Grammar
-module C = Colors
+module Pratt   = Pratt.Make(Expr)
+module Grammar = Pratt.Grammar
 
 
-let (>>=) = Parser.(>>=)
-let (>>)  = Parser.(>>)
+open Pratt
 
 
 let show = function
-  | Ok x -> Expr.to_string x
+  | Ok xs -> "[" ^ String.concat "; " (List.map Expr.to_string xs) ^ "]"
   | Error e -> e
-
 
 (* Testing function *)
 
-let test grammar input expected =
-  let lexer = Lexer.from_string input in
-  let actual = Pratt.parse ~grammar lexer in
+let test grammar peg input expected =
+  (* print ("peg = %s" % PEG.to_string peg); *)
+  let parser = PEG.to_pratt peg in
+  let actual = Pratt.run parser ~grammar (Lexer.from_string input) in
   if actual = expected then
     print ("%s %s" % (C.bright_green "✓", C.bright_white input))
   else begin
@@ -32,51 +32,70 @@ let test grammar input expected =
   end
 
 
-(* Some helper definitions *)
+open Syntax.Expr
 
-let x, y, z =
-  let s = fun x -> Atom (Symbol x) in
-  s "x", s "y", s "z"
+let juxtaposition tok =
+  let precedence = 90 in
+  let parse x =
+    Pratt.prefix precedence >>= fun y ->
+    let list =
+      match x with
+      | Form xs -> List.append xs [y]
+      | atom    -> [atom; y] in
+    Parser.pure (Form list) in
+  (parse, precedence)
 
-let i42, i0, i1, f3_14, bT =
-  let a = fun x -> Atom x in
-  a (Int 42), a (Int 0), a (Int 1), a (Float 3.14), a (Bool true)
-
-let f1, f2, f3 =
-  (fun x     -> Form [Atom (Symbol "f"); x]),
-  (fun x y   -> Form [Atom (Symbol "f"); x; y]),
-  (fun x y z -> Form [Atom (Symbol "f"); x; y; z])
-
-
-(* Definitions *)
-
-let group s e =
-  Parser.consume (Symbol s) >>
-  lazy (Pratt.expression >>= fun expr ->
-        Parser.consume (Symbol e) >> lazy (Parser.pure expr))
 
 let grammar =
-  Grammar.empty
-  |> Grammar.define_prefix "("       (group "(" ")")
-
-  |> Lang.define_delimiter ")"
-  |> Lang.define_delimiter "__EOF__"
-
-
-let plus_rule input =
-  let open PEG.DSL in
-  let peg = seq [t "let"; n "a"; t "="; n "b"] in
-  let parser = PEG.to_pratt peg in
-  let state = Pratt.State.init ~grammar ~lexer:(Lexer.from_string input) () in
-  print ("peg = %s" % PEG.to_string peg);
-  match Parser.run parser state with
-  | Ok (r, _) -> Fmt.pr "Ok: [%s]\n" (String.concat ", " (List.map Expr.to_string r))
-  | Error e -> Fmt.pr "Error: %s\n" (Parser.error_to_string e)
+  let open Rule in
+  Grammar.init [
+    Symbol "==", infix   10 (fun x y -> form [symbol "=="; x; y]);
+    Symbol "!=", infix   10 (fun x y -> form [symbol "!="; x; y]);
+    Symbol "+",  prefix     (fun x   -> form [symbol "+"; x]);
+    Symbol "+",  infix   30 (fun x y -> form [symbol "+"; x; y]);
+    Symbol "-",  prefix     (fun x   -> form [symbol "+"; x]);
+    Symbol "-",  infix   30 (fun x y -> form [symbol "-"; x; y]);
+    Symbol "*",  infix   40 (fun x y -> form [symbol "*"; x; y]);
+    Symbol "/",  infix   40 (fun x y -> form [symbol "/"; x; y]);
+    Symbol "(",  group (Symbol ")");
+    Symbol ")",  delimiter;
+  ]
+  ~atom:(fun x -> singleton (Atom x))
+  ~form:juxtaposition
 
 
 let () =
-  plus_rule "let result = 42"
+  let open PEG.DSL in
 
+  let (=>) = test grammar (seq [term "let"; expr "a"; term "="; expr "b"]) in
+  "let x = 0"     => Ok [symbol "x"; int 0];
+  "let x = 2 + 2" => Ok [symbol "x"; form [symbol "+"; int 2; int 2]];
+
+
+  let (=>) = test grammar (seq [term "if"; expr "t"; term "then"; expr "a"; term "else"; expr "b"])  in
+  {|
+    if True then
+      'x'
+    else
+      'y'
+  |} => Ok [bool true; char 'x'; char 'y'];
+
+  {|
+    if x - 1 == 0 then
+      print "yes!"
+    else
+      print "no!"
+  |} => Ok [form [symbol "=="; form [symbol "-"; symbol "x"; int 1]; int 0];
+            form [symbol "print"; string "yes!"]; form [symbol "print"; string "no!"]];
+
+
+  let (=>) = test grammar (seq [term "while"; expr "t"; term "do"; expr "a"; term "end"])  in
+  {|
+    while x / 2 != 0 do
+      print "Hello, world!"
+    end
+  |} => Ok [form [symbol "!="; form [symbol "/"; symbol "x"; int 2]; int 0];
+            form [symbol "print"; string "Hello, world!"]]
 
 
 

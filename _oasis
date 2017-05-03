@@ -49,9 +49,9 @@ Executable test_parser
 
 
 
-Executable test_lang_gratt
+Executable test_pratt_calc
   Path:           tests/
-  MainIs:         test_lang_pratt.ml
+  MainIs:         test_pratt_calc.ml
   ByteOpt:        -g
   CompiledObject: byte
   BuildDepends:   fold,
@@ -59,32 +59,32 @@ Executable test_lang_gratt
                   fmt
 
 
-# Executable test_pratt
-#   Path:           tests/
-#   MainIs:         test_pratt.ml
-#   ByteOpt:        -g
-#   CompiledObject: byte
-#   BuildDepends:   fold,
-#                   pure,
-#                   fmt
+Executable test_pratt_lisp
+  Path:           tests/
+  MainIs:         test_pratt_lisp.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure,
+                  fmt
 
 
-# Executable test_peg
-#   Path:           tests/
-#   MainIs:         test_peg.ml
-#   ByteOpt:        -g
-#   CompiledObject: byte
-#   BuildDepends:   fold,
-#                   pure,
-#                   fmt
+Executable test_peg
+  Path:           tests/
+  MainIs:         test_peg.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure,
+                  fmt
 
 
-# Executable test_pratt_peg
-#   Path:           tests/
-#   MainIs:         test_pratt_peg.ml
-#   ByteOpt:        -g
-#   CompiledObject: byte
-#   BuildDepends:   fold,
-#                   pure,
-#                   fmt
+Executable test_pratt_peg
+  Path:           tests/
+  MainIs:         test_pratt_peg.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure,
+                  fmt
 

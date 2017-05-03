@@ -79,12 +79,12 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
 
 
     let init ~atom ?form scope =
+      let form = form or fun tok -> invalid_infix ~lbp:90 tok in
       let empty = {
         prefix = M.empty;
         infix  = M.empty;
         next   = None;
-        atom;
-        form   = fun tok -> invalid_infix ~lbp:90 tok;
+        atom; form;
       } in
       List.fold_left
         (fun self (token, rule) -> define token rule self)
@@ -188,52 +188,56 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     run expression ~grammar lexer
 
 
-  let singleton x =
-    Parser.advance >>= fun () ->
-    Parser.pure x
-
-  let delimiter =
-    let parse _ = Parser.error (Parser.With_message "unexpected delimiter") in
-    Grammar.Infix (parse, 0)
-
-  let infix precedence f =
-    let parse x =
+  module Rule = struct
+    let singleton x =
       Parser.advance >>= fun () ->
-      prefix precedence >>= fun y ->
-      Parser.pure (f x y) in
-    Grammar.Infix (parse, precedence)
+      Parser.pure x
 
 
-  let infixr precedence f =
-    let parse x =
-      Parser.advance >>= fun () ->
-      prefix (precedence - 1) >>= fun y ->
-      Parser.pure (f x y) in
-    Grammar.Infix (parse, precedence)
+    let delimiter =
+      let parse _ = Parser.error (Parser.With_message "unexpected delimiter") in
+      Grammar.Infix (parse, 0)
 
 
-  let prefix f =
-    let parse =
-      Parser.advance >>= fun () ->
-      expression >>= fun x ->
-      Parser.pure (f x) in
-    Grammar.Prefix parse
+    let infix precedence f =
+      let parse x =
+        Parser.advance >>= fun () ->
+        prefix precedence >>= fun y ->
+        Parser.pure (f x y) in
+      Grammar.Infix (parse, precedence)
 
 
-  let postfix precedence f =
-    let parse x =
-      Parser.advance >>= fun () ->
-      Parser.pure (f x) in
-    Grammar.Infix (parse, precedence)
+    let infixr precedence f =
+      let parse x =
+        Parser.advance >>= fun () ->
+        prefix (precedence - 1) >>= fun y ->
+        Parser.pure (f x y) in
+      Grammar.Infix (parse, precedence)
 
 
-  let group e =
-    let parse =
-      Parser.advance >>= fun () ->
-      expression >>= fun x ->
-      Parser.consume e >>= fun () ->
-      Parser.pure x in
-    Grammar.Prefix parse
+    let prefix f =
+      let parse =
+        Parser.advance >>= fun () ->
+        expression >>= fun x ->
+        Parser.pure (f x) in
+      Grammar.Prefix parse
+
+
+    let postfix precedence f =
+      let parse x =
+        Parser.advance >>= fun () ->
+        Parser.pure (f x) in
+      Grammar.Infix (parse, precedence)
+
+
+    let group e =
+      let parse =
+        Parser.advance >>= fun () ->
+        expression >>= fun x ->
+        Parser.consume e >>= fun () ->
+        Parser.pure x in
+      Grammar.Prefix parse
+  end
 end
 
 
