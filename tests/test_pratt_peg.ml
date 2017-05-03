@@ -9,30 +9,8 @@ open Fold.Syntax
 module Pratt   = Pratt.Make(Expr)
 module Grammar = Pratt.Grammar
 
-
 open Pratt
 
-
-let show = function
-  | Ok xs -> "[" ^ String.concat "; " (List.map Expr.to_string xs) ^ "]"
-  | Error e -> e
-
-(* Testing function *)
-
-let test grammar peg input expected =
-  (* print ("peg = %s" % PEG.to_string peg); *)
-  let parser = PEG.to_pratt peg in
-  let actual = Pratt.run parser ~grammar (Lexer.from_string input) in
-  if actual = expected then
-    print ("%s %s" % (C.bright_green "✓", C.bright_white input))
-  else begin
-    print ("%s %s" % (C.bright_red "✗", C.bright_white input));
-    print ("  - Expected: %s" % C.green (show expected));
-    print ("  - Actual:   %s" % C.red (show actual))
-  end
-
-
-open Syntax.Expr
 
 let juxtaposition tok =
   let precedence = 90 in
@@ -48,6 +26,7 @@ let juxtaposition tok =
 
 let grammar =
   let open Rule in
+  let open Syntax.Expr in
   Grammar.init [
     Symbol "==", infix   10 (fun x y -> form [symbol "=="; x; y]);
     Symbol "!=", infix   10 (fun x y -> form [symbol "!="; x; y]);
@@ -64,39 +43,55 @@ let grammar =
   ~form:juxtaposition
 
 
+let parse peg input =
+  let p = PEG.to_pratt peg in
+  Pratt.run p ~grammar (Lexer.from_string input)
+
+
+let test peg input expected =
+  Test.(test (result (list (module Expr)) string))
+  input (parse peg input) expected
+
+
 let () =
   let open PEG.DSL in
+  let open Expr in
 
-  let (=>) = test grammar (seq [term "let"; expr "a"; term "="; expr "b"]) in
-  "let x = 0"     => Ok [symbol "x"; int 0];
-  "let x = 2 + 2" => Ok [symbol "x"; form [symbol "+"; int 2; int 2]];
+  let (=>) = test (seq [term "let"; expr "a"; term "="; expr "b"]) in
+  Test.group "Lex-expression" [
+    "let x = 0" => Ok [symbol "x"; int 0];
+    "let x = 2 + 2" => Ok [symbol "x"; form [symbol "+"; int 2; int 2]];
+  ];
 
-
-  let (=>) = test grammar (seq [term "if"; expr "t"; term "then"; expr "a"; term "else"; expr "b"])  in
-  {|
-    if True then
+  let (=>) = test (seq [term "if"; expr "t"; term "then"; expr "a"; term "else"; expr "b"]) in
+  Test.group "If-expression" [
+    {|if True then
       'x'
     else
       'y'
-  |} => Ok [bool true; char 'x'; char 'y'];
+    |} => Ok [bool true; char 'x'; char 'y'];
 
-  {|
-    if x - 1 == 0 then
+    {|if x - 1 == 0 then
       print "yes!"
     else
       print "no!"
-  |} => Ok [form [symbol "=="; form [symbol "-"; symbol "x"; int 1]; int 0];
-            form [symbol "print"; string "yes!"]; form [symbol "print"; string "no!"]];
+    |} => Ok [form [symbol "=="; form [symbol "-"; symbol "x"; int 1]; int 0];
+              form [symbol "print"; string "yes!"]; form [symbol "print"; string "no!"]];
+  ];
 
-
-  let (=>) = test grammar (seq [term "while"; expr "t"; term "do"; expr "a"; term "end"])  in
-  {|
-    while x / 2 != 0 do
+  let (=>) = test (seq [term "while"; expr "t"; term "do"; expr "a"; term "end"]) in
+  Test.group "While-expression" [
+    {|while x / 2 != 0 do
       print "Hello, world!"
     end
-  |} => Ok [form [symbol "!="; form [symbol "/"; symbol "x"; int 2]; int 0];
-            form [symbol "print"; string "Hello, world!"]]
+    |} => Ok [form [symbol "!="; form [symbol "/"; symbol "x"; int 2]; int 0];
+              form [symbol "print"; string "Hello, world!"]];
+  ];
 
+  let (=>) = test (seq [expr "patt"; term "as"; expr "name"])  in
+  Test.group "As-pattern" [
+    "True + 1 as flag" => Ok []
+  ]
 
 
 

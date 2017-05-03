@@ -10,25 +10,6 @@ module Pratt = Pratt.Make(Expr)
 open Pratt
 
 
-let show = function
-  | Ok x -> Expr.to_string x
-  | Error e -> e
-
-
-(* Testing function *)
-
-let test grammar input expected =
-  let lexer = Lexer.from_string input in
-  let actual = Pratt.parse ~grammar lexer in
-  if actual = expected then
-    print ("%s %s" % (C.bright_green "✓", C.bright_white input))
-  else begin
-    print ("%s %s" % (C.bright_red "✗", C.bright_white input));
-    print ("  - Expected: %s" % C.green (show expected));
-    print ("  - Actual:   %s" % C.red (show actual))
-  end
-
-
 (* Grammar definition *)
 
 let juxtaposition tok =
@@ -69,18 +50,28 @@ let f1, f2, f3 =
   (fun x y z -> Form [Atom (Symbol "f"); x; y; z])
 
 
-let (=>) = test grammar
+let (=>) input expected =
+  Test.(test (result (module Expr) string))
+  input (Pratt.parse ~grammar (Lexer.from_string input)) expected
 
 let () =
-  "0"                                  => Ok (Atom (Int 0));
-  "-42"                                => Ok (Form [Atom (Symbol "-"); Atom (Int 42)]);
+  Test.group "Atoms" [
+    "0"                                  => Ok (Atom (Int 0));
+    "x"                                  => Ok (Atom (Symbol "x"));
+    "True"                               => Ok (Atom (Bool true));
+  ];
 
-  "f x"                                => Ok (f1 x);
-  "f x y z"                            => Ok (f3 x y z);
-  "f True 42 3.14"                     => Ok (f3 bT i42 f3_14);
+  Test.group "Forms" [
+    "-42"                                => Ok (Form [Atom (Symbol "-"); Atom (Int 42)]);
+    "f x"                                => Ok (f1 x);
+    "f x y z"                            => Ok (f3 x y z);
+    "f True 42 3.14"                     => Ok (f3 bT i42 f3_14);
+    "f 42 (f (f (True) 3.14) x (f x y))" => Ok (f2 i42 (f3 (f2 bT f3_14) x (f2 x y)));
+  ];
 
-  "(x)"                                => Ok x;
-  "f (f x)"                            => Ok (f1 (f1 x));
-  "f 42 (f (f (True) 3.14) x (f x y))" => Ok (f2 i42 (f3 (f2 bT f3_14) x (f2 x y)));
-  "(((((0)))))"                        => Ok (Atom (Int 0))
+  Test.group "Weird" [
+    "(x)"                                => Ok x;
+    "f (f x)"                            => Ok (f1 (f1 x));
+    "(((((0)))))"                        => Ok (Atom (Int 0));
+  ]
 

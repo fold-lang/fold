@@ -44,6 +44,7 @@ Executable test_parser
   ByteOpt:        -g
   CompiledObject: byte
   BuildDepends:   fold,
+                  unix,
                   pure,
                   fmt
 
@@ -56,6 +57,7 @@ Executable test_pratt_calc
   CompiledObject: byte
   BuildDepends:   fold,
                   pure,
+                  unix,
                   fmt
 
 
@@ -65,6 +67,7 @@ Executable test_pratt_lisp
   ByteOpt:        -g
   CompiledObject: byte
   BuildDepends:   fold,
+                  unix,
                   pure,
                   fmt
 
@@ -76,6 +79,7 @@ Executable test_peg
   CompiledObject: byte
   BuildDepends:   fold,
                   pure,
+                  unix,
                   fmt
 
 
@@ -86,5 +90,7 @@ Executable test_pratt_peg
   CompiledObject: byte
   BuildDepends:   fold,
                   pure,
+                  unix,
+                  ppx_format,
                   fmt
 
