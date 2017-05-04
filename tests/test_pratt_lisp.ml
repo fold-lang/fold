@@ -51,27 +51,27 @@ let f1, f2, f3 =
 
 
 let (=>) input expected =
-  Test.(test (result (module Expr) string))
+  Test.(test (result (list (module Expr)) string))
   input (Pratt.parse ~grammar (Lexer.from_string input)) expected
 
 let () =
   Test.group "Atoms" [
-    "0"                                  => Ok (Atom (Int 0));
-    "x"                                  => Ok (Atom (Symbol "x"));
-    "True"                               => Ok (Atom (Bool true));
+    "0"                                  => Ok [Atom (Int 0)];
+    "x"                                  => Ok [Atom (Symbol "x")];
+    "True"                               => Ok [Atom (Bool true)];
   ];
 
   Test.group "Forms" [
-    "-42"                                => Ok (Form [Atom (Symbol "-"); Atom (Int 42)]);
-    "f x"                                => Ok (f1 x);
-    "f x y z"                            => Ok (f3 x y z);
-    "f True 42 3.14"                     => Ok (f3 bT i42 f3_14);
-    "f 42 (f (f (True) 3.14) x (f x y))" => Ok (f2 i42 (f3 (f2 bT f3_14) x (f2 x y)));
+    "-42"                                => Ok [Form [Atom (Symbol "-"); Atom (Int 42)]];
+    "f x"                                => Ok [f1 x];
+    "f x y z"                            => Ok [f3 x y z];
+    "f True 42 3.14"                     => Ok [f3 bT i42 f3_14];
+    "f 42 (f (f (True) 3.14) x (f x y))" => Ok [f2 i42 (f3 (f2 bT f3_14) x (f2 x y))];
   ];
 
   Test.group "Weird" [
-    "(x)"                                => Ok x;
-    "f (f x)"                            => Ok (f1 (f1 x));
-    "(((((0)))))"                        => Ok (Atom (Int 0));
+    "(x)"                                => Ok [x];
+    "f (f x)"                            => Ok [f1 (f1 x)];
+    "(((((0)))))"                        => Ok [Atom (Int 0)];
   ]
 

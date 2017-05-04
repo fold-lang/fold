@@ -94,3 +94,15 @@ Executable test_pratt_peg
                   ppx_format,
                   fmt
 
+
+Executable test_pratt_top
+  Path:           tests/
+  MainIs:         test_pratt_top.ml
+  ByteOpt:        -g
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure,
+                  unix,
+                  ppx_format,
+                  fmt
+

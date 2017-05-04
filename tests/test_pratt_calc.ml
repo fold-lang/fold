@@ -42,7 +42,7 @@ let grammar = Grammar.init ~atom scope
 
 let (=>) input expected =
   Test.(test (result (module Int) string))
-  input (Pratt.parse ~grammar (Lexer.from_string input)) expected
+  input (Pratt.(run expression) ~grammar (Lexer.from_string input)) expected
 
 let () =
   Test.group "Math" [

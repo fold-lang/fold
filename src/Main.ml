@@ -4,39 +4,24 @@ open Pure
 open Fold
 open Fold.Lex
 open Fold.Syntax
-open Fold.Pratt
-
-module Pratt = Pratt.Make(Expr)
-module Grammar = Pratt.Grammar
-module Parser = Pratt.Parser
-
-let (>>=) = Pratt.Parser.(>>=)
-let (>>)  = Pratt.Parser.(>>)
 
 
-let group s e =
-  Parser.consume (Symbol s) >>
-  lazy (Pratt.expression >>= fun expr ->
-        Parser.consume (Symbol e) >> lazy (Parser.pure expr))
-
-(* let grammar = *)
-  (* Grammar.empty *)
-  (* |> Grammar.define_prefix "("       (group "(" ")") *)
-
-  (* |> Lang.define_delimiter ")" *)
-  (* |> Lang.define_delimiter "__eof__" *)
 
 
-(* let () = *)
-(*   let rec loop () = *)
-(*     print ~terminator:"" "-> "; *)
-(*     match Pratt.parse ~grammar (Lexer.from_string (read_line ())) with *)
-(*     | Ok expr -> *)
-(*       print (" = " ^ Expr.to_string expr); *)
-(*       loop () *)
+let () =
+  let rec loop grammar =
+    print ~terminator:"" "-> ";
+    let lexer = Lexer.from_string (read_line ()) in
+    match Lang.Pratt.parse ~grammar lexer with
+    | Ok xs ->
+      List.fold_left (fun g expr ->
+        let g, value = Eval.eval grammar expr in
+        print (" = " ^ Expr.to_string value);
+        g) grammar xs
+      |> loop
 
-(*     | Error msg -> *)
-(*       print (" * " ^ msg) *)
-(*   in *)
-(*     loop () *)
+    | Error msg ->
+      print (" * " ^ msg)
+  in
+    loop Lang.grammar
 

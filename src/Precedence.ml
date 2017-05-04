@@ -19,6 +19,7 @@ let lookup token =
   (* Match atomic symbols. *)
   | "__eof__" -> Some delimiter
   | ";" -> Some 20
+  | "!=" -> Some assignment
   (* Match symbols that can start an operator. *)
   | str ->
     begin match str.[0] with

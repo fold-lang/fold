@@ -30,8 +30,8 @@ let test ty msg actual expected () =
   let ok = equal ty actual expected in
   begin if not ok then begin
     print (Fmt.strf "  %s %s" (C.bright_red "✗") (C.bright_white msg));
-    print (Fmt.strf "    %s %a" (C.bright_red   "-") (pp ty) expected);
-    print (Fmt.strf "    %s %a" (C.bright_green "+") (pp ty) actual)
+    print (Fmt.strf "    %s %a" (C.bright_green "-") (pp ty) expected);
+    print (Fmt.strf "    %s %a" (C.bright_red "+") (pp ty) actual)
   end else
     print ("  %s %s" % (C.bright_green "✓", C.bright_white msg))
   end;
@@ -56,9 +56,11 @@ let group name tests =
   let t = Unix.gettimeofday () -. t0 in
   let msg =
     match s, f with
-    | s, 0 -> "All %d passed" % s
-    | 0, f -> "All %d failed" % f
-    | s, f -> "%d passed, %d failed" % (s, f) in
+    | 1, 0 -> "Test passed"
+    | s, 0 -> "All %d tests passed" % s
+    | 0, 1 -> "Test failed"
+    | 0, f -> "All %d tests failed" % f
+    | s, f -> "%d tests passed, %d tests failed" % (s, f) in
   print ("  %s %s in %0.2fms\n" % (C.bright_magenta "•", msg, t *. 1000.0))
 
 let int    = testable Fmt.int (=)

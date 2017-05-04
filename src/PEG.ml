@@ -164,3 +164,15 @@ let to_pratt self : Syntax.expr list Pratt.Parser.t =
   end
 
 
+open Syntax
+
+let rec of_expr = function
+  | Atom (Symbol x) -> Non_terminal x
+  | Atom (String x) -> Terminal x
+  | Atom _ -> undefined ()
+  | Form [Atom (Symbol "|"); x; y] -> Alternative [of_expr x; of_expr y]
+  | Form [Atom (Symbol "?"); x]    -> Optional (of_expr x)
+  | Form [Atom (Symbol "*"); x]    -> Many (of_expr x)
+  | Form [Atom (Symbol "+"); x]    -> Some (of_expr x)
+  | Form xs                        -> Sequence (List.map of_expr xs)
+

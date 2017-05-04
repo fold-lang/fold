@@ -1,4 +1,6 @@
+
 open Pure
+open Base
 open Syntax
 open Lex
 
@@ -41,6 +43,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     val invalid_infix  : ?lbp: int -> Token.t -> infix
     val invalid_prefix : Token.t -> prefix
 
+    val dump : t -> unit
   end = struct
     type prefix = Expr.t Parser.t
     type infix  = (Expr.t -> Expr.t Parser.t) * int
@@ -56,6 +59,17 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
       atom   : Token.t -> prefix;
       form   : Token.t -> infix;
     }
+
+
+    let dump self =
+      let string_of_prefix _ = "<prefix>" in
+      let string_of_infix (_, p) = "<infix %d>" % p in
+      print "prefix: ";
+      M.fold (fun k v r -> r ^ "%s => %s\n" % (Token.to_string k, string_of_prefix v)) self.prefix ""
+      |> print;
+      print "infix: ";
+      M.fold (fun k v r -> r ^ "%s => %s\n" % (Token.to_string k, string_of_infix v)) self.infix ""
+      |> print
 
 
     let invalid_infix ?(lbp = 0) token =
@@ -79,7 +93,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
 
 
     let init ~atom ?form scope =
-      let form = form or fun tok -> invalid_infix ~lbp:90 tok in
+      let form = form or lazy (fun tok -> invalid_infix ~lbp:90 tok) in
       let empty = {
         prefix = M.empty;
         infix  = M.empty;
@@ -88,7 +102,6 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
       } in
       List.fold_left
         (fun self (token, rule) -> define token rule self)
-        (* { empty with atom } *)
         empty
         scope
       |> define Lex.eof (Prefix (invalid_prefix Lex.eof))
@@ -100,7 +113,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
         match M.find token prefix with
         | None -> Option.(next >>= loop)
         | some -> some in
-      loop self or self.atom token
+      loop self or lazy (self.atom token)
 
 
     let infix token self =
@@ -108,7 +121,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
         match M.find token infix with
         | None -> Option.(next >>= loop)
         | some -> some in
-      loop self or self.form token
+      loop self or lazy (self.form token)
   end
 
   and State : sig
@@ -166,7 +179,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     Parser.token >>= fun token ->
 
     let (parse, lbp) = Grammar.infix token grammar in
-    log ("led: tok = %s, rbp = %d, lbp = %d, left = %s" % (Token.to_string token, rbp, lbp, Expr.to_string left));
+    log ("led: tok = %s, rbp = %d, lbp = %d, left = %s, stop = %b" % (Token.to_string token, rbp, lbp, Expr.to_string left, lbp <= rbp));
     if lbp > rbp then
       parse left >>= infix rbp
     else
@@ -185,7 +198,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
 
 
   let parse ~grammar lexer =
-    run expression ~grammar lexer
+    run (Parser.many expression) ~grammar lexer
 
 
   module Rule = struct

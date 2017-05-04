@@ -27,3 +27,10 @@ end
 
 let (++) = List.append
 
+
+let (or) self lazy_default =
+  match self with
+  | Some x -> x
+  | None -> Lazy.force lazy_default
+
+
