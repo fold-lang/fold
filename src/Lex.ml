@@ -8,12 +8,13 @@ type token =
   | Int    of int          (* 100 42 0 012345  *)
   | String of string       (* "hello" "" "x"   *)
   | Symbol of string       (* a foo Bar + >>=  *)
-[@@deriving show, ord]
+[@@deriving show, ord, eq]
 
+let eof = Symbol "__eof__"
 
 module Token = struct
   type t = token
-    [@@deriving show]
+  [@@deriving show, ord, eq]
 
   include Printable.Make(struct
       type nonrec t = t
@@ -191,7 +192,7 @@ module Lexer = struct
       read self
 
     (* EOF symbol *)
-    | eof -> Some (Symbol "__EOF__")
+    | eof -> Some eof
 
     (* Everything else is illegal *)
     | any ->

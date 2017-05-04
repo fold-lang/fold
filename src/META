@@ -1,13 +1,13 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7f7e33c841ffb6bca3827ab0f6d6351a)
+# DO NOT EDIT (digest: 523741471021089c4dc3cdb353d9ac43)
 version = "0.1.0"
 description = "The Fold programming language"
 requires =
-"sedlex pure iter ppx_format compiler-libs.bytecomp ppx_deriving.std"
+"sedlex pure pure fmt ppx_format compiler-libs.bytecomp ppx_deriving.std"
 archive(byte) = "fold.cma"
 archive(byte, plugin) = "fold.cma"
 archive(native) = "fold.cmxa"
 archive(native, plugin) = "fold.cmxs"
-exists_if = "fold.cma"
+exists_if = "fold.cmxa"
 # OASIS_STOP
 

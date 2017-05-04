@@ -35,7 +35,11 @@ end
 and State : sig
   (** State module holds the lexer and the grammar of the Pratt parser. *)
 
-  type t
+  type t = {
+    lexer   : Lexer.t;
+    grammar : Grammar.t;
+    token   : Token.t option;
+  }
   (** The type of Pratt state values. *)
 
   include P.Input with type t := t
@@ -44,7 +48,8 @@ and State : sig
   (** [init ?grammar ~lexer ()] is a new state with [lexer] and optional [grammar] *)
 end
 
-and Parser : P.Type with type token = Token.t
+and Parser : P.Type with type state = State.t
+                     and type token = Token.t
 (** Module implementing the [Parser] interface with Pratt state. *)
 
 val infix : int -> expr -> expr Parser.t
@@ -54,13 +59,12 @@ val infix : int -> expr -> expr Parser.t
 val prefix : int -> expr Parser.t
 (** [prefix lbp] is a prefix expression parser with left binding power [lbp]. *)
 
-val expression : unit -> expr Parser.t
-(** [expression ()] parser an expression, equivalent to [prefix 0]. *)
+val expression : expr Parser.t
+(** [expression] parser an expression, equivalent to [prefix 0]. *)
+
+val run : expr Parser.t -> ?grammar: Grammar.t -> Lexer.t -> (expr, string) result
+(** [run p ?grammar lexer] runs the parser reading from [lexer]. *)
 
 val parse : ?grammar: Grammar.t -> Lexer.t -> (expr, string) result
-(** [parse lexer] parses an expression reading from [lexer]. *)
-
-val invalid_infix  : expr -> expr Parser.t
-
-val invalid_prefix : expr Parser.t
+(** [parse ?grammar lexer] parses an expression reading from [lexer]. *)
 

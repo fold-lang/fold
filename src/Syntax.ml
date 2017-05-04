@@ -6,15 +6,32 @@ open Lex
 type expr =
   | Atom of Token.t
   | Form of expr list
-  [@@deriving show]
+  [@@deriving show, eq]
 
 module Expr = struct
   type t = expr
+  [@@deriving show, eq]
 
   include Printable.Make(struct
       type t = expr
       let pp = pp_expr
     end)
+
+  let dump = pp
+
+  let rec pp ppf self =
+    let open Fmt in
+    match self with
+    | Atom v -> pf ppf "%s" (Token.to_string v)
+    | Form vs ->
+      let rec loop = function
+        | [] -> ()
+        | v :: vs ->
+            if vs = [] then (pf ppf "@[%a@]" pp v) else
+            (pf ppf "@[%a@]@ " pp v; loop vs)
+      in
+        pf ppf "@[<1>("; loop vs; pf ppf ")@]"
+
 
   include Monoid.Make(struct
       type nonrec t = t

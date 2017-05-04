@@ -3,6 +3,7 @@ open Pure
 open Lex
 
 
+module Pratt = Pratt.Make(Syntax.Expr)
 
 
 type t =
@@ -26,6 +27,19 @@ let rec to_string self =
   | Optional     x  -> to_string x ^ "?"
   | Many         x  -> to_string x ^ "*"
   | Some         x  -> to_string x ^ "+"
+
+
+module DSL = struct
+  let (~*) x   = Many x
+  let (~+) x   = Some x
+  let (~?) x   = Optional x
+  let (||) x y = Alternative [x; y]
+  let seq  xs  = Sequence xs
+  let term x   = Terminal x
+  let expr x   = Non_terminal x
+  let e        = Epsilon
+end
+
 
 
 let rec to_parser self =
@@ -76,52 +90,89 @@ let rec to_parser self =
     P.some (to_parser peg) >>= fun xss -> P.pure (List.concat xss)
 
 
+let terminals =
+  let rec loop acc self =
+    match self with
+    | Epsilon        -> acc
+    | Terminal     x -> x :: acc
+    | Non_terminal _ -> acc
+    | Sequence     xs
+    | Alternative  xs -> List.fold_left (fun acc x -> loop acc x) acc xs
+    | Optional     x
+    | Many         x
+    | Some         x -> loop acc x
+  in
+    loop []
 
-let rec to_pratt self : Syntax.expr list Pratt.Parser.t =
-  let module PP = Pratt.Parser in
-  let (>>=) = PP.(>>=) in
-  let (<|>) = PP.(<|>) in
-  let (>>)  = PP.(>>) in
 
-  match self with
-  | Epsilon ->
-    PP.pure []
+let to_pratt self : Syntax.expr list Pratt.Parser.t =
+  let module P = Pratt.Parser in
+  let module G = Pratt.Grammar in
+  let module S = Pratt.State in
+  let (>>=) = P.(>>=) in
+  let (<|>) = P.(<|>) in
+  let (>>)  = P.(>>) in
 
-  | Terminal x ->
-    PP.consume (Symbol x) >> lazy (PP.pure [])
+  let rec loop = function
+    | Epsilon ->
+      P.pure []
 
-  | Non_terminal _ ->
-    Pratt.expression () >>= fun expr ->
-    PP.pure [expr]
+    | Terminal x ->
+      P.consume (Symbol x) >> lazy (P.pure [])
 
-  | Alternative [] ->
-    PP.pure []
+    | Non_terminal _ ->
+      Pratt.expression >>= fun expr ->
+      P.pure [expr]
 
-  | Alternative [x] ->
-    to_pratt x
+    | Alternative [] ->
+      P.pure []
 
-  | Alternative [x; y] ->
-    to_pratt x <|> to_pratt y
+    | Alternative [x] ->
+      loop x
 
-  | Alternative (x::xs) ->
-    List.fold_left (<|>) (to_pratt x) (List.map to_pratt xs)
+    | Alternative [x; y] ->
+      loop x <|> loop y
 
-  | Sequence [] ->
-    PP.pure []
+    | Alternative (x::xs) ->
+      List.fold_left (<|>) (loop x) (List.map loop xs)
 
-  | Sequence [x] ->
-    to_pratt x
+    | Sequence [] ->
+      P.pure []
 
-  | Sequence xs ->
-    PP.sequence (List.map to_pratt xs) >>= fun xss -> PP.pure (List.concat xss)
+    | Sequence [x] ->
+      loop x
 
-  | Optional x ->
-    to_pratt x <|> PP.pure []
+    | Sequence xs ->
+      P.sequence (List.map loop xs) >>= fun xss -> P.pure (List.concat xss)
 
-  | Many peg ->
-    PP.many (to_pratt peg) >>= fun xss -> PP.pure (List.concat xss)
+    | Optional x ->
+      loop x <|> P.pure []
 
-  | Some peg ->
-    PP.some (to_pratt peg) >>= fun xss -> PP.pure (List.concat xss)
+    | Many peg ->
+      P.many (loop peg) >>= fun xss -> P.pure (List.concat xss)
 
+    | Some peg ->
+      P.some (loop peg) >>= fun xss -> P.pure (List.concat xss)
+  in begin
+    let ts = terminals self in
+    P.modify begin fun s ->
+      let grammar = List.fold_left
+        (fun g str -> G.define (Symbol str) Pratt.Rule.delimiter g)
+        S.(s.grammar) ts in
+      { s with S.grammar }
+    end >> lazy (loop self)
+  end
+
+
+open Syntax
+
+let rec of_expr = function
+  | Atom (Symbol x) -> Non_terminal x
+  | Atom (String x) -> Terminal x
+  | Atom _ -> undefined ()
+  | Form [Atom (Symbol "|"); x; y] -> Alternative [of_expr x; of_expr y]
+  | Form [Atom (Symbol "?"); x]    -> Optional (of_expr x)
+  | Form [Atom (Symbol "*"); x]    -> Many (of_expr x)
+  | Form [Atom (Symbol "+"); x]    -> Some (of_expr x)
+  | Form xs                        -> Sequence (List.map of_expr xs)
 

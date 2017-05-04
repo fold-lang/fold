@@ -1,4 +1,6 @@
 
+module Token = Lex.Token
+
 let delimiter   =  0
 let keyword     =  1
 let assignment  = 10
@@ -12,18 +14,20 @@ let call        = 80
 let group       = 80
 let terminal    = 90
 
-let lookup name =
-  match name with
+let lookup token =
+  match Token.to_string token with
   (* Match atomic symbols. *)
-  | "<EOF>" -> delimiter
-  | ";" -> 20
+  | "__eof__" -> Some delimiter
+  | ";" -> Some 20
+  | "!=" -> Some assignment
   (* Match symbols that can start an operator. *)
   | str ->
     begin match str.[0] with
-      | '=' -> assignment
-      | '#' -> conditional
-      | '+' | '-' -> sum
-      | '*' | '/' -> product
-      | '(' | '{' | '[' -> group
-      | _ -> 30 (* default non symbolic? XXX *)
+      | '=' -> Some assignment
+      | '#' -> Some conditional
+      | '+' | '-' -> Some sum
+      | '*' | '/' -> Some product
+      | '(' | '{' | '[' -> Some group
+      | _ -> None
     end
+
