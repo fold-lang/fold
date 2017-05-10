@@ -13,38 +13,13 @@ module Grammar = Pratt.Grammar
 open Pratt
 
 
-let juxtaposition token =
-  let precedence = 90 in
-  let parse x =
-    Pratt.prefix precedence >>= fun y ->
-    let list =
-      match x with
-      | Form xs -> List.append xs [y]
-      | atom    -> [atom; y] in
-    Parser.pure (Form list) in
-  (parse, precedence)
-
-
-let default_operator token =
-  token
-  |> Precedence.lookup
-  |> Option.map (fun precedence ->
-      let parse x =
-        Parser.advance >>= fun () ->
-        prefix precedence >>= fun y ->
-        Parser.pure (Form [Atom token; x; y]) in
-      (parse, precedence))
-
-
 let grammar =
-  let open Rule in
-  let open Syntax.Expr in
-  Grammar.init [
-    Symbol "(",  group (Symbol ")");
-    Symbol ")",  delimiter;
-  ]
-  ~atom:(fun x -> singleton (Atom x))
-  ~form:(fun x -> default_operator x or lazy (juxtaposition x))
+  Grammar.init
+    ~atom:(fun x -> singleton (Atom x))
+    ~form:(fun x -> Lang.default_operator x or lazy (Lang.juxtaposition x))
+    ()
+  |> between "(" ")" id
+  |> delimiter ")"
 
 
 let parse peg input =

@@ -12,7 +12,7 @@ open Pratt
 let juxtaposition token =
   let precedence = 90 in
   let parse x =
-    Pratt.prefix precedence >>= fun y ->
+    Pratt.parse_prefix precedence >>= fun y ->
     let list =
       match x with
       | Form xs -> List.append xs [y]
@@ -27,37 +27,41 @@ let default_operator token =
   |> Option.map (fun precedence ->
       let parse x =
         Parser.advance >>= fun () ->
-        prefix precedence >>= fun y ->
+        parse_prefix precedence >>= fun y ->
         Parser.pure (Form [Atom token; x; y]) in
       (parse, precedence))
 
 
-let syntax_scope = Rule.[
-  Symbol "*", postfix 70   (fun x -> Form [Atom (Symbol "*"); x]);
-  Symbol "+", postfix 70   (fun x -> Form [Atom (Symbol "+"); x]);
-  Symbol "?", postfix 70   (fun x -> Form [Atom (Symbol "?"); x]);
-  Symbol "|", infix   30   (fun x y -> Form [Atom (Symbol "|"); x; y]);
-]
+let define_syntax_operators grammar =
+  grammar
+  |> postfix 70 "*" (fun x -> Form [Atom (Symbol "*"); x])
+  |> postfix 70 "+" (fun x -> Form [Atom (Symbol "+"); x])
+  |> postfix 70 "?" (fun x -> Form [Atom (Symbol "?"); x])
+  |> infix   30 "|" (fun x y -> Form [Atom (Symbol "|"); x; y])
 
 
-let syntax_rule =
+let define_syntax =
   let parse =
-    (* Add syntax_scope *)
+    Parser.modify begin fun state ->
+      State.{ state with grammar =
+                define_syntax_operators (Grammar.new_scope state.grammar) }
+    end >>= fun () ->
     Parser.advance >>= fun () ->
     expression >>= fun x ->
-    Parser.pure x in
-  Grammar.Prefix parse
+    Parser.modify begin fun state ->
+      State.{ state with grammar = Grammar.pop_scope state.grammar }
+    end >>= fun () -> Parser.pure x in
+  Grammar.define_prefix (Symbol "syntax") parse
 
 
 
 let grammar =
-  let open Rule in
   let open Syntax.Expr in
-  Grammar.init [
-    Symbol "syntax", syntax_rule;
-    Symbol "(",  group (Symbol ")");
-    Symbol ")",  delimiter;
-  ]
-  ~atom:(fun x -> singleton (Atom x))
-  ~form:(fun x -> default_operator x or lazy (juxtaposition x))
+  Grammar.init
+    ~atom:(fun x -> singleton (Atom x))
+    ~form:(fun x -> default_operator x or lazy (juxtaposition x))
+    ()
+  |> define_syntax
+  |> between "(" ")" (fun x -> x)
+  |> delimiter ")"
 

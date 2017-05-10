@@ -156,8 +156,7 @@ let to_pratt self : Syntax.expr list Pratt.Parser.t =
   in begin
     let ts = terminals self in
     P.modify begin fun s ->
-      let grammar = List.fold_left
-        (fun g str -> G.define (Symbol str) Pratt.Rule.delimiter g)
+      let grammar = List.fold_left (flip Pratt.delimiter)
         S.(s.grammar) ts in
       { s with S.grammar }
     end >> lazy (loop self)

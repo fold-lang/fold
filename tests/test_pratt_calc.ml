@@ -20,25 +20,23 @@ end
 let rec fact x =
   if x <= 1 then 1 else x * fact (x - 1)
 
-let scope = Rule.[
-  Symbol "+", prefix     (fun x -> +x);
-  Symbol "+", infix   30 (fun x y -> x + y);
-  Symbol "-", prefix     (fun x -> -x);
-  Symbol "-", infix   30 (fun x y -> x - y);
-  Symbol "*", infix   40 (fun x y -> x * y);
-  Symbol "/", infix   40 (fun x y -> x / y);
-  Symbol "^", infixr  50 Int.pow;
-  Symbol "!", postfix 70 (fun x -> fact x);
-  Symbol "(", group (Symbol ")");
-  Symbol ")", delimiter;
-]
-
 let atom = function
-  | Int n -> Rule.singleton n
+  | Int n -> singleton n
   | token -> Grammar.invalid_prefix token
 
+let grammar =
+  Grammar.init ~atom ()
+  |> prefix     "+"     (fun x -> +x)
+  |> infix   30 "+"     (fun x y -> x + y)
+  |> prefix     "-"     (fun x -> -x)
+  |> infix   30 "-"     (fun x y -> x - y)
+  |> infix   40 "*"     (fun x y -> x * y)
+  |> infix   40 "/"     (fun x y -> x / y)
+  |> infixr  50 "^"     Int.pow
+  |> postfix 70 "!"     (fun x -> fact x)
+  |> between    "(" ")" (fun x -> x)
+  |> delimiter  ")"
 
-let grammar = Grammar.init ~atom scope
 
 let (=>) input expected =
   Test.(test (result (module Int) string))

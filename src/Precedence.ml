@@ -14,6 +14,7 @@ let call        = 80
 let group       = 80
 let terminal    = 90
 
+(* XXX Add associativity *)
 let lookup token =
   match Token.to_string token with
   (* Match atomic symbols. *)
@@ -24,9 +25,11 @@ let lookup token =
   | str ->
     begin match str.[0] with
       | '=' -> Some assignment
-      | '#' -> Some conditional
+      | '#' | '&' -> Some conditional
+      | '|'       -> Some (conditional + 1)
       | '+' | '-' -> Some sum
       | '*' | '/' -> Some product
+      | ','       -> Some (group - 1)
       | '(' | '{' | '[' -> Some group
       | _ -> None
     end

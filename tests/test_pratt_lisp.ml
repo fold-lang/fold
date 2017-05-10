@@ -15,7 +15,7 @@ open Pratt
 let juxtaposition tok =
   let precedence = 90 in
   let parse x =
-    Pratt.prefix precedence >>= fun y ->
+    Pratt.parse_prefix precedence >>= fun y ->
     let list =
       match x with
       | Form xs -> List.append xs [y]
@@ -25,13 +25,13 @@ let juxtaposition tok =
 
 
 let grammar =
-  let open Rule in
-  Grammar.init [
-    Symbol "(", group (Symbol ")");
-    Symbol ")", delimiter;
-  ]
-  ~atom:(fun x -> singleton (Atom x))
-  ~form:juxtaposition
+  Grammar.init
+    ~atom:(fun x -> singleton (Atom x))
+    ~form:juxtaposition
+    ()
+  |> between "(" ")" id
+  |> delimiter ")"
+
 
 
 (* Some helper definitions *)

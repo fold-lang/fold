@@ -29,47 +29,46 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     type prefix = Expr.t Parser.t
     type infix  = (Expr.t -> Expr.t Parser.t) * int
 
-    type rule =
-      | Prefix of prefix
-      | Infix of infix
+    val init : ?form: (Token.t -> infix) -> ?atom: (Token.t -> prefix) -> unit -> t
 
-    val init : atom: (Token.t -> prefix) -> ?form: (Token.t -> infix) -> (Token.t * rule) list -> t
+    val lookup_infix  : Token.t -> t -> infix
+    val lookup_prefix : Token.t -> t -> prefix
 
-    val define : Token.t -> rule -> t -> t
-
-    val prefix : Token.t -> t -> prefix
-    val infix  : Token.t -> t -> infix
+    val define_infix  : Token.t -> infix -> t -> t
+    val define_prefix : Token.t -> prefix -> t -> t
 
     val invalid_infix  : ?lbp: int -> Token.t -> infix
     val invalid_prefix : Token.t -> prefix
+
+    val new_scope : t -> t
+    val pop_scope : t -> t
 
     val dump : t -> unit
   end = struct
     type prefix = Expr.t Parser.t
     type infix  = (Expr.t -> Expr.t Parser.t) * int
 
-    type rule =
-      | Prefix of prefix
-      | Infix of infix
-
-    type t = {
+    type scope = {
       prefix : prefix M.t;
       infix  : infix  M.t;
-      next   : t option;
-      atom   : Token.t -> prefix;
-      form   : Token.t -> infix;
     }
 
+    type t = {
+      data : scope list;
+      atom : Token.t -> prefix;
+      form : Token.t -> infix;
+    }
 
     let dump self =
       let string_of_prefix _ = "<prefix>" in
       let string_of_infix (_, p) = "<infix %d>" % p in
-      print "prefix: ";
-      M.fold (fun k v r -> r ^ "%s => %s\n" % (Token.to_string k, string_of_prefix v)) self.prefix ""
-      |> print;
-      print "infix: ";
-      M.fold (fun k v r -> r ^ "%s => %s\n" % (Token.to_string k, string_of_infix v)) self.infix ""
-      |> print
+      List.iteri (fun i { prefix; infix } ->
+        Fmt.pr "prefix [%d]:\n" i;
+        M.iter (fun k v -> print ("%s => %s\n" % (Token.to_string k, string_of_prefix v))) prefix;
+        Fmt.pr "infix[%d]:\n" i;
+        M.iter (fun k v -> print ("%s => %s\n" % (Token.to_string k, string_of_infix v))) infix;
+        Fmt.pr "\n")
+        self.data
 
 
     let invalid_infix ?(lbp = 0) token =
@@ -86,42 +85,67 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
       Parser.(error (With_message msg))
 
 
-    let define token rule self =
-      match rule with
-      | Prefix x -> { self with prefix = M.add token x self.prefix }
-      | Infix  x -> { self with infix  = M.add token x self.infix  }
+    let empty = {
+      data = [];
+      atom = invalid_prefix;
+      form = invalid_infix ~lbp:90;
+    }
 
 
-    let init ~atom ?form scope =
-      let form = form or lazy (fun tok -> invalid_infix ~lbp:90 tok) in
-      let empty = {
-        prefix = M.empty;
-        infix  = M.empty;
-        next   = None;
-        atom; form;
-      } in
-      List.fold_left
-        (fun self (token, rule) -> define token rule self)
-        empty
-        scope
-      |> define Lex.eof (Prefix (invalid_prefix Lex.eof))
-      |> define Lex.eof (Infix  (invalid_infix  Lex.eof))
+    let empty_scope = {
+      infix  = M.empty;
+      prefix = M.empty;
+    }
 
 
-    let prefix token self =
-      let rec loop {prefix; next} =
-        match M.find token prefix with
-        | None -> Option.(next >>= loop)
-        | some -> some in
-      loop self or lazy (self.atom token)
+    let define_infix token rule self =
+      let first, rest =
+        match self.data with
+        | [] -> empty_scope, []
+        | first::rest -> first, rest in
+      let first' = { first with infix  = M.add token rule first.infix } in
+      { self with data = first'::rest }
 
 
-    let infix token self =
-      let rec loop {infix; next} =
-        match M.find token infix with
-        | None -> Option.(next >>= loop)
-        | some -> some in
-      loop self or lazy (self.form token)
+    let define_prefix token rule self =
+      let first, rest =
+        match self.data with
+        | [] -> empty_scope, []
+        | first::rest -> first, rest in
+      let first' = { first with prefix  = M.add token rule first.prefix } in
+      { self with data = first'::rest }
+
+
+    let init ?(form = invalid_infix ~lbp:90) ?(atom = invalid_prefix) () =
+      { data = []; atom; form }
+      |> define_prefix Lex.eof (invalid_prefix Lex.eof)
+      |> define_infix  Lex.eof (invalid_infix  Lex.eof)
+
+
+    let lookup_prefix token self =
+      let rec loop data =
+        match data with
+        | s :: rest -> Option.(M.find token s.prefix <|> lazy (loop rest))
+        | [] -> None in
+      loop self.data or lazy (self.atom token)
+
+
+    let lookup_infix token self =
+      let rec loop data =
+        match data with
+        | s :: rest -> Option.(M.find token s.infix <|> lazy (loop rest))
+        | [] -> None in
+      loop self.data or lazy (self.form token)
+
+
+    let new_scope self =
+      { self with data = empty_scope :: self.data }
+
+
+    let pop_scope self =
+      match self.data with
+      | [] -> self
+      | _ :: rest -> { self with data = rest }
   end
 
   and State : sig
@@ -164,30 +188,30 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
   let (>>)  = Parser.(>>)
 
 
-  let rec prefix rbp =
+  let rec parse_prefix rbp =
     Parser.get >>= fun { State.grammar } ->
     Parser.token >>= fun token ->
 
-    let parse = Grammar.prefix token grammar in
+    let parse = Grammar.lookup_prefix token grammar in
     log ("nud: tok = %s, rbp = %d" % (Token.to_string token, rbp));
     parse >>= fun left ->
-    infix rbp left
+    parse_infix rbp left
 
 
-  and infix rbp left =
+  and parse_infix rbp left =
     Parser.get >>= fun { State.grammar } ->
     Parser.token >>= fun token ->
 
-    let (parse, lbp) = Grammar.infix token grammar in
-    log ("led: tok = %s, rbp = %d, lbp = %d, left = %s, stop = %b" % (Token.to_string token, rbp, lbp, Expr.to_string left, lbp <= rbp));
+    let (parse, lbp) = Grammar.lookup_infix token grammar in
+    log ("led: tok = %s, rbp = %d, lbp = %d, left = %s, stop = %b" %
+         (Token.to_string token, rbp, lbp, Expr.to_string left, lbp <= rbp));
     if lbp > rbp then
-      parse left >>= infix rbp
+      parse left >>= parse_infix rbp
     else
       Parser.pure left
 
 
-  let expression =
-    prefix 0
+  let expression = parse_prefix 0
 
 
   let run parser ~grammar lexer =
@@ -200,60 +224,60 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
   let parse ~grammar lexer =
     run (Parser.many expression) ~grammar lexer
 
+  (* val prefix    : string -> (Expr.t -> Expr.t) -> t -> t *)
+  (* val infix     : int -> string -> (Expr.t -> Expr.t -> Expr.t) -> t -> t *)
+  (* val infixr    : int -> string -> (Expr.t -> Expr.t -> Expr.t) -> t -> t *)
+  (* val postfix   : int -> string -> (Expr.t -> Expr.t) -> t -> t *)
+  (* val between   : string -> string -> (Expr.t -> Expr.t) -> t -> t *)
+  (* val delimiter : string -> t -> t *)
 
-  module Rule = struct
-    let singleton x =
+  let singleton x =
+    Parser.advance >>= fun () ->
+    Parser.pure x
+
+
+  let delimiter str =
+    let parse _ = Parser.error (Parser.With_message "unexpected delimiter") in
+    Grammar.define_infix (Symbol str) (parse, 0)
+
+
+  let infix precedence str f =
+    let parse x =
       Parser.advance >>= fun () ->
-      Parser.pure x
+      parse_prefix precedence >>= fun y ->
+      Parser.pure (f x y) in
+    Grammar.define_infix (Symbol str) (parse, precedence)
 
 
-    let delimiter =
-      let parse _ = Parser.error (Parser.With_message "unexpected delimiter") in
-      Grammar.Infix (parse, 0)
+  let infixr precedence str f =
+    let parse x =
+      Parser.advance >>= fun () ->
+      parse_prefix (precedence - 1) >>= fun y ->
+      Parser.pure (f x y) in
+    Grammar.define_infix (Symbol str) (parse, precedence)
 
 
-    let infix precedence f =
-      let parse x =
-        Parser.advance >>= fun () ->
-        prefix precedence >>= fun y ->
-        Parser.pure (f x y) in
-      Grammar.Infix (parse, precedence)
+  let prefix str f =
+    let parse =
+      Parser.advance >>= fun () ->
+      expression >>= fun x ->
+      Parser.pure (f x) in
+    Grammar.define_prefix (Symbol str) parse
 
 
-    let infixr precedence f =
-      let parse x =
-        Parser.advance >>= fun () ->
-        prefix (precedence - 1) >>= fun y ->
-        Parser.pure (f x y) in
-      Grammar.Infix (parse, precedence)
+  let postfix precedence str f =
+    let parse x =
+      Parser.advance >>= fun () ->
+      Parser.pure (f x) in
+    Grammar.define_infix (Symbol str) (parse, precedence)
 
 
-    let prefix f =
-      let parse =
-        Parser.advance >>= fun () ->
-        expression >>= fun x ->
-        Parser.pure (f x) in
-      Grammar.Prefix parse
-
-
-    let postfix precedence f =
-      let parse x =
-        Parser.advance >>= fun () ->
-        Parser.pure (f x) in
-      Grammar.Infix (parse, precedence)
-
-
-    let group e =
-      let parse =
-        Parser.advance >>= fun () ->
-        expression >>= fun x ->
-        Parser.consume e >>= fun () ->
-        Parser.pure x in
-      Grammar.Prefix parse
-  end
+  let between s e f =
+    let parse =
+      Parser.advance >>= fun () ->
+      expression >>= fun x ->
+      Parser.consume (Symbol e) >>= fun () ->
+      Parser.pure (f x) in
+    Grammar.define_prefix (Symbol s) parse
 end
-
-
-
-
 

@@ -1,3 +1,4 @@
+open Pure
 
 module type Monoid = sig
   type t
@@ -34,3 +35,26 @@ let (or) self lazy_default =
   | None -> Lazy.force lazy_default
 
 
+
+let (or) self lazy_default =
+  match self with
+  | Some x -> x
+  | None -> Lazy.force lazy_default
+
+
+module List = struct
+  include List
+  let head = function [] -> None | x::_ -> Some x
+end
+
+
+module Option = struct
+  include Option
+
+  let empty = None
+
+  let (<|>) a b =
+    match a with
+    | Some x -> a
+    | None -> Lazy.force b
+end

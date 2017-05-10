@@ -14,14 +14,12 @@ open Pratt
 
 
 let grammar =
-  let open Rule in
-  let open Syntax.Expr in
-  Grammar.init [
-    Symbol "(",  group (Symbol ")");
-    Symbol ")",  delimiter;
-  ]
-  ~atom:(fun x -> singleton (Atom x))
-  ~form:(fun x -> Lang.default_operator x or lazy (Lang.juxtaposition x))
+  Grammar.init
+    ~atom:(fun x -> singleton (Atom x))
+    ~form:(fun x -> Lang.default_operator x or lazy (Lang.juxtaposition x))
+    ()
+  |> between "(" ")" id
+  |> delimiter ")"
 
 
 let test grammar input expected =
@@ -35,7 +33,7 @@ let () =
   let (>>=) = Parser.(>>=) in
 
   let let_rule = PEG.to_pratt (seq [term "let"; expr "a"; term "="; expr "b"]) in
-  let grammar = Grammar.define (Symbol "let") (Grammar.Prefix (let_rule >>= fun xs -> Parser.pure (Form xs))) grammar in
+  let grammar = Grammar.define_prefix (Symbol "let") (let_rule >>= fun xs -> Parser.pure (Form xs)) grammar in
 
   let (=>) = test grammar in
   Test.group "Let-expression" [
