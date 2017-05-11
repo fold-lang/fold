@@ -52,9 +52,15 @@ let f1, f2, f3 =
 
 let (=>) input expected =
   Test.(test (result (list (module Expr)) string))
-  input (Pratt.parse ~grammar (Lexer.from_string input)) expected
+  input (run (Parser.many expression) ~grammar (Lexer.from_string input)) expected
 
 let () =
+  Test.group "Empty" [
+    ""                                   => Ok [];
+    " "                                  => Ok [];
+    "\n"                                 => Ok [];
+  ];
+
   Test.group "Atoms" [
     "0"                                  => Ok [Atom (Int 0)];
     "x"                                  => Ok [Atom (Symbol "x")];

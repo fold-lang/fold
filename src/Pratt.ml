@@ -80,7 +80,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
 
     let invalid_prefix token =
       let msg = if token = Lex.eof
-        then "unexpected end of file"
+        then "unexpected end of input"
         else "%s cannot be used in prefix position" % Token.to_string token in
       Parser.(error (With_message msg))
 
@@ -219,10 +219,6 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     match Parser.run parser state with
     | Ok (expr, _) -> Ok expr
     | Error e -> Error (Parser.error_to_string e)
-
-
-  let parse ~grammar lexer =
-    run (Parser.some expression) ~grammar lexer
 
   (* val prefix    : string -> (Expr.t -> Expr.t) -> t -> t *)
   (* val infix     : int -> string -> (Expr.t -> Expr.t -> Expr.t) -> t -> t *)

@@ -84,8 +84,15 @@ module Make(Token : Printable)(Input : Input with type item = Token.t) = struct
   let error_to_string e =
     match e with
     | Empty -> "empty"
+
+    (* FIXME: Not used in practice with curren Input interface.
+       Should be refactored to produce this constructor. *)
     | Unexpected_end { expected } ->
-      "end of input while expecting `%s`" % Token.show expected
+      "expected `%s` but input terminated" % Token.show expected
+
+    | Unexpected_token { expected; actual } when Token.show actual = "__eof__" ->
+      "expected `%s` but input terminated" % Token.show expected
+
     | Unexpected_token { expected; actual } ->
       "expected `%s` but got `%s`" % (Token.show expected, Token.show actual)
     | Failed_satisfy token ->

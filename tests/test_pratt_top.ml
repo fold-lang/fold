@@ -24,7 +24,7 @@ let grammar =
 
 let test grammar input expected =
   Test.(test (result (list (module Expr)) string))
-  input (Pratt.parse ~grammar (Lexer.from_string input)) expected
+  input (run (Parser.many expression) ~grammar (Lexer.from_string input)) expected
 
 
 let () =
