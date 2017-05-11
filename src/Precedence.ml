@@ -25,12 +25,15 @@ let lookup token =
   | str ->
     begin match str.[0] with
       | '=' -> Some assignment
+      | '>' -> Some conditional
+      | '<' -> Some conditional
       | '#' | '&' -> Some conditional
       | '|'       -> Some (conditional + 1)
       | '+' | '-' -> Some sum
       | '*' | '/' -> Some product
       | ','       -> Some (group - 1)
-      | '(' | '{' | '[' -> Some group
+      (* XXX These are not infix! *)
+      (* | '(' | '{' | '[' -> Some group *)
       | _ -> None
     end
 

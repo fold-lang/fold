@@ -63,11 +63,11 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
       let string_of_prefix _ = "<prefix>" in
       let string_of_infix (_, p) = "<infix %d>" % p in
       List.iteri (fun i { prefix; infix } ->
-        Fmt.pr "prefix [%d]:\n" i;
-        M.iter (fun k v -> print ("%s => %s\n" % (Token.to_string k, string_of_prefix v))) prefix;
-        Fmt.pr "infix[%d]:\n" i;
-        M.iter (fun k v -> print ("%s => %s\n" % (Token.to_string k, string_of_infix v))) infix;
-        Fmt.pr "\n")
+        print ("prefix [%d]:" % i);
+        M.iter (fun k v -> print ("%s => %s" % (Token.to_string k, string_of_prefix v))) prefix;
+        print ("infix[%d]:" % i);
+        M.iter (fun k v -> print ("%s => %s" % (Token.to_string k, string_of_infix v))) infix;
+        print "")
         self.data
 
 
@@ -222,7 +222,7 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
 
 
   let parse ~grammar lexer =
-    run (Parser.many expression) ~grammar lexer
+    run (Parser.some expression) ~grammar lexer
 
   (* val prefix    : string -> (Expr.t -> Expr.t) -> t -> t *)
   (* val infix     : int -> string -> (Expr.t -> Expr.t -> Expr.t) -> t -> t *)
@@ -273,11 +273,12 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
 
 
   let between s e f =
-    let parse =
-      Parser.advance >>= fun () ->
+    let prefix =
+      (* XXX Should be advance? *)
+      Parser.consume (Symbol s) >>= fun () ->
       expression >>= fun x ->
       Parser.consume (Symbol e) >>= fun () ->
       Parser.pure (f x) in
-    Grammar.define_prefix (Symbol s) parse
+    Grammar.define_prefix (Symbol s) prefix
 end
 

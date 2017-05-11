@@ -42,5 +42,9 @@ let () =
     let z = x + y
     |} => Ok [form [symbol "x"; int 0]; form [symbol "y"; int 1];
               form [symbol "z"; form [symbol "+"; symbol "x"; symbol "y"]]];
+  ];
+
+  Test.group "Failing" [
+    "print (2 + 3)" => Ok [form [symbol "print"; form [symbol "+"; int 2; int 3]]];
   ]
 

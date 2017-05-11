@@ -105,7 +105,7 @@ let terminals =
     loop []
 
 
-let to_pratt self : Syntax.expr list Pratt.Parser.t =
+let to_pratt self =
   let module P = Pratt.Parser in
   let module G = Pratt.Grammar in
   let module S = Pratt.State in
@@ -153,25 +153,33 @@ let to_pratt self : Syntax.expr list Pratt.Parser.t =
 
     | Some peg ->
       P.some (loop peg) >>= fun xss -> P.pure (List.concat xss)
-  in begin
+  in
+  begin
     let ts = terminals self in
     P.modify begin fun s ->
       let grammar = List.fold_left (flip Pratt.delimiter)
-        S.(s.grammar) ts in
+          S.(s.grammar) ts in
       { s with S.grammar }
     end >> lazy (loop self)
   end
 
-
 open Syntax
 
-let rec of_expr = function
-  | Atom (Symbol x) -> Non_terminal x
-  | Atom (String x) -> Terminal x
-  | Atom _ -> undefined ()
-  | Form [Atom (Symbol "|"); x; y] -> Alternative [of_expr x; of_expr y]
-  | Form [Atom (Symbol "?"); x]    -> Optional (of_expr x)
-  | Form [Atom (Symbol "*"); x]    -> Many (of_expr x)
-  | Form [Atom (Symbol "+"); x]    -> Some (of_expr x)
-  | Form xs                        -> Sequence (List.map of_expr xs)
+let of_expr expr =
+  let name = ref None in
+  let rec loop expr =
+  match expr with
+    | Atom (Symbol x) -> Non_terminal x
+    | Atom (String x) ->
+      begin
+        if !name = None then name := Some x
+      end;
+      Terminal x
+    | Atom _ -> undefined ()
+    | Form [Atom (Symbol "|"); x; y] -> Alternative [loop x; loop y]
+    | Form [Atom (Symbol "?"); x]    -> Optional (loop x)
+    | Form [Atom (Symbol "*"); x]    -> Many (loop x)
+    | Form [Atom (Symbol "+"); x]    -> Some (loop x)
+    | Form xs                        -> Sequence (List.map loop xs) in
+  !name, loop expr
 

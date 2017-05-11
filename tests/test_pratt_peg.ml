@@ -45,6 +45,9 @@ let () =
   Test.group "Let-expression" [
     "let x = 0" => Ok [symbol "x"; int 0];
     "let x = 2 + 2" => Ok [symbol "x"; form [symbol "+"; int 2; int 2]];
+    "let" => Error "unexpected end of file";
+    "let a" => Error "expected `=` but got `__eof__`";
+    "let a =" => Error "unexpected end of file";
   ];
 
   let (=>) = test (seq [term "if"; expr "t"; term "then"; expr "a"; term "else"; expr "b"]) in

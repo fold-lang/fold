@@ -50,7 +50,7 @@ let define_syntax =
     expression >>= fun x ->
     Parser.modify begin fun state ->
       State.{ state with grammar = Grammar.pop_scope state.grammar }
-    end >>= fun () -> Parser.pure x in
+    end >>= fun () -> Parser.pure (Form [Atom (Symbol "syntax"); x]) in
   Grammar.define_prefix (Symbol "syntax") parse
 
 
