@@ -63,5 +63,4 @@ let grammar =
     ()
   |> define_syntax
   |> between "(" ")" (fun x -> x)
-  |> delimiter ")"
 

@@ -72,3 +72,19 @@ let () = begin
 end
 
 
+let () = begin
+  let open PEG in
+  let open PEG.DSL in
+
+  let (=>) = Test.(test (list (module Denotation))) in
+
+  Test.group "Find denotation" [
+    find_name e => [];
+    find_name (seq [term "x"])       => [`Prefix "x"];
+    find_name (seq [e; term "x"])    => [`Prefix "x"];
+    find_name (seq [e; e; term "x"]) => [`Prefix "x"];
+    find_name (seq [term "x" || term "y"]) => [`Prefix "x"; `Prefix "y"];
+    find_name (seq [seq [expr "a"; term "x"] || term "y"]) => [`Infix "x"; `Prefix "y"];
+  ];
+end
+

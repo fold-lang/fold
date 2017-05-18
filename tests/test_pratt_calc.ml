@@ -35,7 +35,6 @@ let grammar =
   |> infixr  50 "^"     Int.pow
   |> postfix 70 "!"     (fun x -> fact x)
   |> between    "(" ")" (fun x -> x)
-  |> delimiter  ")"
 
 
 let (=>) input expected =

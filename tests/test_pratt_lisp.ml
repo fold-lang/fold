@@ -30,7 +30,6 @@ let grammar =
     ~form:juxtaposition
     ()
   |> between "(" ")" id
-  |> delimiter ")"
 
 
 

@@ -19,7 +19,6 @@ let grammar =
     ~form:(fun x -> Lang.default_operator x or lazy (Lang.juxtaposition x))
     ()
   |> between "(" ")" id
-  |> delimiter ")"
 
 
 let parse peg input =

@@ -268,13 +268,14 @@ module Make(Expr : sig type t val to_string : t -> string end) = struct
     Grammar.define_infix (Symbol str) (parse, precedence)
 
 
-  let between s e f =
+  let between s e f g =
     let prefix =
-      (* XXX Should be advance? *)
-      Parser.consume (Symbol s) >>= fun () ->
+      Parser.advance >>= fun () ->
       expression >>= fun x ->
       Parser.consume (Symbol e) >>= fun () ->
       Parser.pure (f x) in
-    Grammar.define_prefix (Symbol s) prefix
+    g
+    |> Grammar.define_prefix (Symbol s) prefix
+    |> delimiter e
 end
 

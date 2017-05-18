@@ -165,6 +165,43 @@ let to_pratt self =
 
 open Syntax
 
+module Denotation = struct
+  type t = [`Prefix of string | `Infix of string ]
+  [@@deriving show, eq]
+end
+
+exception Found_denotation of Denotation.t list
+
+(* Traverses the PEG searching for the first occurrences of terminal nodes.
+ *
+ * The search is not total, some PEG trees don't have any terminals.
+ *
+ *)
+let find_name peg =
+  let rec loop is_prefix = function
+    | Epsilon -> is_prefix
+
+    | Terminal x ->
+      let d = if is_prefix then `Prefix x
+              else `Infix x in
+      raise (Found_denotation d)
+
+    | Non_terminal _ ->
+      not is_prefix
+
+    | Sequence xs ->
+      List.fold_left find_name is_prefix xs
+
+    | Alternative xs ->
+      List.fold_left find_name is_prefix xs
+
+    | Optional     x  -> to_string x ^ "?"
+    | Many         x  -> to_string x ^ "*"
+    | Some         x  -> to_string x ^ "+"
+  in
+  loop ~is_prefix:true ~found:false peg
+
+(* XXX: The name resolution should return a list: ("a" | "b")+ *)
 let of_expr expr =
   let name = ref None in
   let rec loop expr =
