@@ -39,8 +39,8 @@ let (=>)  f x = f x show_expr_result
 let (=>*) f x = f x show_expr_results
 
 
-let x = Char 'x'
-let y = Char 'y'
+let x = `Char 'x'
+let y = `Char 'y'
 
 let () =
   print ("-- %s" % C.bright_blue "Testing Fold.Parser...");

@@ -58,3 +58,16 @@ module Option = struct
     | Some x -> a
     | None -> Lazy.force b
 end
+
+
+module Map = struct
+  module type OrderedType = Map.OrderedType
+
+  module Make(K : Map.OrderedType) = struct
+    include Map.Make(K)
+
+    let find k m =
+      Option.catch (fun () -> find k m)
+  end
+end
+

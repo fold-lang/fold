@@ -3,8 +3,6 @@ open Pure
 
 open Fold
 open Fold.Lex
-open Fold.Syntax
-
 
 
 
@@ -12,15 +10,14 @@ let () =
   let rec loop grammar =
     print ~terminator:"" "-> ";
     let lexer = Lexer.from_string (read_line ()) in
-    match Lang.Pratt.(run expression ~grammar lexer) with
-    | Ok expr ->
-      let g, value = Eval.eval grammar expr in
-      print (" = " ^ Expr.to_string value);
-      loop g
+    match Pratt.run (Pratt.empty) ~grammar lexer with
+    | Ok syntax ->
+      print (" = " ^ Lang.AST.Statement.show syntax);
+      loop grammar
 
     | Error msg ->
-      print (" * Error: " ^ msg);
+      print (" * Error: " ^ Pratt.error_to_string msg);
       loop grammar
   in
-  loop Lang.grammar
+  loop Pratt.Grammar.empty
 

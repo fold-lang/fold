@@ -6,7 +6,5 @@
 #directory "_build/src";;
 #load_rec "_build/src/fold.cmo";;
 open Fold;;
-print "==> Fold library loaded";;
+Pure.print "==> Fold library loaded";;
 
-module P = Fold.Parser;;
-open Lex;;

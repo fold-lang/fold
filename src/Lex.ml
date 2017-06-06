@@ -1,16 +1,27 @@
 
 open Pure
 
-type token =
-  | Bool   of bool         (* True False       *)
-  | Char   of char         (* 'x' '-' '0' '\t' *)
-  | Float  of float        (* 3.14 00.1 1.0000 *)
-  | Int    of int          (* 100 42 0 012345  *)
-  | String of string       (* "hello" "" "x"   *)
-  | Symbol of string       (* a foo Bar + >>=  *)
-[@@deriving show, ord, eq]
+type token = [
+  | `Bool   of bool         (* True False       *)
+  | `Char   of char         (* 'x' '-' '0' '\t' *)
+  | `Float  of float        (* 3.14 00.1 1.0000 *)
+  | `Int    of int          (* 100 42 0 012345  *)
+  | `String of string       (* "hello" "" "x"   *)
+  | `Symbol of string       (* a foo Bar + >>=  *)
+] [@@deriving show, ord, eq]
 
-let eof = Symbol "__eof__"
+
+let rec pp_token ppf token =
+  let open Fmt in
+  match token with
+  | `Bool v   -> pf ppf "%b" v
+  | `Char v   -> pf ppf "%c" v
+  | `Float v  -> pf ppf "%f" v
+  | `Int v    -> pf ppf "%d" v
+  | `String v -> pf ppf "%s" v
+  | `Symbol v -> pf ppf "`%s" v
+
+let eof = `Symbol "__eof__"
 
 module Token = struct
   type t = token
@@ -21,14 +32,17 @@ module Token = struct
       let pp = pp
     end)
 
+  let rec pp = pp_token
+
+
   (* XXX *)
   let to_string = function
-    | Bool   x -> String.capitalize_ascii (string_of_bool x)
-    | Char   x -> "'%c'" % x
-    | Float  x -> string_of_float x
-    | Int    x -> string_of_int x
-    | String x -> "\"%s\"" % x
-    | Symbol x -> x
+    | `Bool   x -> String.capitalize_ascii (string_of_bool x)
+    | `Char   x -> "'%c'" % x
+    | `Float  x -> string_of_float x
+    | `Int    x -> string_of_int x
+    | `String x -> "\"%s\"" % x
+    | `Symbol x -> x
   let show = to_string
 end
 
@@ -143,20 +157,20 @@ module Lexer = struct
 
     (* Int literal *)
     | int_literal ->
-      Some (Int (int_of_string (current_lexeme self)))
+      `Int (int_of_string (current_lexeme self))
 
     (* Float literal *)
     | float_literal ->
-      Some (Float (float_of_string (current_lexeme self)))
+      `Float (float_of_string (current_lexeme self))
 
     (* Unit literal *)
     | '(', Star ((white_space | '\n') | comment), ')' ->
-      Some (Symbol "()")
+      `Symbol "()"
 
     (* Group start *)
     | '('  ->
       self.group_count <- (self.group_count + 1);
-      Some (Symbol (current_lexeme self))
+      `Symbol (current_lexeme self)
 
     (* Group end *)
     | ')' ->
@@ -165,7 +179,7 @@ module Lexer = struct
       if self.group_count < 0 then
         error self "unbalanced parenthesis"
       else
-        Some (Symbol (current_lexeme self))
+        `Symbol (current_lexeme self)
 
     (* XXX: Quoted symbols are not part of the lexer for now. *)
     (* | '`',  (name_literal | Plus identifier_char) -> *)
@@ -174,17 +188,17 @@ module Lexer = struct
 
     | '"',  Star (Compl '"'), '"' ->
       let lexeme = current_lexeme self in
-      Some (String (String.sub lexeme 1 (String.length lexeme - 2)))
+      `String (String.sub lexeme 1 (String.length lexeme - 2))
 
     | '\'', Compl '\'', '\'' ->
-      Some (Char (String.get (current_lexeme self) 1))
+      `Char (String.get (current_lexeme self) 1)
 
-    | "True"  -> Some (Bool true)
-    | "False" -> Some (Bool false)
+    | "True"  -> `Bool true
+    | "False" -> `Bool false
 
     (* Names (operators and identifiers) *)
     | name_literal | Plus identifier_char ->
-      Some (Symbol (current_lexeme self))
+      `Symbol (current_lexeme self)
 
     (* Newline symbol *)
     | '\n' ->
@@ -192,7 +206,7 @@ module Lexer = struct
       read self
 
     (* EOF symbol *)
-    | eof -> Some eof
+    | eof -> eof
 
     (* Everything else is illegal *)
     | any ->

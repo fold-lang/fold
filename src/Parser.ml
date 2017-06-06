@@ -4,11 +4,11 @@ open Lex
 
 
 module type Input = sig
-  type t
+  type 'a t
   type item
 
-  val current : t -> item option
-  val advance : t -> t
+  val current : 'a t -> item option
+  val advance : 'a t -> 'a t
 end
 
 
@@ -30,43 +30,43 @@ module type Type = sig
 
   val error_to_string : error -> string
 
-  include StateT
-    with type 'a monad = ('a, error) Result.t
+  include State1T
+      with type 'a monad = ('a, error) Result.t
 
-  include Functor
-    with type 'a t := 'a t
+  include Functor2
+    with type ('a, 'x) t := ('a, 'x) t
 
-  include Applicative
-    with type 'a t := 'a t
+  include Applicative2
+    with type ('a, 'x) t := ('a, 'x) t
 
-  include Alternative
-    with type 'a t := 'a t
+  include Alternative2
+    with type ('a, 'x) t := ('a, 'x) t
 
-  val combine : 'a t -> 'b t -> ('a * 'b) t
+  val combine : ('a, 'x) t -> ('b, 'x) t -> ('a * 'b, 'x) t
 
-  val with_default : 'a -> 'a t -> 'a t
+  val with_default : 'a -> ('a, 'x) t -> ('a, 'x) t
 
-  val optional : 'a t -> unit t
+  val optional : ('a, 'x) t -> (unit, 'x) t
 
-  val error : error -> 'a t
+  val error : error -> ('a, 'x) t
 
-  val token : token t
+  val token : (token, 'x) t
 
-  val consume : token -> unit t
+  val consume : token -> (unit, 'x) t
 
-  val expect : token -> token t
+  val expect : token -> (token, 'x) t
 
-  val advance : unit t
+  val advance : (unit, 'x) t
 
-  val satisfy : (token -> bool) -> token t
+  val satisfy : (token -> bool) -> (token, 'x) t
 
-  val exactly : token -> token t
+  val exactly : token -> (token, 'x) t
 
-  val any : token t
+  val any : (token, 'x) t
 
-  val one_of : token list -> token t
+  val one_of : token list -> (token, 'x) t
 
-  val none_of : token list -> token t
+  val none_of : token list -> (token, 'x) t
 end
 
 
@@ -105,21 +105,21 @@ module Make(Token : Printable)(Input : Input with type item = Token.t) = struct
     Result.Of_error(struct type t = error end)
 
 
-  module StateT =
-    StateT(Input)(Result)
+  module State1T =
+    State1T(Input)(Result)
 
 
-  module Functor =
-    Functor.Of_monad(StateT)
+  module Functor2 =
+    Functor2.Of_monad(State1T)
 
 
-  module Applicative =
-    Applicative.Of_monad(StateT)
+  module Applicative2 =
+    Applicative2.Of_monad(State1T)
 
 
-  include StateT
-  include Functor
-  include Applicative
+  include State1T
+  include Functor2
+  include Applicative2
 
 
   let empty = fun _state -> Error Empty
@@ -199,18 +199,4 @@ module Make(Token : Printable)(Input : Input with type item = Token.t) = struct
   let none_of list =
     satisfy (fun x -> not (List.mem x list))
 end
-
-
-
-module Default_input = struct
-  type t = Token.t list
-  type item = Token.t
-
-  let current l = Option.catch (fun () -> List.hd l)
-  let advance l = List.tl l
-end
-
-
-module Default = Make(Token)(Default_input)
-
 
