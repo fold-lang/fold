@@ -24,6 +24,7 @@ Library fold
                   # Eval,
                   Lang,
                   Pratt,
+                  Playground,
                   Precedence,
                   Syntax
 
