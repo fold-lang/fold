@@ -30,35 +30,37 @@ let error_to_string e =
     msg
 
 
-type ('a, 'state) parser = 'state -> ('a * 'state, error) result
+type 'a parser = state -> ('a * state, error) result
 
-type ('a, 'state) prefix = ('a, 'state) parser
-type ('a, 'state) infix  = ('a -> ('a, 'state) parser) * int
-
-type ('a, 'state) rule =
-  | Prefix of Token.t * ('a, 'state) prefix
-  | Infix  of Token.t * ('a, 'state) infix
-
-type ('a, 'state) scope = {
-  prefix : ('a, 'state) prefix M.t;
-  infix  : ('a, 'state) infix  M.t;
-}
-
-type ('a, 'state) grammar = {
-  data : ('a, 'state) scope list;
-  atom : Token.t -> ('a, 'state) prefix;
-  form : Token.t -> ('a, 'state) infix;
-}
-
-type 'a state =
+and state =
   { lexer   : Lexer.t;
-    grammar : ('a, 'a state) grammar;
+    grammar : 'a . 'a grammar;
     token   : Token.t }
 
-(* Monad *)
-let pure x  = fun s -> Ok (x, s)
+and 'a grammar = {
+  data : 'a scope list;
+  atom : Token.t -> 'a prefix;
+  form : Token.t -> 'a infix;
+}
 
-let (>>=) p f = fun s ->
+and 'a scope = {
+  prefix : 'a prefix M.t;
+  infix  : 'a infix  M.t;
+}
+
+and 'a prefix = 'a parser
+
+and 'a infix  = ('a -> 'a parser) * int
+
+type 'a rule =
+  | Prefix of Token.t * 'a prefix
+  | Infix  of Token.t * 'a infix
+
+
+(* Monad *)
+let pure x : 'a parser = fun s -> Ok (x, s)
+
+let (>>=) p f : 'b parser = fun s ->
     match p s with
     | Ok (x, s') -> (f x) s'
     | Error msg  -> Error msg
@@ -151,7 +153,7 @@ let none_of list =
 
 
 module Grammar = struct
-  type ('a, 'state) t = ('a, 'state) grammar
+  type 'a t = 'a grammar
 
   let dump self =
     let string_of_prefix _ = "<prefix>" in
@@ -285,22 +287,28 @@ and led rbp left =
 let parse =
   fun state -> (nud 0) state
 
-
-let run parser ~grammar lexer =
+let run parser lexer =
   let token = Lexer.read lexer in
-  let state = { grammar; lexer; token } in
+  let state = { grammar = Grammar.empty; lexer; token } in
   match parser state with
-  | Ok (expr, _) -> Ok expr
+  | Ok (x, _) -> Ok x
   | Error e -> Error e
 
+(* let run parser ~grammar lexer = *)
+  (* let token = Lexer.read lexer in *)
+  (* let state = { grammar; lexer; token } in *)
+  (* match parser state with *)
+  (* | Ok (expr, _) -> Ok expr *)
+  (* | Error e -> Error e *)
 
-let with_scope scope parser =
-  modify (fun state ->
-      { state with grammar = Grammar.push_scope scope state.grammar }) >>= fun () ->
-  parser >>= fun x ->
-  modify (fun state ->
-      { state with grammar = Grammar.pop_scope state.grammar }) >>= fun () ->
-  pure x
+
+(* let with_scope scope parser = *)
+  (* modify (fun state -> *)
+      (* { state with grammar = Grammar.push_scope scope state.grammar }) >>= fun () -> *)
+  (* parser >>= fun x -> *)
+  (* modify (fun state -> *)
+      (* { state with grammar = Grammar.pop_scope state.grammar }) >>= fun () -> *)
+  (* pure x *)
 
 
 let singleton x =
