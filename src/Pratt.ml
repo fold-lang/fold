@@ -289,7 +289,6 @@ and led rbp grammar left =
 
 let parse = fun grammar -> nud 0 grammar
 
-
 let run parser grammar lexer =
   let token = Lexer.read lexer in
   let state = { lexer; token } in
