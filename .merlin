@@ -4,6 +4,8 @@ S tests
 B _build/src
 B _build/tests
 
+FLG -open Pure
+
 PKG sedlex
 PKG compiler-libs.bytecomp
 PKG ppx_deriving.std

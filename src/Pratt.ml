@@ -29,43 +29,48 @@ let error_to_string e =
   | With_message msg ->
     msg
 
+(* Base parser *)
+type 'a parser = state -> ('a * state, error) result
 
-type ('a, 'state) parser = 'state -> ('a * 'state, error) result
+and 'a rule = 'a grammar -> 'a parser
 
-type ('a, 'state) prefix = ('a, 'state) parser
-type ('a, 'state) infix  = ('a -> ('a, 'state) parser) * int
+and state =
+  { lexer : Lexer.t;
+    token : Token.t }
 
-type ('a, 'state) rule =
-  | Prefix of Token.t * ('a, 'state) prefix
-  | Infix  of Token.t * ('a, 'state) infix
-
-type ('a, 'state) scope = {
-  prefix : ('a, 'state) prefix M.t;
-  infix  : ('a, 'state) infix  M.t;
+and 'a grammar = {
+  data : 'a scope list;
+  atom : Token.t -> 'a prefix;
+  form : Token.t -> 'a infix;
 }
 
-type ('a, 'state) grammar = {
-  data : ('a, 'state) scope list;
-  atom : Token.t -> ('a, 'state) prefix;
-  form : Token.t -> ('a, 'state) infix;
+and 'a scope = {
+  prefix : 'a prefix M.t;
+  infix  : 'a infix  M.t;
 }
 
-type 'a state =
-  { lexer   : Lexer.t;
-    grammar : ('a, 'a state) grammar;
-    token   : Token.t }
+and 'a prefix = 'a rule
 
-(* Monad *)
-let pure x  = fun s -> Ok (x, s)
+and 'a infix  = ('a -> 'a rule) * int
 
-let (>>=) p f = fun s ->
+type 'a denotation =
+  | Prefix of Token.t * 'a prefix
+  | Infix  of Token.t * 'a infix
+
+
+(* Monad instance *)
+
+let pure x = fun s -> Ok (x, s)
+
+let (>>=) p f =
+  fun s ->
     match p s with
-    | Ok (x, s') -> (f x) s'
+    | Ok (x, s') -> let p'= f x in p' s'
     | Error msg  -> Error msg
 
 
 (* Alternative *)
-let empty = fun _state -> Error Empty
+let empty = fun g -> fun _state -> Error Empty
 
 let (<|>) p1 p2 = fun state ->
   match p1 state with
@@ -151,7 +156,7 @@ let none_of list =
 
 
 module Grammar = struct
-  type ('a, 'state) t = ('a, 'state) grammar
+  type 'a t = 'a grammar
 
   let dump self =
     let string_of_prefix _ = "<prefix>" in
@@ -165,18 +170,18 @@ module Grammar = struct
       self.data
 
 
-  let invalid_infix ?(lbp = 0) token =
-    let parse left =
-      let msg = "%s cannot be used in infix position" % Token.to_string token in
-      (error (With_message msg)) in
-    (parse, lbp)
-
-
-  let invalid_prefix token =
+  let invalid_prefix token : 'a prefix = fun g ->
     let msg = if token = Lex.eof
       then "unexpected end of input"
       else "%s cannot be used in prefix position" % Token.to_string token in
     (error (With_message msg))
+
+
+  let invalid_infix ?(lbp = 0) token : 'a infix =
+    let parse left = fun g ->
+      let msg = "%s cannot be used in infix position" % Token.to_string token in
+      (error (With_message msg)) in
+    (parse, lbp)
 
 
   let empty = {
@@ -263,92 +268,82 @@ module Grammar = struct
 end
 
 
-let rec nud rbp =
-  get >>= fun { grammar; token } ->
+let rec nud rbp grammar =
+  get >>= fun { token } ->
   let parse = Grammar.lookup_prefix token grammar in
   (* log ("nud: tok = %s, rbp = %d" % (Token.to_string token, rbp)); *)
-  parse >>= fun left ->
-  led rbp left
+  parse grammar >>= fun left ->
+  led rbp grammar left
 
 
-and led rbp left =
-  get >>= fun { grammar; token } ->
+and led rbp grammar left =
+  get >>= fun { token } ->
   let (parse, lbp) = Grammar.lookup_infix token grammar in
   (* log ("led: tok = %s, rbp = %d, lbp = %d, left = %s, stop = %b" % *)
   (* (Token.to_string token, rbp, lbp, Syntax.to_string left, lbp <= rbp)); *)
   if lbp > rbp then
-    parse left >>= led rbp
+    parse left grammar >>= led rbp grammar
   else
     pure left
 
 
-let parse =
-  fun state -> (nud 0) state
+let parse = fun grammar -> nud 0 grammar
 
 
-let run parser ~grammar lexer =
+let run parser grammar lexer =
   let token = Lexer.read lexer in
-  let state = { grammar; lexer; token } in
-  match parser state with
+  let state = { lexer; token } in
+  match parser grammar state with
   | Ok (expr, _) -> Ok expr
   | Error e -> Error e
 
 
-let with_scope scope parser =
-  modify (fun state ->
-      { state with grammar = Grammar.push_scope scope state.grammar }) >>= fun () ->
-  parser >>= fun x ->
-  modify (fun state ->
-      { state with grammar = Grammar.pop_scope state.grammar }) >>= fun () ->
-  pure x
-
-
-let singleton x =
+let singleton x g =
   advance >>= fun () ->
   pure x
 
 
 let delimiter str =
-  let parse _ = error (With_message "unexpected delimiter") in
+  let parse _ g = error (With_message "unexpected delimiter") in
   Infix (`Symbol str, (parse, 0))
 
 
 let infix precedence str f =
-  let parse x =
+  let p x g =
     advance >>= fun () ->
-    nud precedence >>= fun y ->
+    nud precedence g >>= fun y ->
     pure (f x y) in
-  Infix (`Symbol str, (parse, precedence))
+  Infix (`Symbol str, (p, precedence))
 
 
 let infixr precedence str f =
-  let parse x =
+  let p x g =
     advance >>= fun () ->
-    nud (precedence - 1) >>= fun y ->
+    nud (precedence - 1) g >>= fun y ->
     pure (f x y) in
-  Infix (`Symbol str, (parse, precedence))
+  Infix (`Symbol str, (p, precedence))
 
 
 let prefix str f =
-  let parse =
+  let p g =
     advance >>= fun () ->
-    parse >>= fun x ->
+    parse g >>= fun x ->
     pure (f x) in
-  Prefix (`Symbol str, parse)
+  Prefix (`Symbol str, p)
 
 
 let postfix precedence str f =
-  let parse x =
+  let p x g =
     advance >>= fun () ->
     pure (f x) in
-  Infix (`Symbol str, (parse, precedence))
+  Infix (`Symbol str, (p, precedence))
 
 
 let between s e f =
-  let parse =
+  let p g =
     advance >>= fun () ->
-    parse >>= fun x ->
+    parse g >>= fun x ->
     consume (`Symbol e) >>= fun () ->
     pure (f x) in
-  Prefix (`Symbol s, parse)
+  Prefix (`Symbol s, p)
 

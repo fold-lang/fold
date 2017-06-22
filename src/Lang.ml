@@ -78,10 +78,10 @@ module AST = struct
 
   module Expression = struct
     type t = [
-      | token
       | `Let of Pattern.t * t * t
       | `Apply of t * t list
       | `Lambda of Pattern.t list * t
+      | token
     ] [@@deriving show]
 
     let let' pat expr body = `Let (pat, expr, body)
@@ -125,42 +125,50 @@ module AST = struct
 end
 
 
-(* module Parser = struct *)
-(*   module Expression = struct *)
+module Parser = struct
+  module Expression = struct
+    open Pratt
 
-(*     let rules = *)
-(*       [infix 30  "+" (fun x y -> `Apply (`Symbol "+", [x; y])); *)
-(*        infix 30  "-" (fun x y -> `Apply (`Symbol "-", [x; y])); *)
-(*        prefix    "-" (fun x   -> `Apply (`Symbol "-", [x]))] *)
-(*   end *)
+    let grammar =
+      Grammar.init ~atom:(function tok -> singleton (tok :> AST.Expression.t)) [
+        infix 30  "+" (fun x y -> `Apply (`Symbol "+", [x; y]));
+        infix 30  "-" (fun x y -> `Apply (`Symbol "-", [x; y]));
+        prefix    "-" (fun x   -> `Apply (`Symbol "-", [x]))
+      ]
 
-(*   module Pattern = struct *)
-(*     open Pratt *)
+    let parse () =
+      nud 0 grammar
+  end
 
-(*     let grammar : AST.Pattern.t grammar = *)
-(*       Grammar.init ~atom:(fun tok -> singleton (tok :> AST.Pattern.t)) [] *)
-(*   end *)
+  module Pattern = struct
+    open Pratt
 
-(*   module Statement = struct *)
-(*     open Pratt *)
+    let grammar =
+      Grammar.init ~atom:(fun tok -> singleton (tok :> AST.Pattern.t)) []
 
-(*     let val' : (AST.Statement.t, AST.Statement.t state) parser = *)
-(*       consume (`Symbol "val") >>= fun () -> *)
-(*       print ("val: \"val\""); *)
-(*       Pattern.parse () >>= fun pattern -> *)
-(*       print ("val: pattern = %s" % (AST.Pattern.show pattern)); *)
-(*       consume (`Symbol "=") >>= fun () -> *)
-(*       Expression.parse () >>= fun value -> *)
-(*       return (AST.Statement.val' pattern value) *)
+    let parse () =
+      satisfy (function `Symbol x -> true | _ -> false) >>= fun pat ->
+      advance >>= fun () -> pure pat
+  end
 
-(*     let grammar : AST.Statement.t grammar = *)
-(*       Grammar.init [ *)
-(*         (`Symbol "val", `NUD val'); *)
-(*         delimiter "="; *)
-(*       ] *)
-(*   end *)
+  module Statement = struct
+    open Pratt
 
-(* end *)
+    let val' g =
+      consume (`Symbol "val") >>= fun () ->
+      Pattern.parse () >>= fun pattern ->
+      consume (`Symbol "=") >>= fun () ->
+      Expression.parse () >>= fun value ->
+      pure (AST.Statement.val' pattern value)
+
+    let grammar : AST.Statement.t grammar =
+      Grammar.init [
+        Prefix (`Symbol "val", val');
+        delimiter "=";
+      ]
+  end
+
+end
 
 
 
