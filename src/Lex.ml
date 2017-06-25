@@ -44,6 +44,30 @@ module Token = struct
     | `String x -> "\"%s\"" % x
     | `Symbol x -> x
   let show = to_string
+
+  let is_symbol = function
+    | `Symbol _ -> true
+    | _ -> false
+
+  let is_bool = function
+    | `Bool _ -> true
+    | _ -> false
+
+  let is_float = function
+    | `Float _ -> true
+    | _ -> false
+
+  let is_int = function
+    | `Int _ -> true
+    | _ -> false
+
+  let is_string = function
+    | `String _ -> true
+    | _ -> false
+
+  let is_eof = function
+    | tok when tok = eof -> true
+    | _ -> false
 end
 
 

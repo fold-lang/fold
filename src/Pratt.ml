@@ -32,8 +32,6 @@ let error_to_string e =
 (* Base parser *)
 type 'a parser = state -> ('a * state, error) result
 
-and 'a rule = 'a grammar -> 'a parser
-
 and state =
   { lexer : Lexer.t;
     token : Token.t }
@@ -49,9 +47,8 @@ and 'a scope = {
   infix  : 'a infix  M.t;
 }
 
-and 'a prefix = 'a rule
-
-and 'a infix  = ('a -> 'a rule) * int
+and 'a prefix = ('a grammar ->       'a parser)
+and 'a infix  = ('a grammar -> 'a -> 'a parser) * int
 
 type 'a denotation =
   | Prefix of Token.t * 'a prefix
@@ -170,15 +167,17 @@ module Grammar = struct
       self.data
 
 
-  let invalid_prefix token : 'a prefix = fun g ->
-    let msg = if token = Lex.eof
-      then "unexpected end of input"
-      else "%s cannot be used in prefix position" % Token.to_string token in
-    (error (With_message msg))
+  let invalid_prefix token =
+    let parse g =
+      let msg = if token = Lex.eof
+        then "unexpected end of input"
+        else "%s cannot be used in prefix position" % Token.to_string token in
+      (error (With_message msg)) in
+    parse
 
 
-  let invalid_infix ?(lbp = 0) token : 'a infix =
-    let parse left = fun g ->
+  let invalid_infix ?(lbp = 0) token =
+    let parse g left =
       let msg = "%s cannot be used in infix position" % Token.to_string token in
       (error (With_message msg)) in
     (parse, lbp)
@@ -271,7 +270,7 @@ end
 let rec nud rbp grammar =
   get >>= fun { token } ->
   let parse = Grammar.lookup_prefix token grammar in
-  (* log ("nud: tok = %s, rbp = %d" % (Token.to_string token, rbp)); *)
+  (*print ("nud: tok = %s, rbp = %d" % (Token.to_string token, rbp));*)
   parse grammar >>= fun left ->
   led rbp grammar left
 
@@ -279,20 +278,22 @@ let rec nud rbp grammar =
 and led rbp grammar left =
   get >>= fun { token } ->
   let (parse, lbp) = Grammar.lookup_infix token grammar in
-  (* log ("led: tok = %s, rbp = %d, lbp = %d, left = %s, stop = %b" % *)
-  (* (Token.to_string token, rbp, lbp, Syntax.to_string left, lbp <= rbp)); *)
+  (*print ("led: tok = %s, lbp = %d, rbp = %d, stop = %b" %
+       (Token.to_string token, lbp, rbp, lbp <= rbp));*)
   if lbp > rbp then
-    parse left grammar >>= led rbp grammar
+    parse grammar left >>= led rbp grammar
   else
     pure left
 
 
-let parse = fun grammar -> nud 0 grammar
+let parse grammar =
+  nud 0 grammar
 
-let run parser grammar lexer =
+
+let run parser lexer =
   let token = Lexer.read lexer in
   let state = { lexer; token } in
-  match parser grammar state with
+  match parser state with
   | Ok (expr, _) -> Ok expr
   | Error e -> Error e
 
@@ -303,20 +304,19 @@ let singleton x g =
 
 
 let delimiter str =
-  let parse _ g = error (With_message "unexpected delimiter") in
+  let parse g _ = error (With_message "unexpected delimiter") in
   Infix (`Symbol str, (parse, 0))
 
 
 let infix precedence str f =
-  let p x g =
+  let p g x =
     advance >>= fun () ->
     nud precedence g >>= fun y ->
     pure (f x y) in
   Infix (`Symbol str, (p, precedence))
 
-
 let infixr precedence str f =
-  let p x g =
+  let p g x =
     advance >>= fun () ->
     nud (precedence - 1) g >>= fun y ->
     pure (f x y) in
@@ -332,7 +332,7 @@ let prefix str f =
 
 
 let postfix precedence str f =
-  let p x g =
+  let p g x =
     advance >>= fun () ->
     pure (f x) in
   Infix (`Symbol str, (p, precedence))
@@ -346,3 +346,10 @@ let between s e f =
     pure (f x) in
   Prefix (`Symbol s, p)
 
+
+ let juxtaposition token f = 
+   let precedence = 90 in 
+   let parse g x = 
+     nud precedence g >>= fun y -> 
+     pure (f x y) in 
+   (parse, precedence) 

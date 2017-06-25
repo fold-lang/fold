@@ -7,10 +7,10 @@ open Fold.Lex
 
 
 let () =
-  let rec loop grammar =
+  let rec loop () =
     print ~terminator:"" "-> ";
     let lexer = Lexer.from_string (read_line ()) in
-    match Pratt.run Lang.Parser.Statement.val' grammar lexer with
+    match Pratt.run Lang.Parser.Statement.parse lexer with
     | Ok syntax ->
       print (" = " ^ Lang.AST.Statement.show syntax);
       loop ()

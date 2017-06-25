@@ -61,7 +61,6 @@ module type Syntax = sig
   end
 end
 
-
 module AST = struct
   module ID = struct
     type capitalized = string [@@deriving show]
@@ -70,6 +69,7 @@ module AST = struct
 
   module Pattern = struct
     type t = [
+      | `Form of t list
       | token
     ] [@@deriving show]
 
@@ -102,12 +102,12 @@ module AST = struct
   module Statement = struct
     type t = [
       | `Val of Pattern.t * Expression.t
-      | `Def of ID.lowercase * Pattern.t list * Expression.t
+      | `Def of Pattern.t list * Expression.t
       | `Type of ID.capitalized * ID.lowercase list * Type.t
     ] [@@deriving show]
 
     let val' pat expr : t = `Val (pat, expr)
-    let def name params expr = `Def (name, params, expr)
+    let def params expr = `Def (params, expr)
     let type' name params t = `Type (name, params, t)
   end
 
@@ -127,45 +127,68 @@ end
 
 module Parser = struct
   module Expression = struct
-    open Pratt
 
     let grammar =
+      let open Pratt in
       Grammar.init ~atom:(function tok -> singleton (tok :> AST.Expression.t)) [
         infix 30  "+" (fun x y -> `Apply (`Symbol "+", [x; y]));
         infix 30  "-" (fun x y -> `Apply (`Symbol "-", [x; y]));
         prefix    "-" (fun x   -> `Apply (`Symbol "-", [x]))
       ]
 
-    let parse () =
-      nud 0 grammar
+    let parse = Pratt.parse grammar
   end
 
   module Pattern = struct
     open Pratt
 
-    let grammar =
-      Grammar.init ~atom:(fun tok -> singleton (tok :> AST.Pattern.t)) []
+    let form token =
+      let append x y =
+        print ("x = %s, y = %s" % (AST.Pattern.show x, AST.Pattern.show y));
+        `Form begin
+          match x with
+          | `Form xs -> List.append xs [y]
+          | atom -> [atom; y]
+        end in
+      juxtaposition token append
 
-    let parse () =
-      satisfy (function `Symbol x -> true | _ -> false) >>= fun pat ->
-      advance >>= fun () -> pure pat
+    let atom token = singleton (token :> AST.Pattern.t)
+
+    let grammar =
+      Grammar.init ~atom ~form [
+        delimiter "=";
+      ]
+
+    let parse = Pratt.parse grammar
   end
 
   module Statement = struct
-    open Pratt
 
     let val' g =
+      let open Pratt in
       consume (`Symbol "val") >>= fun () ->
-      Pattern.parse () >>= fun pattern ->
+      Pattern.parse >>= fun pattern ->
       consume (`Symbol "=") >>= fun () ->
-      Expression.parse () >>= fun value ->
+      Expression.parse >>= fun value ->
       pure (AST.Statement.val' pattern value)
 
-    let grammar : AST.Statement.t grammar =
+    let def g =
+      let open Pratt in
+      consume (`Symbol "def") >>= fun () ->
+      Pattern.parse >>= fun pattern ->
+      consume (`Symbol "=") >>= fun () ->
+      Expression.parse >>= fun value ->
+      pure (AST.Statement.def [pattern] value)
+
+    let grammar =
+      let open Pratt in
       Grammar.init [
         Prefix (`Symbol "val", val');
-        delimiter "=";
+        Prefix (`Symbol "def", def);
       ]
+
+    let parse : AST.Statement.t Pratt.parser =
+      Pratt.parse grammar
   end
 
 end
@@ -173,16 +196,6 @@ end
 
 
 
-(* let juxtaposition token = *)
-(*   let precedence = 90 in *)
-(*   let parse x = *)
-(*     Pratt.parse_prefix precedence >>= fun y -> *)
-(*     let list = *)
-(*       match x with *)
-(*       | `Form xs -> List.append xs [y] *)
-(*       | atom    -> [atom; y] in *)
-(*     Parser.pure (`Form list) in *)
-(*   (parse, precedence) *)
 
 
 (* let default_operator token = *)
