@@ -10,9 +10,9 @@ let () =
   let rec loop () =
     print ~terminator:"" "-> ";
     let lexer = Lexer.from_string (read_line ()) in
-    match Pratt.run Lang.Parser.Statement.parse lexer with
+    match Pratt.run Parser.Statement.parse lexer with
     | Ok syntax ->
-      print (" = " ^ Lang.AST.Statement.show syntax);
+      print (Syntax.Statement.show syntax);
       loop ()
 
     | Error msg ->

@@ -22,7 +22,8 @@ Library fold
   Pack:           true
   Modules:        Lex,
                   # Eval,
-                  Lang,
+                  Parser,
+                  Interpreter,
                   Pratt,
                   Precedence,
                   Syntax

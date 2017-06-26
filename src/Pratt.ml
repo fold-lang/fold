@@ -347,9 +347,9 @@ let between s e f =
   Prefix (`Symbol s, p)
 
 
- let juxtaposition token f = 
-   let precedence = 90 in 
-   let parse g x = 
-     nud precedence g >>= fun y -> 
-     pure (f x y) in 
-   (parse, precedence) 
+ let juxtaposition token f =
+   let precedence = 90 in
+   let parse g x =
+     nud precedence g >>= fun y ->
+     pure (f x y) in
+   (parse, precedence)
