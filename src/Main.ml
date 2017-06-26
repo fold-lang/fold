@@ -3,24 +3,21 @@ open Pure
 
 open Fold
 open Fold.Lex
-open Fold.Syntax
-
 
 
 
 let () =
-  let rec loop grammar =
+  let rec loop () =
     print ~terminator:"" "-> ";
     let lexer = Lexer.from_string (read_line ()) in
-    match Lang.Pratt.(run expression ~grammar lexer) with
-    | Ok expr ->
-      let g, value = Eval.eval grammar expr in
-      print (" = " ^ Expr.to_string value);
-      loop g
+    match Pratt.run Parser.Statement.parse lexer with
+    | Ok syntax ->
+      print (Syntax.Statement.show syntax);
+      loop ()
 
     | Error msg ->
-      print (" * Error: " ^ msg);
-      loop grammar
+      print (" * Error: " ^ Pratt.error_to_string msg);
+      loop ()
   in
-  loop Lang.grammar
+  loop ()
 

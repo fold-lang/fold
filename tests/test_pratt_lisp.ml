@@ -2,11 +2,10 @@
 open Pure
 open Fold
 open Fold.Lex
-open Fold.Syntax
 
 module C = Colors
 
-module Pratt = Pratt.Make(Expr)
+module Pratt = Pratt.Make(Syntax)
 open Pratt
 
 
@@ -18,15 +17,15 @@ let juxtaposition tok =
     Pratt.parse_prefix precedence >>= fun y ->
     let list =
       match x with
-      | Form xs -> List.append xs [y]
+      | `Form xs -> List.append xs [y]
       | atom    -> [atom; y] in
-    Parser.pure (Form list) in
+    Parser.pure (`Form list) in
   (parse, precedence)
 
 
 let grammar =
   Grammar.init
-    ~atom:(fun x -> singleton (Atom x))
+    ~atom:(fun x -> singleton (x :> Syntax.t))
     ~form:juxtaposition
     ()
   |> between "(" ")" id
@@ -36,21 +35,20 @@ let grammar =
 (* Some helper definitions *)
 
 let x, y, z =
-  let s = fun x -> Atom (Symbol x) in
+  let s = fun x -> `Symbol x in
   s "x", s "y", s "z"
 
 let i42, i0, i1, f3_14, bT =
-  let a = fun x -> Atom x in
-  a (Int 42), a (Int 0), a (Int 1), a (Float 3.14), a (Bool true)
+  `Int 42, `Int 0, `Int 1, `Float 3.14, `Bool true
 
 let f1, f2, f3 =
-  (fun x     -> Form [Atom (Symbol "f"); x]),
-  (fun x y   -> Form [Atom (Symbol "f"); x; y]),
-  (fun x y z -> Form [Atom (Symbol "f"); x; y; z])
+  (fun x     -> `Form [`Symbol "f"; x]),
+  (fun x y   -> `Form [`Symbol "f"; x; y]),
+  (fun x y z -> `Form [`Symbol "f"; x; y; z])
 
 
 let (=>) input expected =
-  Test.(test (result (list (module Expr)) string))
+  Test.(test (result (list (module Syntax)) string))
   input (run (Parser.many expression) ~grammar (Lexer.from_string input)) expected
 
 let () =
@@ -61,13 +59,13 @@ let () =
   ];
 
   Test.group "Atoms" [
-    "0"                                  => Ok [Atom (Int 0)];
-    "x"                                  => Ok [Atom (Symbol "x")];
-    "True"                               => Ok [Atom (Bool true)];
+    "0"                                  => Ok [`Int 0];
+    "x"                                  => Ok [`Symbol "x"];
+    "True"                               => Ok [`Bool true];
   ];
 
   Test.group "Forms" [
-    "-42"                                => Ok [Form [Atom (Symbol "-"); Atom (Int 42)]];
+    "-42"                                => Ok [`Form [`Symbol "-"; `Int 42]];
     "f x"                                => Ok [f1 x];
     "f x y z"                            => Ok [f3 x y z];
     "f True 42 3.14"                     => Ok [f3 bT i42 f3_14];
@@ -77,6 +75,6 @@ let () =
   Test.group "Weird" [
     "(x)"                                => Ok [x];
     "f (f x)"                            => Ok [f1 (f1 x)];
-    "(((((0)))))"                        => Ok [Atom (Int 0)];
+    "(((((0)))))"                        => Ok [`Int 0];
   ]
 

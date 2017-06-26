@@ -3,9 +3,6 @@ open Pure
 open Lex
 
 
-module Pratt = Pratt.Make(Syntax.Expr)
-
-
 type t =
   | Epsilon                 (* ε         *)
   | Terminal     of string  (* "x"       *)
@@ -53,7 +50,7 @@ let rec to_parser self =
     P.pure []
 
   | Terminal x ->
-    P.expect (Symbol x) >>= fun tok ->
+    P.expect (`Symbol x) >>= fun tok ->
     P.advance >> lazy (P.pure [tok])
 
   | Non_terminal x ->
@@ -106,26 +103,22 @@ let terminals =
 
 
 let to_pratt self =
-  let module P = Pratt.Parser in
+  let open Pratt in
   let module G = Pratt.Grammar in
-  let module S = Pratt.State in
-  let (>>=) = P.(>>=) in
-  let (<|>) = P.(<|>) in
-  let (>>)  = P.(>>) in
 
   let rec loop = function
     | Epsilon ->
-      P.pure []
+      return []
 
     | Terminal x ->
-      P.consume (Symbol x) >> lazy (P.pure [])
+      consume (`Symbol x) >> lazy (return [])
 
     | Non_terminal _ ->
-      Pratt.expression >>= fun expr ->
-      P.pure [expr]
+      parse >>= fun x ->
+      return [x]
 
     | Alternative [] ->
-      P.pure []
+      return []
 
     | Alternative [x] ->
       loop x
@@ -155,11 +148,12 @@ let to_pratt self =
       P.some (loop peg) >>= fun xss -> P.pure (List.concat xss)
   in
   begin
+    let open Pratt in
     let ts = terminals self in
     P.modify begin fun s ->
-      let grammar = List.fold_left (flip Pratt.delimiter)
-          S.(s.grammar) ts in
-      { s with S.grammar }
+      let grammar = List.fold_left (fun g term ->
+          Grammar.define (delimiter term) g) s.grammar ts in
+      { s with grammar }
     end >> lazy (loop self)
   end
 
@@ -170,53 +164,53 @@ module Denotation = struct
   [@@deriving show, eq]
 end
 
-exception Found_denotation of Denotation.t list
+(* exception Found_denotation of Denotation.t list *)
 
 (* Traverses the PEG searching for the first occurrences of terminal nodes.
  *
  * The search is not total, some PEG trees don't have any terminals.
  *
  *)
-let find_name peg =
-  let rec loop is_prefix = function
-    | Epsilon -> is_prefix
+(* let find_name peg = *)
+(*   let rec loop is_prefix = function *)
+(*     | Epsilon -> is_prefix *)
 
-    | Terminal x ->
-      let d = if is_prefix then `Prefix x
-              else `Infix x in
-      raise (Found_denotation d)
+(*     | Terminal x -> *)
+(*       let d = if is_prefix then `Prefix x *)
+(*               else `Infix x in *)
+(*       raise (Found_denotation d) *)
 
-    | Non_terminal _ ->
-      not is_prefix
+(*     | Non_terminal _ -> *)
+(*       not is_prefix *)
 
-    | Sequence xs ->
-      List.fold_left find_name is_prefix xs
+(*     | Sequence xs -> *)
+(*       List.fold_left find_name is_prefix xs *)
 
-    | Alternative xs ->
-      List.fold_left find_name is_prefix xs
+(*     | Alternative xs -> *)
+(*       List.fold_left find_name is_prefix xs *)
 
-    | Optional     x  -> to_string x ^ "?"
-    | Many         x  -> to_string x ^ "*"
-    | Some         x  -> to_string x ^ "+"
-  in
-  loop ~is_prefix:true ~found:false peg
+(*     | Optional     x  -> to_string x ^ "?" *)
+(*     | Many         x  -> to_string x ^ "*" *)
+(*     | Some         x  -> to_string x ^ "+" *)
+(*   in *)
+(*   loop ~is_prefix:true ~found:false peg *)
 
 (* XXX: The name resolution should return a list: ("a" | "b")+ *)
 let of_expr expr =
   let name = ref None in
   let rec loop expr =
   match expr with
-    | Atom (Symbol x) -> Non_terminal x
-    | Atom (String x) ->
+    | `Symbol x -> Non_terminal x
+    | `String x ->
       begin
         if !name = None then name := Some x
       end;
       Terminal x
-    | Atom _ -> undefined ()
-    | Form [Atom (Symbol "|"); x; y] -> Alternative [loop x; loop y]
-    | Form [Atom (Symbol "?"); x]    -> Optional (loop x)
-    | Form [Atom (Symbol "*"); x]    -> Many (loop x)
-    | Form [Atom (Symbol "+"); x]    -> Some (loop x)
-    | Form xs                        -> Sequence (List.map loop xs) in
+    | `Form [`Symbol "|"; x; y] -> Alternative [loop x; loop y]
+    | `Form [`Symbol "?"; x]    -> Optional (loop x)
+    | `Form [`Symbol "*"; x]    -> Many (loop x)
+    | `Form [`Symbol "+"; x]    -> Some (loop x)
+    | `Form xs                  -> Sequence (List.map loop xs)
+    | _ -> undefined () in
   !name, loop expr
 

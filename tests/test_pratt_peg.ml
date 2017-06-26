@@ -5,9 +5,8 @@ open Pure
 open Base
 open Fold
 open Fold.Lex
-open Fold.Syntax
 
-module Pratt   = Pratt.Make(Expr)
+module Pratt   = Pratt.Make(Syntax)
 module Grammar = Pratt.Grammar
 
 open Pratt
@@ -15,7 +14,7 @@ open Pratt
 
 let grammar =
   Grammar.init
-    ~atom:(fun x -> singleton (Atom x))
+    ~atom:(fun x -> singleton (x :> Syntax.t))
     ~form:(fun x -> Lang.default_operator x or lazy (Lang.juxtaposition x))
     ()
   |> between "(" ")" id
@@ -32,18 +31,17 @@ let parse peg input =
 
 
 let test peg input expected =
-  Test.(test (result (list (module Expr)) string))
+  Test.(test (result (list (module Syntax)) string))
   input (parse peg input) expected
 
 
 let () =
   let open PEG.DSL in
-  let open Expr in
 
   let (=>) = test (seq [term "let"; expr "a"; term "="; expr "b"]) in
   Test.group "Let-expression" [
-    "let x = 0" => Ok [symbol "x"; int 0];
-    "let x = 2 + 2" => Ok [symbol "x"; form [symbol "+"; int 2; int 2]];
+    "let x = 0" => Ok [`Symbol "x"; `Int 0];
+    "let x = 2 + 2" => Ok [`Symbol "x"; `Form [`Symbol "+"; `Int 2; `Int 2]];
     "let" => Error "unexpected end of file";
     "let a" => Error "expected `=` but got `__eof__`";
     "let a =" => Error "unexpected end of file";
@@ -55,14 +53,14 @@ let () =
       'x'
     else
       'y'
-    |} => Ok [bool true; char 'x'; char 'y'];
+    |} => Ok [`Bool true; `Char 'x'; `Char 'y'];
 
     {|if x - 1 == 0 then
       print "yes!"
     else
       print "no!"
-    |} => Ok [form [symbol "=="; form [symbol "-"; symbol "x"; int 1]; int 0];
-              form [symbol "print"; string "yes!"]; form [symbol "print"; string "no!"]];
+    |} => Ok [`Form [`Symbol "=="; `Form [`Symbol "-"; `Symbol "x"; `Int 1]; `Int 0];
+              `Form [`Symbol "print"; `String "yes!"]; `Form [`Symbol "print"; `String "no!"]];
   ];
 
   let (=>) = test (seq [term "while"; expr "t"; term "do"; expr "a"; term "end"]) in
@@ -70,8 +68,8 @@ let () =
     {|while x / 2 != 0 do
       print "Hello, world!"
     end
-    |} => Ok [form [symbol "!="; form [symbol "/"; symbol "x"; int 2]; int 0];
-              form [symbol "print"; string "Hello, world!"]];
+    |} => Ok [`Form [`Symbol "!="; `Form [`Symbol "/"; `Symbol "x"; `Int 2]; `Int 0];
+              `Form [`Symbol "print"; `String "Hello, world!"]];
   ];
 
   let (=>) = test (seq [expr "name"; term "="; expr "value"])  in

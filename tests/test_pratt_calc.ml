@@ -21,7 +21,7 @@ let rec fact x =
   if x <= 1 then 1 else x * fact (x - 1)
 
 let atom = function
-  | Int n -> singleton n
+  | `Int n -> singleton n
   | token -> Grammar.invalid_prefix token
 
 let grammar =
