@@ -270,7 +270,7 @@ end
 let rec nud rbp grammar =
   get >>= fun { token } ->
   let parse = Grammar.lookup_prefix token grammar in
-  (*print ("nud: tok = %s, rbp = %d" % (Token.to_string token, rbp));*)
+  print ("nud: prefix %s, rbp = %d" % (Token.show token, rbp));
   parse grammar >>= fun left ->
   led rbp grammar left
 
@@ -278,8 +278,8 @@ let rec nud rbp grammar =
 and led rbp grammar left =
   get >>= fun { token } ->
   let (parse, lbp) = Grammar.lookup_infix token grammar in
-  (*print ("led: tok = %s, lbp = %d, rbp = %d, stop = %b" %
-       (Token.to_string token, lbp, rbp, lbp <= rbp));*)
+  print ("led: infix (%s %d), rbp = %d, stop = %b" %
+       (Token.to_string token, lbp, rbp, lbp <= rbp));
   if lbp > rbp then
     parse grammar left >>= led rbp grammar
   else
