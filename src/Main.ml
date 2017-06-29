@@ -9,10 +9,10 @@ open Fold.Lex
 let () =
   let rec loop () =
     print ~terminator:"" "-> ";
-    let lexer = Lexer.from_string (read_line ()) in
-    match Pratt.run Parser.Statement.parse lexer with
+    let lexer = Lexer.from_channel stdin in
+    match Pratt.run (Pratt.many Parser.Statement.parse) lexer with
     | Ok syntax ->
-      print (Syntax.Statement.show syntax);
+      List.iter (print << Syntax.Statement.show) syntax;
       loop ()
 
     | Error msg ->

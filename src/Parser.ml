@@ -77,6 +77,7 @@ end
 
 module Statement = struct
   let val' g =
+    print "val:";
     let open Pratt in
     consume (`Symbol "val") >>= fun () ->
     Pattern.parse >>= fun pattern ->
@@ -85,6 +86,7 @@ module Statement = struct
     pure (Syntax.Statement.val' pattern value)
 
   let def g =
+    print "def:";
     let open Pratt in
     consume (`Symbol "def") >>= fun () ->
     Pattern.parse >>= fun pattern ->
@@ -97,6 +99,8 @@ module Statement = struct
     Grammar.init [
       Prefix (`Symbol "val", val');
       Prefix (`Symbol "def", def);
+      Infix (`Symbol "val", (invalid, 0));
+      Infix (`Symbol "def", (invalid, 0));
     ]
 
   let parse : Syntax.Statement.t Pratt.parser =
