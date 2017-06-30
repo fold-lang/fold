@@ -7,17 +7,19 @@ open Fold.Lex
 
 
 let () =
-  let rec loop () =
-    print ~terminator:"" "-> ";
-    let lexer = Lexer.from_channel stdin in
-    match Pratt.run (Pratt.many Parser.Statement.parse) lexer with
-    | Ok syntax ->
-      List.iter (print << Syntax.Statement.show) syntax;
-      loop ()
+  let rec loop state =
+    match Parser.Statement.parse state with
+    | Ok (syntax, state') ->
+      print "{{{";
+      syntax |> Syntax.Statement.show |> print;
+      print "}}}";
+      loop state'
 
-    | Error msg ->
-      print (" * Error: " ^ Pratt.error_to_string msg);
-      loop ()
+    | Error Pratt.Empty -> ()
+    | Error e ->
+      print (" * Error: " ^ Pratt.error_to_string e)
   in
-  loop ()
+  let lexer = Lexer.from_channel stdin in
+  let token = Lexer.read lexer in
+  loop Pratt.{ lexer; token }
 

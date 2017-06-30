@@ -29,6 +29,10 @@ let keywords () = let open Pratt in [
 
   Infix (`Symbol "val", (invalid, 0));
   Infix (`Symbol "def", (invalid, 0));
+
+  Prefix (Lex.eof, (const  (error (With_message "unexpected end of file"))));
+  Infix  (Lex.eof, (const2 (error Empty), 0));
+  (* |> define_infix  Lex.eof ((fun g left -> error Empty), 0) *)
 ]
 
 module Expression = struct
@@ -46,7 +50,7 @@ module Expression = struct
     singleton (token :> Syntax.Expression.t)
 
   let grammar =
-    Grammar.init ~atom ~form (keywords ())
+    Grammar.init ~atom ~form "Expression" (keywords ())
 
   let parse = Pratt.parse grammar
 end
@@ -69,7 +73,7 @@ module Pattern = struct
     let rules = [
       delimiter "=";
     ] ++ keywords () in
-    Grammar.init ~atom ~form rules
+    Grammar.init ~atom ~form "Pattern" rules
 
   let parse = Pratt.parse grammar
 end
@@ -77,7 +81,6 @@ end
 
 module Statement = struct
   let val' g =
-    print "val:";
     let open Pratt in
     consume (`Symbol "val") >>= fun () ->
     Pattern.parse >>= fun pattern ->
@@ -86,7 +89,6 @@ module Statement = struct
     pure (Syntax.Statement.val' pattern value)
 
   let def g =
-    print "def:";
     let open Pratt in
     consume (`Symbol "def") >>= fun () ->
     Pattern.parse >>= fun pattern ->
@@ -96,11 +98,15 @@ module Statement = struct
 
   let grammar =
     let open Pratt in
-    Grammar.init [
+    Grammar.init "Statement" [
+      Prefix (Lex.eof, (const (Pratt.error Empty)));
       Prefix (`Symbol "val", val');
       Prefix (`Symbol "def", def);
+
       Infix (`Symbol "val", (invalid, 0));
       Infix (`Symbol "def", (invalid, 0));
+
+      Infix  (Lex.eof, (const2 (error Empty), 0));
     ]
 
   let parse : Syntax.Statement.t Pratt.parser =

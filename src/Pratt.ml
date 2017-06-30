@@ -5,7 +5,6 @@ open Lex
 
 module M = Map.Make(Token)
 
-
 type error =
   | Empty
   | Unexpected_end   of { expected : token }
@@ -37,6 +36,7 @@ and state =
     token : Token.t }
 
 and 'a grammar = {
+  name : string;
   data : 'a scope list;
   atom : Token.t -> 'a prefix;
   form : Token.t -> 'a infix;
@@ -184,6 +184,7 @@ module Grammar = struct
 
 
   let empty = {
+    name = "";
     data = [];
     atom = invalid_prefix;
     form = (fun token -> invalid_infix ~lbp:90 token);
@@ -259,18 +260,18 @@ module Grammar = struct
       rules
 
 
-  let init ?(form = invalid_infix ~lbp:90) ?(atom = invalid_prefix) rules =
+  let init ?(form = invalid_infix ~lbp:90) ?(atom = invalid_prefix) name rules =
     let scope = scope_of_list rules in
-    { data = [scope]; atom; form }
-    |> define_prefix Lex.eof (invalid_prefix Lex.eof)
-    |> define_infix  Lex.eof (invalid_infix Lex.eof)
+    { data = [scope]; atom; form; name }
+    (* |> define_prefix Lex.eof (fun g -> error (With_message "unexpected end of file")) *)
+    (* |> define_infix  Lex.eof ((fun g left -> error Empty), 0) *)
 end
 
 
 let rec nud rbp grammar =
   get >>= fun { token } ->
   let parse = Grammar.lookup_prefix token grammar in
-  print ("nud: prefix `%s`, rbp = %d" % (Token.show token, rbp));
+  (* print ("nud[%s]: prefix `%s`, rbp = %d" % (grammar.name, Token.show token, rbp)); *)
   parse grammar >>= fun left ->
   led rbp grammar left
 
@@ -278,22 +279,21 @@ let rec nud rbp grammar =
 and led rbp grammar left =
   get >>= fun { token } ->
   let (parse, lbp) = Grammar.lookup_infix token grammar in
-  print ("led: infix `%s` %d, rbp = %d" % (Token.to_string token, lbp, rbp));
+  (* print ("led[%s]: infix `%s` %d, rbp = %d" % (grammar.name, Token.to_string token, lbp, rbp)); *)
   if lbp > rbp then
-    (print "led: continue";
+    (
+      (* print "led: continue"; *)
      parse grammar left >>= led rbp grammar)
   else
-    (print "led: break";
+    (
+      (* print "led: break"; *)
      pure left)
 
 
 let parse grammar =
   nud 0 grammar
 
-
-let run parser lexer =
-  let token = Lexer.read lexer in
-  let state = { lexer; token } in
+let run parser state =
   match parser state with
   | Ok (expr, _) -> Ok expr
   | Error e -> Error e
