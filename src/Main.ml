@@ -7,13 +7,12 @@ open Fold.Lex
 
 
 let () =
-  let rec loop state =
+  let rec loop state c =
     match Parser.Statement.parse state with
     | Ok (syntax, state') ->
-      print "{{{";
+      print ("-- %d --" % c);
       syntax |> Syntax.Statement.show |> print;
-      print "}}}";
-      loop state'
+      loop state' (c + 1)
 
     | Error Pratt.Empty -> ()
     | Error e ->
@@ -21,5 +20,5 @@ let () =
   in
   let lexer = Lexer.from_channel stdin in
   let token = Lexer.read lexer in
-  loop Pratt.{ lexer; token }
+  loop Pratt.{ lexer; token } 0
 
