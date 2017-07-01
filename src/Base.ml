@@ -1,5 +1,7 @@
 open Pure
 
+let const2 x _ _ = x
+
 module type Monoid = sig
   type t
 

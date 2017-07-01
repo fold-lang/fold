@@ -21,9 +21,18 @@ let invalid_keyword token =
     (error (With_message msg)) in
   Prefix (token, parse)
 
+let invalid g left = Pratt.(error (With_message "invalid"))
+
 let keywords () = let open Pratt in [
   invalid_keyword (`Symbol "val");
   invalid_keyword (`Symbol "def");
+
+  Infix (`Symbol "val", (invalid, 0));
+  Infix (`Symbol "def", (invalid, 0));
+
+  Prefix (Lex.eof, (const  (error (With_message "unexpected end of file"))));
+  Infix  (Lex.eof, (const2 (error Empty), 0));
+  (* |> define_infix  Lex.eof ((fun g left -> error Empty), 0) *)
 ]
 
 module Expression = struct
@@ -41,13 +50,7 @@ module Expression = struct
     singleton (token :> Syntax.Expression.t)
 
   let grammar =
-    let open Pratt in
-    let rules = [
-      infix 30  "+" (fun x y -> `Apply (`Symbol "+", [x; y]));
-      infix 30  "-" (fun x y -> `Apply (`Symbol "-", [x; y]));
-      prefix    "-" (fun x   -> `Apply (`Symbol "-", [x]))
-    ] ++ keywords () in
-    Grammar.init ~atom ~form rules
+    Grammar.init ~atom ~form "Expression" (keywords ())
 
   let parse = Pratt.parse grammar
 end
@@ -70,7 +73,7 @@ module Pattern = struct
     let rules = [
       delimiter "=";
     ] ++ keywords () in
-    Grammar.init ~atom ~form rules
+    Grammar.init ~atom ~form "Pattern" rules
 
   let parse = Pratt.parse grammar
 end
@@ -95,9 +98,15 @@ module Statement = struct
 
   let grammar =
     let open Pratt in
-    Grammar.init [
+    Grammar.init "Statement" [
+      Prefix (Lex.eof, (const (Pratt.error Empty)));
       Prefix (`Symbol "val", val');
       Prefix (`Symbol "def", def);
+
+      Infix (`Symbol "val", (invalid, 0));
+      Infix (`Symbol "def", (invalid, 0));
+
+      Infix  (Lex.eof, (const2 (error Empty), 0));
     ]
 
   let parse : Syntax.Statement.t Pratt.parser =

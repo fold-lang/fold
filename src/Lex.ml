@@ -21,7 +21,7 @@ let rec pp_token ppf token =
   | `String v -> pf ppf "%s" v
   | `Symbol v -> pf ppf "`%s" v
 
-let eof = `Symbol "__eof__"
+let eof = `Symbol "__EOF__"
 
 module Token = struct
   type t = token
