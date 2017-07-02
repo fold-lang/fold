@@ -21,7 +21,8 @@ Library fold
                   ppx_deriving.std
   Pack:           true
   Modules:        Lex,
-                  # Eval,
+                  Base,
+                  OCaml,
                   Parser,
                   Interpreter,
                   Pratt,

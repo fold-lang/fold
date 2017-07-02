@@ -37,8 +37,13 @@ module type Self = sig
   module Expression : sig
     type t
 
+    val token : Token.t -> t
+
     (* let name = value in body *)
     val let' : Pattern.t -> t -> t -> t
+
+    (* f x y *)
+    val apply : t -> t list -> t
   end
 
   (* Statement is a syntactic category for top-level phrases.
@@ -51,10 +56,12 @@ module type Self = sig
     (* `val (pattern <- pattern) `= (expression <- expression) *)
     val val' : Pattern.t -> Expression.t -> t
 
-    (* `def (name <- Identifier.lowercase) (params <- pattern* ) `= (expression <- Expression.t) *)
-    val def : ID.lowercase -> Pattern.t list -> Expression.t -> t
+    (* `def (name <- Identifier.lowercase) (params <- pattern* )
+     *   `= (expression <- Expression.t) *)
+    val def : ID.lowercase -> Pattern.t -> Expression.t -> t
 
-    (* `type (name <- Identifier.capitalized) (parameters <- Identifier.lowercase* ) `= (type <- Type.t) *)
+    (* `type (name <- Identifier.capitalized) (parameters <- Identifier.lowercase* )
+     *   `= (type <- Type.t) *)
     val type' : ID.capitalized -> ID.lowercase list -> Type.t -> t
   end
 end

@@ -15,7 +15,7 @@ module Pattern = struct
     | token
   ] [@@deriving show]
 
-  let token x = x
+  let token x = (x :> t)
 
   let apply f xs = `Apply (f, xs)
 end
@@ -28,6 +28,7 @@ module Expression = struct
     | token
   ] [@@deriving show]
 
+  let token x = (x :> t)
   let let' pat expr body = `Let (pat, expr, body)
   let apply f xs = `Apply (f, xs)
   let lambda args body = `Lambda (args, body)

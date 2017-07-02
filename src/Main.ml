@@ -11,7 +11,7 @@ let () =
     match Parser.Statement.parse state with
     | Ok (syntax, state') ->
       print ("-- %d --" % c);
-      syntax |> Syntax.Statement.show |> print;
+      syntax |> Syntax.Statement.show |> print ~terminator:"\n\n";
       loop state' (c + 1)
 
     | Error Pratt.Empty -> ()
