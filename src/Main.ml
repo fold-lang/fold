@@ -5,13 +5,14 @@ open Fold
 open Fold.Lex
 
 
+module P = Parser.Make(Syntax)
 
 let () =
   let rec loop state c =
-    match Parser.Statement.parse state with
+    match P.Statement.parse state with
     | Ok (syntax, state') ->
       print ("-- %d --" % c);
-      syntax |> Syntax.Statement.show |> print ~terminator:"\n\n";
+      syntax |> Syntax.Statement.show |> print;
       loop state' (c + 1)
 
     | Error Pratt.Empty -> ()

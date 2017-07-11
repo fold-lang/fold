@@ -9,7 +9,7 @@ let default_operator token f =
   |> Option.map (fun precedence ->
       let parse g x =
         advance >>= fun () ->
-        nud precedence g >>= fun y ->
+        nud g precedence >>= fun y ->
         pure (f x y) in
       (parse, precedence))
 
@@ -34,24 +34,23 @@ let keywords () = let open Pratt in [
   Infix  (Lex.eof, (const2 (error Empty), 0));
 ]
 
-module Init (Eval : Interpreter.Self) = struct
+module Make (Eval : Interpreter.Self) = struct
 
   module Expression = struct
     open Pratt
 
-    let form token =
-      let append x y =
-        match x with
-        | `Apply (f, xs) -> `Apply (f, List.append xs [y])
-        | atom -> `Apply (atom, [y]) in
-      let apply x y = Eval.Expression.apply (Eval.Expression.token token) [x; y] in
-      default_operator token apply or lazy (juxtaposition token append)
-
     let atom token =
       singleton (Eval.Expression.token token)
 
+    let form token =
+      let apply x y = Eval.Expression.apply (Eval.Expression.token token) [x; y] in
+      default_operator token apply
+
+    let join xs =
+      Eval.Expression.apply (List.hd xs) (List.tl xs)
+
     let grammar =
-      Grammar.init ~atom ~form "Expression" (keywords ())
+      Grammar.init ~atom ~form ~join "Expression" (keywords ())
 
     let parse = Pratt.parse grammar
   end
@@ -60,21 +59,27 @@ module Init (Eval : Interpreter.Self) = struct
   module Pattern = struct
     open Pratt
 
-    let form token =
-      let append x y =
-        match x with
-        | `Apply (f, xs) -> `Apply (f, List.append xs [y])
-        | atom -> `Apply (atom, [y]) in
-      let apply x y = Eval.Pattern.apply (Eval.Pattern.token token) [x; y] in
-      default_operator token apply or lazy (juxtaposition token append)
-
     let atom token = singleton (Eval.Pattern.token token)
+
+    let form (token : Token.t) =
+      let apply x y =
+        let name = match token with
+          | `Symbol name -> Eval.Name.id name
+          | _ -> fail "invalid constructor" in
+        let args = Eval.Pattern.tuple [x; y] in
+        Eval.Pattern.constructor name (Some args) in
+      default_operator token apply
+
+    let join xs =
+      match xs with
+      | [] -> fail "invalid pattern"
+      | x :: xs -> undefined ()
 
     let grammar =
       let rules = [
         delimiter "=";
       ] ++ keywords () in
-      Grammar.init ~atom ~form "Pattern" rules
+      Grammar.init ~atom ~form ~join "Pattern" rules
 
     let parse = Pratt.parse grammar
   end
