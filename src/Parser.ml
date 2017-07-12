@@ -9,7 +9,7 @@ let default_operator token f =
   |> Option.map (fun precedence ->
       let parse g x =
         advance >>= fun () ->
-        nud precedence g >>= fun y ->
+        nud g precedence >>= fun y ->
         pure (f x y) in
       (parse, precedence))
 
@@ -32,84 +32,91 @@ let keywords () = let open Pratt in [
 
   Prefix (Lex.eof, (const  (error (With_message "unexpected end of file"))));
   Infix  (Lex.eof, (const2 (error Empty), 0));
-  (* |> define_infix  Lex.eof ((fun g left -> error Empty), 0) *)
 ]
 
-module Expression = struct
-  open Pratt
+module Make (Eval : Interpreter.Self) = struct
 
-  let form token =
-    let append x y =
-      match x with
-      | `Apply (f, xs) -> `Apply (f, List.append xs [y])
-      | atom -> `Apply (atom, [y]) in
-    let apply x y = Syntax.Expression.apply (token :> Syntax.Expression.t) [x; y] in
-    default_operator token apply or lazy (juxtaposition token append)
+  module Expression = struct
+    open Pratt
 
-  let atom token =
-    singleton (token :> Syntax.Expression.t)
+    let atom token =
+      singleton (Eval.Expression.token token)
 
-  let grammar =
-    Grammar.init ~atom ~form "Expression" (keywords ())
+    let form token =
+      let apply x y = Eval.Expression.apply (Eval.Expression.token token) [x; y] in
+      default_operator token apply
 
-  let parse = Pratt.parse grammar
-end
+    let join xs =
+      Eval.Expression.apply (List.hd xs) (List.tl xs)
 
+    let grammar =
+      Grammar.init ~atom ~form ~join "Expression" (keywords ())
 
-module Pattern = struct
-  open Pratt
-
-  let form token =
-    let append x y =
-      match x with
-      | `Apply (f, xs) -> `Apply (f, List.append xs [y])
-      | atom -> `Apply (atom, [y]) in
-    let apply x y = Syntax.Pattern.apply (token :> Syntax.Pattern.t) [x; y] in
-    default_operator token apply or lazy (juxtaposition token append)
-
-  let atom token = singleton (token :> Syntax.Pattern.t)
-
-  let grammar =
-    let rules = [
-      delimiter "=";
-    ] ++ keywords () in
-    Grammar.init ~atom ~form "Pattern" rules
-
-  let parse = Pratt.parse grammar
-end
+    let parse = Pratt.parse grammar
+  end
 
 
-module Statement = struct
-  let val' g =
-    let open Pratt in
-    consume (`Symbol "val") >>= fun () ->
-    Pattern.parse >>= fun pattern ->
-    consume (`Symbol "=") >>= fun () ->
-    Expression.parse >>= fun value ->
-    pure (Syntax.Statement.val' pattern value)
+  module Pattern = struct
+    open Pratt
 
-  let def g =
-    let open Pratt in
-    consume (`Symbol "def") >>= fun () ->
-    Pattern.parse >>= fun pattern ->
-    consume (`Symbol "=") >>= fun () ->
-    Expression.parse >>= fun value ->
-    pure (Syntax.Statement.def pattern value)
+    let atom token = singleton (Eval.Pattern.token token)
 
-  let grammar =
-    let open Pratt in
-    Grammar.init "Statement" [
-      Prefix (Lex.eof, (const (Pratt.error Empty)));
-      Prefix (`Symbol "val", val');
-      Prefix (`Symbol "def", def);
+    let form (token : Token.t) =
+      let apply x y =
+        let name = match token with
+          | `Symbol name -> Eval.Name.id name
+          | _ -> fail "invalid constructor" in
+        let args = Eval.Pattern.tuple [x; y] in
+        Eval.Pattern.constructor name (Some args) in
+      default_operator token apply
 
-      Infix (`Symbol "val", (invalid, 0));
-      Infix (`Symbol "def", (invalid, 0));
+    let join xs =
+      match xs with
+      | [] -> fail "invalid pattern"
+      | x :: xs -> undefined ()
 
-      Infix  (Lex.eof, (const2 (error Empty), 0));
-    ]
+    let grammar =
+      let rules = [
+        delimiter "=";
+      ] ++ keywords () in
+      Grammar.init ~atom ~form ~join "Pattern" rules
 
-  let parse : Syntax.Statement.t Pratt.parser =
-    Pratt.parse grammar
+    let parse = Pratt.parse grammar
+  end
+
+
+  module Statement = struct
+    let val' g =
+      let open Pratt in
+      consume (`Symbol "val") >>= fun () ->
+      Pattern.parse >>= fun pattern ->
+      consume (`Symbol "=") >>= fun () ->
+      Expression.parse >>= fun value ->
+      pure (Eval.Statement.val' pattern value)
+
+    let def g =
+      let open Pratt in
+      consume (`Symbol "def") >>= fun () ->
+      Pattern.parse >>= fun pattern ->
+      consume (`Symbol "=") >>= fun () ->
+      Expression.parse >>= fun value ->
+      pure (Eval.Statement.def pattern value)
+
+    let grammar =
+      let open Pratt in
+      Grammar.init "Statement" [
+        Prefix (Lex.eof, (const (Pratt.error Empty)));
+        Prefix (`Symbol "val", val');
+        Prefix (`Symbol "def", def);
+
+        Infix (`Symbol "val", (invalid, 0));
+        Infix (`Symbol "def", (invalid, 0));
+
+        Infix  (Lex.eof, (const2 (error Empty), 0));
+      ]
+
+    let parse : Eval.Statement.t Pratt.parser =
+      Pratt.parse grammar
+  end
 end
 
