@@ -5,14 +5,14 @@ open Fold
 open Fold.Lex
 
 
-module P = Parser.Make(Syntax)
+module P = Parser.Make(OCaml)
 
 let () =
   let rec loop state c =
     match P.Statement.parse state with
     | Ok (syntax, state') ->
       print ("-- %d --" % c);
-      syntax |> Syntax.Statement.show |> print;
+      Printast.top_phrase Fmt.stdout (Parsetree.Ptop_def [syntax]);
       loop state' (c + 1)
 
     | Error Pratt.Empty -> ()

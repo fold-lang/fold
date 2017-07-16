@@ -3,7 +3,6 @@ open Lex
 
 
 module type Self = sig
-
   module Name : sig
     type t
 
@@ -78,5 +77,9 @@ module type Self = sig
     (* `type (name <- Identifier.capitalized) (parameters <- Identifier.lowercase* )
      *   `= (type <- Type.t) *)
     val type' : Name.t -> Name.t list -> Type.t -> t
+  end
+
+  module Module : sig
+    type t
   end
 end

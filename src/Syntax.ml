@@ -73,3 +73,8 @@ module Statement = struct
   let type' name params t = `Type (name, params, t)
 end
 
+module Module = struct
+  type t = Statement.t list
+  [@@deriving show]
+end
+
