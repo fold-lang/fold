@@ -3,7 +3,6 @@ open Lex
 
 
 module type Self = sig
-
   module Name : sig
     type t
 
@@ -30,19 +29,31 @@ module type Self = sig
 
 
   module Pattern : sig
+    (* p as name *)
+
     type t
 
     val token : Token.t -> t
-
-    (* - C
-       - M.C
-       - M.C x
-       - M.C (x, y)
+    (*
+     * x
+     * 'x'
+     * "abc"
+     * True
+     * 42
+     * 3.14
      *)
-    val constructor : Name.t -> t option -> t
 
-    (* (t1, t2, ... , tn) *)
+    val constructor : Name.t -> t option -> t
+    (*
+     * C
+     * M.C
+     * C x
+     * C (x, y)
+     * x & xs
+     *)
+
     val tuple : t list -> t
+    (* (t1, t2, ... , tn) *)
   end
 
 
@@ -68,7 +79,10 @@ module type Self = sig
   module Statement : sig
     type t
 
-    (* `val (pattern <- pattern) `= (expression <- expression) *)
+    (*
+     * `val (pattern <- pattern) `= (expression <- expression)
+     *
+     *)
     val val' : Pattern.t -> Expression.t -> t
 
     (* `def (name <- Identifier.lowercase) (params <- pattern* )
@@ -78,5 +92,9 @@ module type Self = sig
     (* `type (name <- Identifier.capitalized) (parameters <- Identifier.lowercase* )
      *   `= (type <- Type.t) *)
     val type' : Name.t -> Name.t list -> Type.t -> t
+  end
+
+  module Module : sig
+    type t
   end
 end

@@ -16,6 +16,9 @@ Library fold
                   pure,
                   pure,
                   fmt,
+                  utop,
+                  threads,
+                  lambda-term,
                   ppx_format,
                   compiler-libs.bytecomp,
                   ppx_deriving.std
@@ -33,6 +36,13 @@ Library fold
 Executable fold
   Path:           src/
   MainIs:         Main.ml
+  CompiledObject: byte
+  BuildDepends:   fold,
+                  pure
+
+Executable fold-shell
+  Path:           src/
+  MainIs:         Shell.ml
   CompiledObject: byte
   BuildDepends:   fold,
                   pure

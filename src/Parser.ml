@@ -71,9 +71,7 @@ module Make (Eval : Interpreter.Self) = struct
       default_operator token apply
 
     let join xs =
-      match xs with
-      | [] -> fail "invalid pattern"
-      | x :: xs -> undefined ()
+      fail "invalid join"
 
     let grammar =
       let rules = [
@@ -97,6 +95,7 @@ module Make (Eval : Interpreter.Self) = struct
     let def g =
       let open Pratt in
       consume (`Symbol "def") >>= fun () ->
+      (* XXX: Not a pattern *)
       Pattern.parse >>= fun pattern ->
       consume (`Symbol "=") >>= fun () ->
       Expression.parse >>= fun value ->

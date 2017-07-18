@@ -129,4 +129,6 @@ module Statement = struct
   let type' cap_id params body = undefined ()
 end
 
-
+module Module = struct
+  type t = Statement.t list
+end
