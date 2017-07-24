@@ -1,21 +1,9 @@
 
 open Pure
-
 open Fold
-open Lex
-module C = Colors
+
 module Pratt = Pratt.Make(Int)
 open Pratt
-
-module Int = struct
-  include Int
-  let rec pow a = function
-  | 0 -> 1
-  | 1 -> a
-  | n ->
-    let b = pow a (n / 2) in
-    b * b * (if n mod 2 = 0 then 1 else a)
-end
 
 let rec fact x =
   if x <= 1 then 1 else x * fact (x - 1)
@@ -32,7 +20,7 @@ let grammar =
   |> infix   30 "-"     (fun x y -> x - y)
   |> infix   40 "*"     (fun x y -> x * y)
   |> infix   40 "/"     (fun x y -> x / y)
-  |> infixr  50 "^"     Int.pow
+  |> infixr  50 "^"     (fun x y -> x ** y)
   |> postfix 70 "!"     (fun x -> fact x)
   |> between    "(" ")" (fun x -> x)
 
