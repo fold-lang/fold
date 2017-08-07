@@ -3,17 +3,19 @@ open Pure
 open Fold
 open Fold.Lex
 
-module P = Parser.Make(OCaml)
 
 let fold_parse_toplevel_phrase input eos_is_error =
-  let lexer = Lexer.from_string input in
-  let token = Lexer.read lexer in
-  let state = Pratt.{ lexer; token } in
-
-  match P.Statement.parse state with
+  let _lexer = Lexer.from_string input in
+  (* let state = Pratt.{ lexer; token } in *)
+  let _state = `state in
+  match
+    (* P.Statement.parse state *)
+    Error "oh shell"
+  with
   | Ok (syntax, state') ->
     UTop.Value (Parsetree.Ptop_def [syntax])
-  | Error e -> UTop.Error ([], Pratt.error_to_string e)
+  (* | Error e -> UTop.Error ([], Pratt.error_to_string e) *)
+  | Error e -> UTop.Error ([], e)
 
 
 

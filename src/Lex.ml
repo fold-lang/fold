@@ -253,6 +253,13 @@ module Lexer = struct
 
   let from_channel c =
     from_lexbuf (Sedlexing.Utf8.from_channel c)
+
+  let iter self =
+    let next self' =
+      let token = read self' in
+      if token = eof then None
+      else Some (token, self') in
+    Iter.Iter (self, next)
 end
 
 

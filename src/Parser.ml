@@ -2,6 +2,31 @@ open Pure
 open Base
 open Lex
 
+module Make (Eval : Interpreter.Self) = struct
+  open Pratt
+
+  module Expression = struct
+    let parse = parse [
+      term (current >>= fun t ->
+            advance >>= fun () ->
+            return (Eval.Expression.token t));
+    ]
+  end
+
+  module Pattern = struct
+    let parse = parse [
+      term (current >>= (fun t -> advance >>= fun () -> return (Eval.Pattern.token t)));
+    ]
+  end
+
+  module Statement = struct
+    let parse : (Lex.Token.t, Eval.Statement.t) parser = parse [
+        prefix (`Symbol "hey") (fun x -> x);
+      ]
+  end
+end
+
+(*
 let default_operator token f =
   let open Pratt in
   token
@@ -119,3 +144,4 @@ module Make (Eval : Interpreter.Self) = struct
   end
 end
 
+*)

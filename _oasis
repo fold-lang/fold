@@ -21,14 +21,15 @@ Library fold
                   lambda-term,
                   ppx_format,
                   compiler-libs.bytecomp,
-                  ppx_deriving.std
+                  compiler-libs,
+                  ppx_deriving.std,
+                  pratt
   Pack:           true
   Modules:        Lex,
                   Base,
                   OCaml,
                   Parser,
                   Interpreter,
-                  Pratt,
                   Precedence,
                   Syntax
 
@@ -40,12 +41,13 @@ Executable fold
   BuildDepends:   fold,
                   pure
 
-Executable fold-shell
-  Path:           src/
-  MainIs:         Shell.ml
-  CompiledObject: byte
-  BuildDepends:   fold,
-                  pure
+#Executable fold-shell
+#  Path:           src/
+#  MainIs:         Shell.ml
+#  CompiledObject: byte
+#  BuildDepends:   fold,
+#                  pure,
+#                  utop
 
 
 # Executable test_parser

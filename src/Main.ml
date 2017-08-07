@@ -4,7 +4,6 @@ open Pure
 open Fold
 open Fold.Lex
 
-
 module P = Parser.Make(OCaml)
 
 
@@ -12,13 +11,15 @@ let compile_structure typed_structure =
   let bytecode =
     typed_structure
     |> Translmod.transl_toplevel_definition
-    |> Simplif.simplify_lambda
+    |> Simplif.simplify_lambda (* "hello.ml" *)
     |> Bytegen.compile_implementation "Hello"
   in
   let objfile = "Hello" ^ ".cmo" in
   let oc = open_out_bin objfile in
   try
-    bytecode |> Emitcode.to_file oc "Hello" objfile;
+    Emitcode.to_file oc "Hello" objfile
+      (* ~required_globals:Ident.Set.empty *)
+      bytecode;
     Warnings.check_fatal ();
     close_out oc;
     Stypes.dump (Some ("Hello" ^ ".annot"))
@@ -28,9 +29,9 @@ let compile_structure typed_structure =
 
 
 let () =
-  let rec loop state c =
-    match P.Statement.parse state with
-    | Ok (syntax, state') ->
+  let rec loop input =
+    match Pratt.run P.Statement.parse input with
+    | Ok syntax ->
 
       let structure = [syntax] in
 
@@ -45,14 +46,11 @@ let () =
       let (structure', signature, env') = Typemod.type_toplevel_phrase env structure in
       compile_structure structure';
 
-      loop state' (c + 1)
+      loop input
 
-
-    | Error Pratt.Empty -> ()
+    | Error Pratt.Empty -> print "Done"
     | Error e ->
-      print (" * Error: " ^ Pratt.error_to_string e)
+      print (Pratt.error_to_string Token.pp e)
   in
-  let lexer = Lexer.from_channel stdin in
-  let token = Lexer.read lexer in
-  loop Pratt.{ lexer; token } 0
+  loop (Lexer.(from_channel stdin |> iter))
 
