@@ -65,6 +65,6 @@ setup:
 live:
 	utop -init /tmp/fold_init.ml
 
-entr:
-	ls src/*.{ml,mli} tests/*.ml | entr -cr sh -c 'make build && ./Main.native'
+watch:
+	ls src/*.{ml,mli} tests/*.ml | entr -cr sh -c 'make build && ./Main.byte'
 

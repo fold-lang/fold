@@ -1,5 +1,5 @@
-
 open Pure
+open Local
 
 type token = [
   | `Bool   of bool         (* True False       *)
@@ -247,19 +247,18 @@ module Lexer = struct
       group_count = 0 }
 
 
-  let from_string s =
+  let of_string s =
     from_lexbuf (Sedlexing.Utf8.from_string s)
 
-
-  let from_channel c =
+  let of_channel c =
     from_lexbuf (Sedlexing.Utf8.from_channel c)
 
-  let iter self =
-    let next self' =
-      let token = read self' in
-      if token = eof then None
-      else Some (token, self') in
-    Iter.Iter (self, next)
+  let rec to_stream lexer =
+    let token = read lexer in
+    if token = eof then
+      Pratt.Stream.Empty
+    else
+      Pratt.Stream.Yield (token, fun () -> to_stream lexer)
 end
 
 

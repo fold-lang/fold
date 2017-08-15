@@ -31,11 +31,9 @@ end
 let (++) = List.append
 
 
-let (or) self lazy_default =
-  match self with
-  | Some x -> x
-  | None -> Lazy.force lazy_default
-
+let print ?(out = Pervasives.stdout) ?(endline = "\n") ?(flush = true) str =
+  Pervasives.output_string out (str ^ endline);
+  if flush then Pervasives.flush out else ()
 
 
 let (or) self lazy_default =
@@ -71,5 +69,13 @@ module Map = struct
     let find k m =
       Option.catch (fun () -> find k m)
   end
+end
+
+
+module Fmt = struct
+  include Fmt
+
+  let pl fmt =
+    kpf (fun formatter -> Format.pp_print_newline formatter ()) stdout fmt
 end
 

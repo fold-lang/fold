@@ -1,27 +1,51 @@
 open Pure
-open Base
+open Local
 open Lex
 
 module Make (Eval : Interpreter.Self) = struct
   open Pratt
 
   module Expression = struct
-    let parse = parse [
-      term (current >>= fun t ->
-            advance >>= fun () ->
-            return (Eval.Expression.token t));
-    ]
+
+    let grammar = Pratt.grammar [
+        term (fun g -> next >>= (return << Eval.Expression.token));
+        delimiter (`Symbol "val");
+        left 30 (`Symbol "+") (binary (fun a b ->
+            Eval.Expression.apply (Eval.Expression.token (`Symbol "+")) [a; b]));
+      ]
+
+    let parse =
+      let is_infix token = Grammar.has_left token grammar in
+      some_while (not << is_infix) (parse grammar) >>= fun (x, xs) ->
+      if List.length xs == 0 then
+        return x
+      else
+        return (Eval.Expression.apply x xs)
   end
 
   module Pattern = struct
-    let parse = parse [
-      term (current >>= (fun t -> advance >>= fun () -> return (Eval.Pattern.token t)));
-    ]
+    let parse = parse <| grammar [
+        term (fun g -> next >>= (return << Eval.Pattern.token));
+      ]
   end
 
   module Statement = struct
-    let parse : (Lex.Token.t, Eval.Statement.t) parser = parse [
-        prefix (`Symbol "hey") (fun x -> x);
+    let parse : (Token.t, Eval.Statement.t) parser = parse <| grammar [
+        null (`Symbol "val") begin fun g ->
+          consume (`Symbol "val") >>= fun () ->
+          Pattern.parse >>= fun p ->
+          consume (`Symbol "=") >>= fun () ->
+          Expression.parse >>= fun e ->
+          return (Eval.Statement.val' p e)
+        end;
+
+        null (`Symbol "def") begin fun g ->
+          consume (`Symbol "def") >>= fun () ->
+          Pattern.parse >>= fun p ->
+          consume (`Symbol "=") >>= fun () ->
+          Expression.parse >>= fun e ->
+          return (Eval.Statement.val' p e)
+        end;
       ]
   end
 end

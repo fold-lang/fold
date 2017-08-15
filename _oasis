@@ -14,7 +14,6 @@ Library fold
   CompiledObject: native
   BuildDepends:   sedlex,
                   pure,
-                  pure,
                   fmt,
                   utop,
                   threads,
@@ -26,7 +25,7 @@ Library fold
                   pratt
   Pack:           true
   Modules:        Lex,
-                  Base,
+                  Local,
                   OCaml,
                   Parser,
                   Interpreter,

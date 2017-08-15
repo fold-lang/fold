@@ -1,6 +1,6 @@
 
 open Pure
-open Base
+open Local
 
 open Lex
 

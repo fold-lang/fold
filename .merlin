@@ -13,7 +13,6 @@ PKG compiler-libs.bytecomp
 PKG ppx_deriving.std
 PKG pure
 PKG fmt
-PKG iter
 PKG pratt
 PKG ppx_format
 PKG alcotest
