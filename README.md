@@ -32,7 +32,7 @@ _Fold_ is an expressive, pragmatic functional language designed for development 
 </table>
 
 
-![fold-repl](https://github.com/fold-lang/pratt/raw/master/resources/screenshot-1.png)
+![fold-repl](https://github.com/rizo/fold-pratt/raw/master/resources/screenshot-1.png)
 
 Currently the language parser is being implemented as a separate parsing library:
 
