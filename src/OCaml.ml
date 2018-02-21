@@ -1,4 +1,4 @@
-open Pure
+open Local
 
 module Name = struct
   type t = Longident.t

@@ -1,5 +1,7 @@
-open Pure
+
+module String_ = String
 open Local
+module String = String_
 
 type token = [
   | `Bool   of bool         (* True False       *)
@@ -27,21 +29,16 @@ module Token = struct
   type t = token
   [@@deriving show, ord, eq]
 
-  include Printable.Make(struct
-      type nonrec t = t
-      let pp = pp
-    end)
-
-  let rec pp = pp_token
-
+  let fmt = pp_token
+  let cmp = compare
 
   (* XXX *)
   let to_string = function
     | `Bool   x -> String.capitalize_ascii (string_of_bool x)
-    | `Char   x -> "'%c'" % x
+    | `Char   x -> format "'%c'" x
     | `Float  x -> string_of_float x
     | `Int    x -> string_of_int x
-    | `String x -> "\"%s\"" % x
+    | `String x -> format "\"%s\"" x
     | `Symbol x -> x
   let show = to_string
 
@@ -83,13 +80,8 @@ module Location = struct
       column = 0;
       length = 0 }
 
-  include Printable.Make(struct
-      type nonrec t = t
-      let pp = pp
-    end)
-
   let to_string self =
-    "%d,%d/%d" % (self.line, self.column, self.length)
+    format "%d,%d/%d" self.line self.column self.length
 end
 
 

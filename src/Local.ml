@@ -1,6 +1,21 @@
-open Pure
+include Astring
 
 let const2 x _ _ = x
+let (<<) f g = fun x -> f (g x)
+let identity x = x
+
+let format = Printf.sprintf
+
+let print ?(output = Pervasives.stdout) ?(break = "\n") fmt =
+  let open Format in
+  let formatter = formatter_of_out_channel output in
+  let pp_break formatter =
+    pp_print_string formatter break;
+    pp_print_flush formatter () in
+  kfprintf pp_break formatter fmt
+
+exception Undefined
+let undefined () = raise Undefined
 
 module type Monoid = sig
   type t
@@ -49,7 +64,7 @@ end
 
 
 module Option = struct
-  include Option
+  include Options.Option
 
   let empty = None
 
@@ -67,7 +82,8 @@ module Map = struct
     include Map.Make(K)
 
     let find k m =
-      Option.catch (fun () -> find k m)
+      try Some (find k m) with
+      | _ -> None
   end
 end
 

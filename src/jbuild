@@ -1,0 +1,16 @@
+(jbuild_version 1)
+
+(executable
+  ((name Main)
+   (public_name fold)
+   (libraries
+    (sedlex
+     pratt
+     threads
+     lambda-term
+     compiler-libs.bytecomp
+     ppx_deriving.std
+     options
+     fmt))
+  (preprocess (pps (ppx_deriving.std sedlex.ppx)))))
+
