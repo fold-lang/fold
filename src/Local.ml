@@ -3,6 +3,7 @@ include Astring
 let const2 x _ _ = x
 let (<<) f g = fun x -> f (g x)
 let identity x = x
+let (@) f x = f x
 
 let format = Printf.sprintf
 
@@ -43,7 +44,7 @@ module Monoid = struct
   end
 end
 
-let (++) = List.append
+let (++) = String.append
 
 
 let print ?(out = Pervasives.stdout) ?(endline = "\n") ?(flush = true) str =

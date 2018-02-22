@@ -1,5 +1,4 @@
 
-open Ether
 open Local
 
 open Lex
@@ -35,7 +34,7 @@ end
 
 module Expression = struct
   type t = [
-    | `Let of Pattern.t * t * t
+    | `Let of (Pattern.t * t) list * t
     | `Apply of t * t list
     | `Lambda of Pattern.t list * t
     | `Tuple of t list
@@ -43,7 +42,7 @@ module Expression = struct
   ] [@@deriving show]
 
   let token x = (x :> t)
-  let let' pat expr body = `Let (pat, expr, body)
+  let let' bindings body = `Let (bindings, body)
   let apply f xs = `Apply (f, xs)
   let lambda args body = `Lambda (args, body)
   let tuple items = `Tuple items

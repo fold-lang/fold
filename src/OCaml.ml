@@ -41,7 +41,6 @@ module Expression = struct
     in
       { pexp_desc = desc; pexp_loc = Location.none; pexp_attributes = [] }
 
-
   let apply f xs =
     let open Parsetree in
     let desc = Parsetree.Pexp_apply
@@ -54,13 +53,16 @@ module Expression = struct
     Parsetree.{ pexp_desc = desc; pexp_loc = Location.none; pexp_attributes = [] }
 
 
-  let let' pattern expr body =
-    let value_binding =
-      Parsetree.{ pvb_pat = pattern;
-                  pvb_expr = expr;
-                  pvb_attributes = [];
-                  pvb_loc = Location.none } in
-    let desc = Parsetree.Pexp_let (Asttypes.Nonrecursive, [value_binding], body) in
+  let let' bindings body =
+    let bindings' =
+      List.map (fun (pattern, expr) ->
+          Parsetree.{ pvb_pat = pattern;
+                      pvb_expr = expr;
+                      pvb_attributes = [];
+                      pvb_loc = Location.none })
+        bindings
+    in
+    let desc = Parsetree.Pexp_let (Asttypes.Nonrecursive, bindings', body) in
     Parsetree.{ pexp_desc = desc; pexp_loc = Location.none; pexp_attributes = [] }
 end
 

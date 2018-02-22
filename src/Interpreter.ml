@@ -61,8 +61,8 @@ module type Self = sig
 
     val token : Token.t -> t
 
-    (* let name = value in body *)
-    val let' : Pattern.t -> t -> t -> t
+    (* let n1 = v1, n2 = v2, ... , nN = vN in body *)
+    val let' : (Pattern.t * t) list -> t -> t
 
     (* f x y *)
     val apply : t -> t list -> t
