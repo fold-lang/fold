@@ -42,11 +42,12 @@ module type Self = sig
      * 3.14
      *)
 
-    val constructor : Name.t -> t option -> t
+    val constructor : Name.t -> t list -> t
     (*
      * C
      * M.C
      * C x
+     * C x y
      * C (x, y)
      * x & xs
      *)

@@ -1,10 +1,8 @@
 
-open Lex
-open Local
-
+module Lexer = Fold.Lex.Lexer
 module Stream = Pratt.Stream
 (* module Parser = Fold_parser.Make(OCaml) *)
-module Parser = Fold_parser.Make
+module Parser = Fold.Parser.Make
 
 
 let compile_structure typed_structure =
@@ -29,18 +27,18 @@ let compile_structure typed_structure =
 
 
 let () =
-  Fmt.set_style_renderer Fmt.stdout `Ansi_tty;
   let rec loop input =
     if Stream.is_empty input then
-      Fmt.pr "Main: empty input\n"
-    else match Parser.run Parser.Statement.parser input with
-      | Ok (syntax, input') ->
-        let structure = [syntax] in
-        Fmt.pr "{{%a}}\n" (Fmt.styled `Blue Pprintast.top_phrase) (Parsetree.Ptop_def structure);
+      Fmt.pr "Main: done@."
+    else
+      match Parser.run Parser.Statement.parser input with
+      | Ok (statement, input') ->
+        Fmt.pr "%a@.@." Pprintast.structure [statement];
         loop input'
-      | Error Parser.P.Zero -> print "Main: empty result"
+      | Error Parser.P.Zero -> Fmt.pr "Main: empty result@."
       | Error e ->
-        Fmt.pr "%s\n" (Parser.P.error_to_string e) in
+        Fmt.pr "%s@." (Parser.P.error_to_string e)
+  in
   let stream = Lexer.(to_stream (of_channel stdin)) in
   loop stream
 

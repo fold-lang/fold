@@ -1,16 +1,43 @@
 (jbuild_version 1)
 
-(executable
-  ((name Main)
-   (public_name fold)
-   (libraries
-    (sedlex
-     pratt
-     threads
-     lambda-term
-     compiler-libs.bytecomp
-     ppx_deriving.std
-     options
-     fmt))
+(library
+ ((name Fold)
+  (public_name fold)
+  (modules
+   (Lex
+    Local
+    Compile
+    Parser
+    Interpreter
+    Syntax
+    OCaml))
+  (libraries
+   (sedlex
+    pratt
+    fmt
+    threads
+    lambda-term
+    compiler-libs.bytecomp
+    ppx_deriving.std
+    options))
   (preprocess (pps (ppx_deriving.std sedlex.ppx)))))
+
+(executable
+ ((name Main)
+  (public_name fold)
+  (modules (Main))
+  (libraries
+   (fold))))
+
+(executable
+ ((name Shell)
+  (public_name fold-shell)
+  (modes (byte))
+  (modules (Shell))
+  (libraries
+   (fold
+    compiler-libs.toplevel
+    compiler-libs.bytecomp
+    compiler-libs
+    utop))))
 

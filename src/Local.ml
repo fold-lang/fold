@@ -46,10 +46,8 @@ end
 
 let (++) = String.append
 
-
-let print ?(out = Pervasives.stdout) ?(endline = "\n") ?(flush = true) str =
-  Pervasives.output_string out (str ^ endline);
-  if flush then Pervasives.flush out else ()
+let log fmt =
+  Fmt.kpf (fun f -> Fmt.pf f "@.") Fmt.stderr fmt
 
 
 let (or) self lazy_default =
@@ -93,6 +91,9 @@ module Fmt = struct
   include Fmt
 
   let pl fmt =
-    kpf (fun formatter -> Format.pp_print_newline formatter ()) stdout fmt
+    kpf (fun formatter -> pf formatter "@.") stdout fmt
+
+  let pp pp =
+    Format.fprintf Fmt.stderr "@[%a@.@]" pp
 end
 

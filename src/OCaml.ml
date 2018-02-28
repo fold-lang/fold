@@ -75,9 +75,14 @@ module Pattern = struct
     Parsetree.{ ppat_desc = desc; ppat_loc = Location.none; ppat_attributes = [] }
 
 
-  let constructor name arg_opt =
+  let constructor name (args : Parsetree.pattern list) =
     let open Parsetree in
-    let desc = Ppat_construct (Location.mknoloc name, arg_opt) in
+    let args' =
+      match args with
+      | [] -> None
+      | [x] -> Some x
+      | xs -> Some { ppat_desc = Ppat_tuple xs; ppat_loc = Location.none; ppat_attributes = []} in
+    let desc = Ppat_construct (Location.mknoloc name, args') in
     { ppat_desc = desc; ppat_loc = Location.none; ppat_attributes = [] }
 
 
