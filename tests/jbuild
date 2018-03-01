@@ -1,12 +1,12 @@
 (jbuild_version 1)
 
 (executables
-  ((names (Test_parser))
+  ((names (Test_expression_parser))
    (libraries (fold))))
 
 (alias
  ((name runtest)
   (package fold)
-  (deps (Test_parser.exe))
+  (deps (Test_expression_parser.exe))
   (action (run ${<}))))
 

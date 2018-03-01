@@ -1,7 +1,7 @@
 
 module Lexer = Fold.Lex.Lexer
 module Stream = Pratt.Stream
-module Parser = Fold_parser.Make(OCaml)
+module Parser = Fold.Parser.Make(Fold.OCaml)
 
 
 let compile_structure typed_structure =

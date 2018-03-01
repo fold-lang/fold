@@ -13,7 +13,8 @@ module Make (Eval : Interpreter.Self) = struct
 
   let run p input =
     match P.run p input with
-    | Ok (x, _) -> Ok x
+    | Ok (x, input') when Pratt.Stream.is_empty input' -> Ok x
+    | Ok (x, input') -> raise (Failure "XXX: Input letfover")
     | Error e -> Error e
 
   let symbol s = P.consume (`Symbol s)
@@ -26,14 +27,14 @@ module Make (Eval : Interpreter.Self) = struct
   module rec Expression : sig
     val parser : expression P.parser
   end = struct
-    let parse g =
+    let parse ?precedence:(rbp = 0) g =
       let left =
-        P.some (P.nud 0 g) >>= fun (x, xs) ->
+        P.some (P.nud rbp g) >>= fun (x, xs) ->
         if List.length xs = 0 then
           P.return x
         else
           P.return (Eval.Expression.apply x xs) in
-      left >>= P.led 0 g
+      left >>= P.led rbp g
 
     let parse_let_binding g =
       Pattern.parser >>= fun p ->
@@ -43,10 +44,10 @@ module Make (Eval : Interpreter.Self) = struct
 
     let parse_let g =
       symbol "let" >>= fun () ->
-      parse_let_binding g >>= fun lb ->
+      sep1 ~by:(symbol ",") (parse_let_binding g) >>= fun (lb, lbs) ->
       symbol "in" >>= fun () ->
       parse g >>= fun body ->
-      P.return (Eval.Expression.let' [lb] body)
+      P.return (Eval.Expression.let' (lb :: lbs) body)
 
     let parse_token _g =
       P.next >>= fun t ->
@@ -66,19 +67,20 @@ module Make (Eval : Interpreter.Self) = struct
       P.advance >>= fun () ->
       P.return (Eval.Expression.token t)
 
-
-    let parse_binary f g a =
-      P.advance >>= fun () ->
-      parse g >>= fun b ->
-      P.return (f a b)
+    let infix_left precedence tok f =
+      let p g a =
+        P.advance >>= fun () ->
+        parse ~precedence g >>= fun b ->
+        P.return (f a b) in
+      P.left precedence tok p
 
     let grammar = P.grammar [
         P.term parse_token;
 
         P.null (`Symbol "let") parse_let;
 
-        P.left 30 (`Symbol "+")
-          (parse_binary (fun a b -> Eval.Expression.(apply (token (`Symbol "+")) [a; b])));
+        infix_left 30 (`Symbol "+")
+          (fun a b -> Eval.Expression.(apply (token (`Symbol "+")) [a; b]));
 
         (* Isn't strictly part of this grammar but needed to stop parsing. *)
         (* Should not be needed *)

@@ -58,12 +58,14 @@ let time ?fmt f x =
   | None     -> Printf.eprintf "Elapsed time: %f sec\n" t1 in
   fx
 
+let () = Fmt.set_style_renderer Fmt.stdout `Ansi_tty
+
 let test ?(verbose = true) ty msg ~actual ~expected () =
   let ok = Testable.equal ty actual expected in
   begin if not ok then begin
     Fmt.pr "  %s %s@." (C.bright_red "✗") (C.bright_white msg);
-    Fmt.pr "    - %a@." (Testable.pp ty) expected;
-    Fmt.pr "    + %a@." (Testable.pp ty) actual
+    Fmt.pr "    - %a@." (Fmt.styled `Green (Testable.pp ty)) expected;
+    Fmt.pr "    + %a@." (Fmt.styled `Red   (Testable.pp ty)) actual;
   end else if verbose then
     Fmt.pr "  %s %s@." (C.bright_green "✓") (C.bright_white msg)
   end;
@@ -104,7 +106,7 @@ let group name tests =
     | 0, 1 -> "Test failed"
     | 0, f -> fmt "All %d tests failed" f
     | s, f -> fmt "%d tests passed, %d tests failed" s f in
-  Fmt.pr "  %s %s in %0.2fms@." (C.bright_magenta "•") msg (t *. 1000.0)
+  Fmt.pr "  %s %s in %0.2fms@.@." (C.bright_magenta "•") msg (t *. 1000.0)
 
 let int    : 'a testable = testable Fmt.int
 let float  : 'a testable = testable Fmt.float
@@ -156,4 +158,5 @@ let result a e =
     | (Error x, Error y) -> Testable.equal e x y
     | _ -> false in
   testable (Fmt.Dump.result ~ok:(Testable.pp a) ~error:(Testable.pp e)) ~equal
+
 

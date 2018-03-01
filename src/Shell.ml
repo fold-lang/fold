@@ -1,12 +1,12 @@
 
 module Lexer = Fold.Lex.Lexer
-module Parser = Fold.Parser.Make
+module Parser = Fold.Parser.Make(Fold.OCaml)
 
 
 let fold_parse_toplevel_phrase input eos_is_error =
   let input = Lexer.(to_stream (of_string input)) in
   match Parser.(run Statement.parser input) with
-  | Ok (syntax, state') ->
+  | Ok syntax ->
     UTop.Value (Parsetree.Ptop_def [syntax])
   | Error e -> UTop.Error ([], Parser.P.error_to_string e)
 
