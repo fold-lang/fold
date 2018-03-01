@@ -4,12 +4,16 @@ module L = Fold.Lex.Lexer
 module E = Fold.Syntax.Expression
 module T = Nanotest
 
+(* Local Testing DSL *)
+
 let should msg input expected =
   let actual = P.run P.Expression.parser L.(to_stream (of_string input)) in
   T.test ~verbose:true (T.result (module E) (T.testable P.P.pp_error)) msg ~expected ~actual
 
 let (==>) = (@@)
 
+
+(* Local Helper Definitions *)
 
 let a, b, c, d, x =
   `Symbol "a", `Symbol "b", `Symbol "c", `Symbol "d", `Symbol "x"
@@ -20,6 +24,9 @@ let f args =
 let (+) a b = `Apply (`Symbol "+", [a; b])
 
 let tuple items = `Tuple items
+
+
+(* Tests *)
 
 let () =
   T.group "Units, tuples and expression groups" [
