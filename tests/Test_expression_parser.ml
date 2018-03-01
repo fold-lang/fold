@@ -52,13 +52,13 @@ let () = begin
   ];
 
   group "Invalid cases" [
-    test "fail on incomplete unit value"
+    test "reject unclosed unit value"
       "(" ==> Error (P.P.unexpected_end ());
 
-    test "fail on unclosed tuple value 1"
+    test "reject on unclosed tuple value 1"
       "(1," ==> Error (P.P.unexpected_token (`Symbol ",") ~expected:(`Symbol ")"));
 
-    test "fail on unclosed tuple value 2"
+    test "reject on unclosed tuple value 2"
       "(1,2" ==> Error (P.P.unexpected_end ~expected:(`Symbol ")") ());
   ];
 
@@ -73,9 +73,18 @@ let () = begin
       "let a = 1, b = 2, c = 3 in a + b + c"
         ==> Ok (Expr.let' [a, `Int 1; b, `Int 2; c, `Int 3] (a + b + c));
 
-    test "parse two nested let-bindings"
+    test "parse two sequential let-bindings"
       "let a = 2 in let b = 2 in a + b"
         ==> Ok Expr.(let' [a, `Int 2] (let' [b, `Int 2] (a + b)));
+
+    test "parse two nested let-bindings"
+      {|
+      let a =
+        let b = c in
+        b + d
+      in
+        a + d
+      |} ==> Ok Expr.(let' [a, let' [b, c] (b + d)] (a + d));
   ];
 end
 

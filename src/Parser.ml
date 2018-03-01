@@ -82,8 +82,6 @@ module Make (Eval : Interpreter.Self) = struct
         infix_left 30 (`Symbol "+")
           (fun a b -> Eval.Expression.(apply (token (`Symbol "+")) [a; b]));
 
-        (* Isn't strictly part of this grammar but needed to stop parsing. *)
-        (* Should not be needed *)
         P.delimiter (`Symbol "val");
         P.delimiter (`Symbol "def");
         P.delimiter (`Symbol "in");
