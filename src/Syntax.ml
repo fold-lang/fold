@@ -8,7 +8,7 @@ module Name = struct
       [ `ID of string
       | `Apply of t * t
       | `Dot of t * string ]
-    [@@deriving show]
+    [@@deriving show, eq]
 
     let id x = `ID x
 
@@ -21,9 +21,9 @@ end
 module Pattern = struct
   type t = [
     | `Tuple of t list
-    | `Constructor of Name.t * t option
+    | `Constructor of Name.t * t list
     | token
-  ] [@@deriving show]
+  ] [@@deriving show, eq]
 
   let token x = (x :> t)
 
@@ -39,7 +39,7 @@ module Expression = struct
     | `Lambda of Pattern.t list * t
     | `Tuple of t list
     | token
-  ] [@@deriving show]
+  ] [@@deriving show, eq]
 
   let token x = (x :> t)
   let let' bindings body = `Let (bindings, body)
@@ -53,7 +53,7 @@ module Type = struct
     | `Constructor of Name.t
     | `Var of string
     | `Tuple of t list
-  ] [@@deriving show]
+  ] [@@deriving show, eq]
 
   let constructor name = `Constructor name
   let var name = `Var name
@@ -65,7 +65,7 @@ module Statement = struct
     | `Val of Pattern.t * Expression.t
     | `Def of Pattern.t * Expression.t
     | `Type of Name.t * Name.t list * Type.t
-  ] [@@deriving show]
+  ] [@@deriving show, eq]
 
   let val' pat expr : t = `Val (pat, expr)
   let def params expr = `Def (params, expr)
@@ -74,6 +74,8 @@ end
 
 module Module = struct
   type t = Statement.t list
-  [@@deriving show]
+  [@@deriving show, eq]
+
+  let make xs = xs
 end
 

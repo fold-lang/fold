@@ -1,83 +1,44 @@
 
-open Pure
-open Fold
-open Lex
+module P = Fold.Parser.Make(Fold.Syntax)
+module L = Fold.Lex.Lexer
+module E = Fold.Syntax.Expression
+module T = Nanotest
 
-module P = Parser.Default
+let should msg input expected =
+  let actual = P.run P.Expression.parser L.(to_stream (of_string input)) in
+  T.test ~verbose:true (T.result (module E) (T.testable P.P.pp_error)) msg ~expected ~actual
 
-module C = Colors
-
-module Result = struct
-  include Result
-
-  let map f = function
-    | Ok x -> Ok (f x)
-    | Error e -> Error e
-end
-
-let show_expr_result = function
-  | Ok x -> Token.to_string x
-  | Error e -> P.error_to_string e
-
-let show_expr_results = function
-  | Ok xs -> "[" ^ String.concat "; " (List.map Token.to_string xs) ^ "]"
-  | Error e -> P.error_to_string e
+let (==>) = (@@)
 
 
-let test desc parser input expected show =
-  let actual = Result.map fst (P.run parser input) in
-  if actual = expected then
-    print ("%s %s" % (C.bright_green "✓", C.bright_white desc))
-  else begin
-    print ("%s %s" % (C.bright_red "✗", C.bright_white desc));
-    print ("  - Expected: %s" % C.green (show expected));
-    print ("  - Actual:   %s" % C.red (show actual))
-  end
+let a, b, c, d, x =
+  `Symbol "a", `Symbol "b", `Symbol "c", `Symbol "d", `Symbol "x"
 
+let f args =
+  `Apply (`Symbol "f", args)
 
-let (=>)  f x = f x show_expr_result
-let (=>*) f x = f x show_expr_results
+let (+) a b = `Apply (`Symbol "+", [a; b])
 
-
-let x = `Char 'x'
-let y = `Char 'y'
+let tuple items = `Tuple items
 
 let () =
-  print ("-- %s" % C.bright_blue "Testing Fold.Parser...");
+  T.group "Units, tuples and expression groups" [
+    should "parse unit value"
+      "()" ==> Ok (E.token (`Symbol "()"));
 
-  (* Empty *)
-  test "empty parser with empty input"
-    P.empty [] => Error P.Empty;
+    should "parse simple group"
+      "(a)" ==> Ok (E.token a);
 
-  test "empty parser with some input"
-    P.empty [x] => Error P.Empty;
+    should "parse compound group"
+      "(f x + a)" ==> Ok (f [x] + a);
 
-  test "parse the 'x' token"
-    (P.exactly x) [x] => Ok x;
+    should "parse simple pair"
+      "(a, b)" ==> Ok (tuple [a; b]);
 
-  test "parse the 'x' token with remining input"
-    (P.exactly x) [x; y] => Ok x;
+    should "parse simple triple"
+      "(a, b, c)" ==> Ok (tuple [a; b; c]);
 
-  (* Many *)
-  test "parse many 'x' tokens with empty input"
-    (P.many (P.exactly x)) [] =>* Ok [];
-
-  test "parse many 'x' tokens with 'y' token as input"
-    (P.many (P.exactly x)) [y] =>* Ok [];
-
-  test "parse many 'x' tokens"
-    (P.many (P.exactly x)) [x; x; x; x; x; x; x] =>* Ok [x; x; x; x; x; x; x];
-
-  (* Some *)
-  test "parse some 'x' tokens with empty input"
-    (P.some (P.exactly x)) [] =>* Error (P.Unexpected_end { expected = x });
-
-  test "parse some 'x' tokens with 'y' token as input"
-    (P.some (P.exactly x)) [y] =>* Error (P.Unexpected_token { expected = x; actual = y });
-
-  test "parse some 'x' tokens"
-    (P.some (P.exactly x)) [x; x; x; x; x; x; x] =>* Ok [x; x; x; x; x; x; x];
-
-  print ""
-
+    should "parse simple quadruple"
+      "(a, b, c, d)" ==> Ok (tuple [a; b; c; d]);
+  ]
 

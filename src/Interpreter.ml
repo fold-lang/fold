@@ -96,5 +96,7 @@ module type Self = sig
 
   module Module : sig
     type t
+
+    val make : Statement.t list -> t
   end
 end

@@ -1,8 +1,7 @@
 
 module Lexer = Fold.Lex.Lexer
 module Stream = Pratt.Stream
-(* module Parser = Fold_parser.Make(OCaml) *)
-module Parser = Fold.Parser.Make
+module Parser = Fold_parser.Make(OCaml)
 
 
 let compile_structure typed_structure =
@@ -31,7 +30,7 @@ let () =
     if Stream.is_empty input then
       Fmt.pr "Main: done@."
     else
-      match Parser.run Parser.Statement.parser input with
+      match Parser.run' Parser.Statement.parser input with
       | Ok (statement, input') ->
         Fmt.pr "%a@.@." Pprintast.structure [statement];
         loop input'

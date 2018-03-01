@@ -1,11 +1,7 @@
 open Local
 open Lex
 
-module Make
-    (* (Eval : Interpreter.Self) *)
-= struct
-  module Eval = OCaml
-
+module Make (Eval : Interpreter.Self) = struct
   type expression = Eval.Expression.t
   type pattern = Eval.Pattern.t
 
@@ -13,14 +9,19 @@ module Make
   let (>>=)  = P.(>>=)
   let return = P.return
 
-  let run = P.run
+  let run' p input = P.run p input
+
+  let run p input =
+    match P.run p input with
+    | Ok (x, _) -> Ok x
+    | Error e -> Error e
 
   let symbol s = P.consume (`Symbol s)
 
-  let sep1 ~by:s p =
+  let sep1 ~by:sep p =
     p >>= fun x ->
-    P.many (s >>= fun () -> p) >>= fun xs ->
-    P.return (x :: xs)
+    P.many (sep >>= fun () -> p) >>= fun xs ->
+    P.return (x, xs)
 
   module rec Expression : sig
     val parser : expression P.parser
@@ -51,11 +52,14 @@ module Make
       P.next >>= fun t ->
       return (Eval.Expression.token t)
 
-    let parse_group g =
+    let parse_group_or_tuple g =
       symbol "(" >>= fun () ->
-      parse g >>= fun e ->
+      sep1 ~by:(symbol ",") (parse g) >>= fun (x, xs) ->
       symbol ")" >>= fun () ->
-      return e
+      if List.length xs = 0 then
+        return x
+      else
+        return (Eval.Expression.tuple (x :: xs))
 
     let parse_token _g =
       P.current >>= fun t ->
@@ -81,8 +85,9 @@ module Make
         P.delimiter (`Symbol "val");
         P.delimiter (`Symbol "def");
         P.delimiter (`Symbol "in");
+        P.delimiter (`Symbol ",");
 
-        P.null (`Symbol "(") parse_group;
+        P.null (`Symbol "(") parse_group_or_tuple;
         P.delimiter (`Symbol ")");
       ]
 
@@ -146,7 +151,8 @@ module Make
   module Module = struct
     let parser : Eval.Module.t P.parser =
       (* FIXME: Pratt.many is not good for error reporting! *)
-      P.many Statement.parser
+      P.many Statement.parser >>= fun xs ->
+      return (Eval.Module.make xs)
   end
 end
 

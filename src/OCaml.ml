@@ -138,4 +138,6 @@ end
 
 module Module = struct
   type t = Statement.t list
+
+  let make xs = xs
 end
