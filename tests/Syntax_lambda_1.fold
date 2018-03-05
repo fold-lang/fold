@@ -1,0 +1,22 @@
+
+val identity = fn x -> x
+
+
+val sum = a b -> a + b
+
+val sum = 0 -> "zero"
+        | n -> "other"
+
+
+def sum a b =
+  a + b
+
+
+def length [_ & rest] = 1 + length rest
+  | length [] = 0
+
+
+
+
+
+

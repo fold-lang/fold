@@ -1,4 +1,6 @@
-include Astring
+
+module String = Astring.String
+module Char = Astring.Char
 
 let const2 x _ _ = x
 let (<<) f g = fun x -> f (g x)

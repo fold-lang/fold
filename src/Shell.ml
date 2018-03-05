@@ -1,6 +1,6 @@
 
 module Lexer = Fold.Lex.Lexer
-module Parser = Fold.Parser.Make(Fold.OCaml)
+module Parser = Fold.Parser
 
 
 let fold_parse_toplevel_phrase input eos_is_error =

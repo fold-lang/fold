@@ -1,5 +1,5 @@
 
-module P = Fold.Parser.Make(Fold.Syntax)
+module P = Fold.Parser
 module L = Fold.Lex.Lexer
 
 module Expr = Fold.Syntax.Expression

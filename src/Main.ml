@@ -1,7 +1,8 @@
 
 module Lexer = Fold.Lex.Lexer
 module Stream = Pratt.Stream
-module Parser = Fold.Parser.Make(Fold.OCaml)
+module Parser = Fold.Parser
+module Syntax = Fold.Syntax
 
 
 let compile_structure typed_structure =
@@ -25,6 +26,22 @@ let compile_structure typed_structure =
     raise x
 
 
+(* let () = *)
+(*   let rec loop input = *)
+(*     if Stream.is_empty input then *)
+(*       Fmt.pr "Main: done@." *)
+(*     else *)
+(*       match Parser.run' Parser.Statement.parser input with *)
+(*       | Ok (statement, input') -> *)
+(*         Fmt.pr "%a@.@." Syntax.Statement.pp statement; *)
+(*         loop input' *)
+(*       | Error Parser.P.Zero -> Fmt.pr "Main: empty result@." *)
+(*       | Error e -> *)
+(*         Fmt.pr "%s@." (Parser.P.error_to_string e) *)
+(*   in *)
+(*   let stream = Lexer.(to_stream (of_channel stdin)) in *)
+(*   loop stream *)
+
 let () =
   let rec loop input =
     if Stream.is_empty input then
@@ -32,7 +49,7 @@ let () =
     else
       match Parser.run' Parser.Statement.parser input with
       | Ok (statement, input') ->
-        Fmt.pr "%a@.@." Pprintast.structure [statement];
+        Fmt.pr "%a@.@." Syntax.Statement.pp statement;
         loop input'
       | Error Parser.P.Zero -> Fmt.pr "Main: empty result@."
       | Error e ->

@@ -29,15 +29,15 @@
   (libraries
    (fold))))
 
-(executable
- ((name Shell)
-  (public_name fold-shell)
-  (modes (byte))
-  (modules (Shell))
-  (libraries
-   (fold
-    compiler-libs.toplevel
-    compiler-libs.bytecomp
-    compiler-libs
-    utop))))
+;(executable
+; ((name Shell)
+;  (public_name fold-shell)
+;  (modes (byte))
+;  (modules (Shell))
+;  (libraries
+;   (fold
+;    compiler-libs.toplevel
+;    compiler-libs.bytecomp
+;    compiler-libs
+;    utop))))
 

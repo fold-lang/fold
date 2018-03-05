@@ -2,6 +2,7 @@
 module String_ = String
 open Local
 module String = String_
+module Char = Astring.Char
 
 type token = [
   | `Bool   of bool         (* True False       *)
@@ -10,27 +11,27 @@ type token = [
   | `Int    of int          (* 100 42 0 012345  *)
   | `String of string       (* "hello" "" "x"   *)
   | `Symbol of string       (* a foo Bar + >>=  *)
-] [@@deriving show, ord, eq]
+] [@@deriving ord, eq]
 
-
-let rec pp_token ppf token =
-  let open Fmt in
+let pp_token f token =
   match token with
-  | `Bool v   -> pf ppf "%b" v
-  | `Char v   -> pf ppf "%c" v
-  | `Float v  -> pf ppf "%f" v
-  | `Int v    -> pf ppf "%d" v
-  | `String v -> pf ppf "%s" v
-  | `Symbol v -> pf ppf "`%s" v
+  | `Bool x   -> Fmt.bool f x
+  | `Char x   -> Char.dump f x
+  | `Float x  -> Fmt.float f x
+  | `Int x    -> Fmt.int f x
+  | `String x -> Astring.String.dump f x
+  | `Symbol x -> Fmt.string f x
 
 let eof = `Symbol "__EOF__"
 
 module Token = struct
   type t = token
-  [@@deriving show, ord, eq]
+  [@@deriving ord, eq]
 
   let fmt = pp_token
   let cmp = compare
+
+  let pp = pp_token
 
   (* XXX *)
   let to_string = function

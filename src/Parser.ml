@@ -1,158 +1,185 @@
 open Local
 open Lex
 
-module Make (Eval : Interpreter.Self) = struct
-  type expression = Eval.Expression.t
-  type pattern = Eval.Pattern.t
+module S = Syntax
 
-  module P = Pratt.Make(Token)
-  let (>>=)  = P.(>>=)
-  let return = P.return
+module P = Pratt.Make(Token)
+let (>>=)  = P.(>>=)
+let return = P.return
 
-  let run' p input = P.run p input
 
-  let run p input =
-    match P.run p input with
-    | Ok (x, input') when Pratt.Stream.is_empty input' -> Ok x
-    | Ok (x, input') -> raise (Failure "XXX: Input letfover")
-    | Error e -> Error e
+let run' p input = P.run p input
 
-  let symbol s = P.consume (`Symbol s)
+let run p input =
+  match P.run p input with
+  | Ok (x, input') when Pratt.Stream.is_empty input' -> Ok x
+  | Ok (x, input') -> raise (Failure "XXX: Input letfover")
+  | Error e -> Error e
 
-  let sep1 ~by:sep p =
-    p >>= fun x ->
-    P.many (sep >>= fun () -> p) >>= fun xs ->
-    P.return (x, xs)
+let symbol s = P.consume (`Symbol s)
 
-  module rec Expression : sig
-    val parser : expression P.parser
-  end = struct
-    let parse ?precedence:(rbp = 0) g =
-      let left =
-        P.some (P.nud rbp g) >>= fun (x, xs) ->
-        if List.length xs = 0 then
-          P.return x
-        else
-          P.return (Eval.Expression.apply x xs) in
-      left >>= P.led rbp g
+let sep1 ~by:sep p =
+  p >>= fun x ->
+  P.many (sep >>= fun () -> p) >>= fun xs ->
+  P.return (x, xs)
 
-    let parse_let_binding g =
-      Pattern.parser >>= fun p ->
-      symbol "=" >>= fun () ->
-      parse g >>= fun e ->
-      P.return (p, e)
 
-    let parse_let g =
-      symbol "let" >>= fun () ->
-      sep1 ~by:(symbol ",") (parse_let_binding g) >>= fun (lb, lbs) ->
-      symbol "in" >>= fun () ->
-      parse g >>= fun body ->
-      P.return (Eval.Expression.let' (lb :: lbs) body)
-
-    let parse_token _g =
-      P.next >>= fun t ->
-      return (Eval.Expression.token t)
-
-    let parse_group_or_tuple g =
-      symbol "(" >>= fun () ->
-      sep1 ~by:(symbol ",") (parse g) >>= fun (x, xs) ->
-      symbol ")" >>= fun () ->
+module rec Expression : sig
+  val parser : S.Expression.t P.parser
+end = struct
+  let parse ?precedence:(rbp = 0) (g : S.Expression.t P.grammar) : S.Expression.t P.parser =
+    let left =
+      P.some (P.nud rbp g) >>= fun (x, xs) ->
       if List.length xs = 0 then
-        return x
+        P.return x
       else
-        return (Eval.Expression.tuple (x :: xs))
+        P.return (S.Expression.application x xs) in
+    left >>= P.led rbp g
 
-    let parse_token _g =
-      P.current >>= fun t ->
+  let parse_let_binding g =
+    Pattern.parser >>= fun p ->
+    symbol "=" >>= fun () ->
+    parse g >>= fun e ->
+    P.return (p, e)
+
+  let parse_let g =
+    symbol "let" >>= fun () ->
+    sep1 ~by:(symbol ",") (parse_let_binding g) >>= fun (lb, lbs) ->
+    symbol "in" >>= fun () ->
+    parse g >>= fun body ->
+    P.return (S.Expression.let' (lb :: lbs) body)
+
+  let parse_token _g =
+    P.next >>= fun t ->
+    return (S.Expression.token t)
+
+  let parse_group_or_tuple g =
+    symbol "(" >>= fun () ->
+    sep1 ~by:(symbol ",") (parse g) >>= fun (x, xs) ->
+    symbol ")" >>= fun () ->
+    if List.length xs = 0 then
+      return x
+    else
+      return (S.Expression.tuple (x :: xs))
+
+  let parse_token _g =
+    P.current >>= fun t ->
+    P.advance >>= fun () ->
+    P.return (S.Expression.token t)
+
+  let infix_left precedence tok f =
+    let p g a =
       P.advance >>= fun () ->
-      P.return (Eval.Expression.token t)
+      parse ~precedence g >>= fun b ->
+      P.return (f a b) in
+    P.left precedence tok p
 
-    let infix_left precedence tok f =
-      let p g a =
-        P.advance >>= fun () ->
-        parse ~precedence g >>= fun b ->
-        P.return (f a b) in
-      P.left precedence tok p
+  let parse_fn g =
+    P.consume (`Symbol "fn") >>= fun () ->
+    Pattern.parser >>= fun arg ->
+    P.consume (`Symbol "->") >>= fun () ->
+    parse g >>= fun body ->
+    P.return (S.Expression.fn arg body)
 
-    let grammar = P.grammar [
-        P.term parse_token;
+  let parse_if g =
+    P.consume (`Symbol "if") >>= fun () ->
+    parse g >>= fun condition ->
+    P.consume (`Symbol "then") >>= fun () ->
+    parse g >>= fun consequence ->
+    P.consume (`Symbol "else") >>= fun () ->
+    parse g >>= fun alternative ->
+    P.return (S.Expression.if' condition consequence alternative)
 
-        P.null (`Symbol "let") parse_let;
+  let grammar = P.grammar [
+      P.term parse_token;
 
-        infix_left 30 (`Symbol "+")
-          (fun a b -> Eval.Expression.(apply (token (`Symbol "+")) [a; b]));
+      P.null (`Symbol "let") parse_let;
 
-        P.delimiter (`Symbol "val");
-        P.delimiter (`Symbol "def");
-        P.delimiter (`Symbol "in");
-        P.delimiter (`Symbol ",");
+      infix_left 30 (`Symbol "+")
+        (fun a b -> S.Expression.(application (token (`Symbol "+")) [a; b]));
 
-        P.null (`Symbol "(") parse_group_or_tuple;
-        P.delimiter (`Symbol ")");
-      ]
+      P.null (`Symbol "fn") parse_fn;
+      P.null (`Symbol "if") parse_if;
 
-    let parser =
-      parse grammar
-  end
+      P.delimiter (`Symbol "val");
+      P.delimiter (`Symbol "def");
+      P.delimiter (`Symbol "then");
+      P.delimiter (`Symbol "else");
+      P.delimiter (`Symbol "in");
+      P.delimiter (`Symbol ",");
 
-  and Pattern : sig
-    val parser : Eval.Pattern.t P.parser
-  end = struct
-    let parse g =
-      let left =
-        P.current >>= fun token ->
-        match token with
-        | `Symbol name when Char.Ascii.is_upper (String.get name 0) ->
-          P.some (P.nud 0 g) >>= fun (x, xs) ->
-          if List.length xs = 0 then
-            P.return x
-          else
-            P.return (Eval.Pattern.constructor (Eval.Name.id name) xs)
-        | other -> P.nud 0 g
-      in
-        left >>= P.led 0 g
+      P.null (`Symbol "(") parse_group_or_tuple;
+      P.delimiter (`Symbol ")");
+    ]
 
-    let parse_token _g =
-      P.current >>= fun t ->
-      P.advance >>= fun () ->
-      P.return (Eval.Pattern.token t)
+  let parser =
+    parse grammar
+end
 
-    let parse_cons g e1 =
-      P.consume (`Symbol "&") >>= fun () ->
-      parse g >>= fun e2 ->
-      P.return (Eval.(Pattern.constructor (Name.id "&")) [e1; e2])
+and Pattern : sig
+  val parser : S.Pattern.t P.parser
+end = struct
+  let parse ?precedence:(rbp = 0) g =
+    let left =
+      P.some (P.nud rbp g) >>= fun (x, xs) ->
+      if List.length xs = 0 then
+        P.return x
+      else
+        P.return (S.Pattern.application x xs) in
+    left >>= P.led rbp g
 
-    let grammar = P.grammar [
-        P.term parse_token;
-        P.left 50 (`Symbol "&") parse_cons;
-        P.between (`Symbol "(") (`Symbol ")") identity;
-        P.delimiter (`Symbol ")");
-        P.delimiter (`Symbol "=");
-      ]
-    let parser = parse grammar
-  end
+  let parse_token _g =
+    P.current >>= fun t ->
+    P.advance >>= fun () ->
+    P.return (S.Pattern.token t)
 
-  module Statement = struct
-    let parse_val g =
-      P.consume (`Symbol "val") >>= fun () ->
-      Pattern.parser >>= fun p ->
-      P.consume (`Symbol "=") >>= fun () ->
-      Expression.parser >>= fun e ->
-      return (Eval.Statement.val' p e)
+  let parse_group_or_tuple g =
+    symbol "(" >>= fun () ->
+    sep1 ~by:(symbol ",") (parse g) >>= fun (x, xs) ->
+    symbol ")" >>= fun () ->
+    if List.length xs = 0 then
+      return x
+    else
+      return (S.Pattern.tuple (x :: xs))
 
-    let grammar = P.grammar [
-        P.null (`Symbol "val") parse_val;
-      ]
+  let parse_cons g e1 =
+    P.consume (`Symbol "&") >>= fun () ->
+    parse g >>= fun e2 ->
+    P.return (S.(Pattern.application (Pattern.token (`Symbol "&"))) [e1; e2])
 
-    let parser =
-      P.parse grammar
-  end
+  let grammar = P.grammar [
+      P.term parse_token;
+      P.left 50 (`Symbol "&") parse_cons;
+      P.null (`Symbol "(") parse_group_or_tuple;
+      P.delimiter (`Symbol ")");
+      P.delimiter (`Symbol "=");
+      P.delimiter (`Symbol "->");
+    ]
+  let parser = parse grammar
+end
 
-  module Module = struct
-    let parser : Eval.Module.t P.parser =
-      (* FIXME: Pratt.many is not good for error reporting! *)
-      P.many Statement.parser >>= fun xs ->
-      return (Eval.Module.make xs)
-  end
+
+module Statement = struct
+  let parse_val g =
+    P.consume (`Symbol "val") >>= fun () ->
+    Pattern.parser >>= fun p ->
+    P.consume (`Symbol "=") >>= fun () ->
+    Expression.parser >>= fun e ->
+    return (S.Statement.val' p e)
+
+  let parse_def g =
+    P.consume (`Symbol "def") >>= fun () ->
+    Pattern.parser >>= fun p ->
+    P.consume (`Symbol "=") >>= fun () ->
+    Expression.parser >>= fun e ->
+    return (S.Statement.def p e)
+
+  let grammar = P.grammar [
+      P.null (`Symbol "val") parse_val;
+      P.null (`Symbol "def") parse_def;
+    ]
+
+  let parser =
+    P.parse grammar
 end
 

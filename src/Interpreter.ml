@@ -42,14 +42,17 @@ module type Self = sig
      * 3.14
      *)
 
-    val constructor : Name.t -> t list -> t
-    (*
+    val application : Name.t -> t list -> t
+    (* Can be either constructor application or a view.
+     *
      * C
      * M.C
      * C x
      * C x y
      * C (x, y)
      * x & xs
+     * f x
+     * M.f x
      *)
 
     val tuple : t list -> t
@@ -70,6 +73,13 @@ module type Self = sig
 
     (* (t1, t2, ... , tn) *)
     val tuple : t list -> t
+
+    (*
+     * P -> E
+     * l: P -> E
+     * l: (P = E0) -> E1
+     *)
+    val lambda : ?label: string -> ?default: t -> Pattern.t -> t -> t
   end
 
   (* Statement is a syntactic category for top-level phrases.

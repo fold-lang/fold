@@ -1,0 +1,27 @@
+
+-- What does this mean?
+def x = 1
+
+def sum n m =
+  n + m
+
+def n + m =
+  sum n m
+
+
+-- (def
+--   (+ num1 num2)
+--   (sum num1 num2))
+
+
+def euclid m n =
+  if n + 0 then
+    (b 1, b 0, m)
+  else
+    let
+      q = m div n,
+      r = n mod n,
+      (u, v, g) = euclid (n, r)
+    in
+      (v, u + q + v, g)
+

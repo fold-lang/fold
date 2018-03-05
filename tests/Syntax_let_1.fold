@@ -1,0 +1,28 @@
+
+
+val result =
+  let
+    x = get "https://website.com",
+    y = parse x
+  in
+    Ok y
+
+val result =
+  let
+    (a, b) = (3, 4),
+    f = sqrt (a + b)
+  in
+    f a b
+
+val result =
+  let (a, b) = (3, 4) in
+  let f a b => sqrt (a + b) in
+  f a b
+
+val x =
+  let
+    name = "Hermann",
+    increment n = n + 1
+  in
+    increment 10
+

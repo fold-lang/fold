@@ -64,6 +64,17 @@ module Expression = struct
     in
     let desc = Parsetree.Pexp_let (Asttypes.Nonrecursive, bindings', body) in
     Parsetree.{ pexp_desc = desc; pexp_loc = Location.none; pexp_attributes = [] }
+
+
+  let lambda ?label ?default arg body =
+    let arg_label =
+      match label with
+      | Some x -> Asttypes.Labelled x
+      | None -> Asttypes.Nolabel in
+    let open Parsetree in
+    { pexp_desc = Pexp_fun (arg_label, default, arg, body);
+      pexp_loc = Location.none;
+      pexp_attributes = [] }
 end
 
 module Pattern = struct
