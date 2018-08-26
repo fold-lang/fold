@@ -20,12 +20,20 @@
     compiler-libs.bytecomp
     ppx_deriving.std
     options))
-  (preprocess (pps (ppx_deriving.std sedlex.ppx)))))
+  (modes (byte native))
+  (preprocess
+    (pps
+      (ppx_deriving.std
+       sedlex.ppx
+       ppx_inline_test
+       ppx_expect)))
+  (inline_tests)))
 
 (executable
  ((name Main)
   (public_name fold)
   (modules (Main))
+  (modes (byte native))
   (libraries
    (fold))))
 

@@ -26,34 +26,21 @@ let compile_structure typed_structure =
     raise x
 
 
-(* let () = *)
-(*   let rec loop input = *)
-(*     if Stream.is_empty input then *)
-(*       Fmt.pr "Main: done@." *)
-(*     else *)
-(*       match Parser.run' Parser.Statement.parser input with *)
-(*       | Ok (statement, input') -> *)
-(*         Fmt.pr "%a@.@." Syntax.Statement.pp statement; *)
-(*         loop input' *)
-(*       | Error Parser.P.Zero -> Fmt.pr "Main: empty result@." *)
-(*       | Error e -> *)
-(*         Fmt.pr "%s@." (Parser.P.error_to_string e) *)
-(*   in *)
-(*   let stream = Lexer.(to_stream (of_channel stdin)) in *)
-(*   loop stream *)
-
 let () =
+  Fmt.(set_style_renderer stdout `Ansi_tty);
   let rec loop input =
     if Stream.is_empty input then
       Fmt.pr "Main: done@."
     else
-      match Parser.run' Parser.Statement.parser input with
-      | Ok (statement, input') ->
-        Fmt.pr "%a@.@." Syntax.Statement.pp statement;
+    begin
+      match Parser.run' Parser.Structure.parser input with
+      | Ok (structure_item, input') ->
+        Fmt.pr "%a@.@." Pprintast.structure [structure_item];
         loop input'
       | Error Parser.P.Zero -> Fmt.pr "Main: empty result@."
       | Error e ->
         Fmt.pr "%s@." (Parser.P.error_to_string e)
+    end
   in
   let stream = Lexer.(to_stream (of_channel stdin)) in
   loop stream

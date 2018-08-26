@@ -1,0 +1,10 @@
+
+val x =
+  f x y z
+
+
+// Module Path
+val x =
+  M.f M.x M.y
+
+

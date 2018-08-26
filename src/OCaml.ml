@@ -10,9 +10,9 @@ end
 
 module Type = struct
   type t
-  let constructor cap_id = undefined ()
-  let var low_id = undefined ()
-  let tuple l = undefined ()
+  let constructor _cap_id = undefined ()
+  let var _low_id = undefined ()
+  let tuple _l = undefined ()
 end
 
 module Expression = struct
@@ -23,7 +23,7 @@ module Expression = struct
   let append x y =
     let open Parsetree in
     let desc = match x with
-      | { pexp_desc = Pexp_apply (f, xs) } -> Pexp_apply (f, List.append xs [y])
+      | { pexp_desc = Pexp_apply (f, xs); _ } -> Pexp_apply (f, List.append xs [y])
       | atom -> Pexp_apply (atom, [y]) in
     Parsetree.{ pexp_desc = desc; pexp_loc = Location.none; pexp_attributes = [] }
 
@@ -144,7 +144,7 @@ module Statement = struct
 
   (* `type (name <- Identifier.capitalized) (parameters <- Identifier.lowercase* )
    *   `= (type <- Type.t) *)
-  let type' cap_id params body = undefined ()
+  let type' _cap_id _params _body = undefined ()
 end
 
 module Module = struct

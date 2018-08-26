@@ -1,0 +1,15 @@
+-- Syntax error: expected '=' but got '->'
+def compare guess secret_number =>
+  match Int.compare i secret_number {
+  | LT ->
+    IO.print "Too low!";
+    loop secret_number
+  | GT ->
+    IO.print "Too low!";
+    loop secret_number
+  | EQ ->
+    let i = Int.to_string secret_number in
+    IO.print "You got it! The number was" ++ i
+  }
+
+

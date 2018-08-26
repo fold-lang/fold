@@ -1,22 +1,23 @@
 
-val identity = fn x -> x
+//def identity = fun x -> x
+//
+//
+//def sum = fun a b -> a + b
+//
+//def sum =
+//  fun 0 -> "zero"
+//    | n -> "other"
+//
+//def f =
+//  fun 0 -> "zero"
+//    | 1 -> "one"
+//    | 2 -> "two"
+//    | n -> "other"
 
 
-val sum = a b -> a + b
-
-val sum = 0 -> "zero"
-        | n -> "other"
-
-
-def sum a b =
-  a + b
-
-
-def length [_ & rest] = 1 + length rest
-  | length [] = 0
-
-
-
-
-
+def f =
+  fun
+    | x -> 1
+    | y -> 2
+    | z -> ++ 3
 

@@ -16,13 +16,13 @@ let terminal    = 90
 
 (* XXX Add associativity *)
 let lookup token =
-  match Token.to_string token with
+  match token with
   (* Match atomic symbols. *)
-  | "__eof__" -> Some delimiter
-  | ";" -> Some 20
-  | "!=" -> Some assignment
+  | t when Token.is_eof t -> Some delimiter
+  | `Symbol ";" -> Some 20
+  | `Symbol "!=" -> Some assignment
   (* Match symbols that can start an operator. *)
-  | str ->
+  | `Symbols str ->
     begin match str.[0] with
       | '=' -> Some assignment
       | '>' -> Some conditional

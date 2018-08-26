@@ -1,5 +1,5 @@
 
--- What does this mean?
+// What does this mean?
 def x = 1
 
 def sum n m =
@@ -9,9 +9,9 @@ def n + m =
   sum n m
 
 
--- (def
---   (+ num1 num2)
---   (sum num1 num2))
+// (def
+//   (+ num1 num2)
+//   (sum num1 num2))
 
 
 def euclid m n =
@@ -19,9 +19,9 @@ def euclid m n =
     (b 1, b 0, m)
   else
     let
-      q = m div n,
-      r = n mod n,
-      (u, v, g) = euclid (n, r)
+      q = m / n,
+      r = n % n,
+      (u, v, g) = euclid n r
     in
       (v, u + q + v, g)
 

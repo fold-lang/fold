@@ -1,0 +1,18 @@
+
+
+val x =
+  match x {
+  }
+
+val x =
+  match x {
+  | p -> v
+  }
+
+
+val x =
+  match x {
+  | p -> v
+  | p -> v
+  }
+

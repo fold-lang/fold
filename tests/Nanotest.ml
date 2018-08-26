@@ -73,7 +73,7 @@ let test ?(verbose = true) ty msg ~actual ~expected () =
 
 let (==>) = (@@)
 
-let testable (type a) (pp: a Fmt.t) (equal: a -> a -> bool) : a testable =
+let _testable (type a) (pp: a Fmt.t) (equal: a -> a -> bool) : a testable =
   let module M = struct
     type t = a
     let pp = pp
@@ -93,7 +93,7 @@ let testable (type a) ?(equal: a -> a -> bool = Pervasives.(=)) (pp: a Fmt.t) : 
 let group name tests =
   Fmt.pr "━━━ %s ━━━@." (C.bright_blue name);
   let t0 = Unix.gettimeofday () in
-  let s, f, t =
+  let s, f, _t =
     List.fold_left begin fun (s, f, t) test ->
         if test () then (s + 1, f, t + 1) else (s, f + 1, t + 1)
       end

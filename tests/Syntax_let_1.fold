@@ -1,11 +1,22 @@
 
-
-val result =
+def result =
   let
     x = get "https://website.com",
     y = parse x
   in
     Ok y
+
+function hello name =
+  print name
+
+function
+  | factorial 0 = 1
+  | factorial n = n * factorial (n - 1)
+
+fn
+  | factorial 0 = 1
+  | factorial n = n * factorial (n - 1)
+
 
 val result =
   let
@@ -19,7 +30,7 @@ val result =
   let f a b => sqrt (a + b) in
   f a b
 
-val x =
+def x =
   let
     name = "Hermann",
     increment n = n + 1

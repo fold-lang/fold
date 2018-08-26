@@ -71,7 +71,7 @@ module Option = struct
 
   let (<|>) a b =
     match a with
-    | Some x -> a
+    | Some _ -> a
     | None -> Lazy.force b
 end
 

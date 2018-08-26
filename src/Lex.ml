@@ -11,15 +11,21 @@ type token = [
   | `Int    of int          (* 100 42 0 012345  *)
   | `String of string       (* "hello" "" "x"   *)
   | `Symbol of string       (* a foo Bar + >>=  *)
-] [@@deriving ord, eq]
+] [@@deriving ord, eq, show]
 
-let pp_token f token =
+let pp_hum_token f token =
   match token with
   | `Bool x   -> Fmt.bool f x
   | `Char x   -> Char.dump f x
   | `Float x  -> Fmt.float f x
-  | `Int x    -> Fmt.int f x
-  | `String x -> Astring.String.dump f x
+  | `Int x    -> (Fmt.styled `Yellow Fmt.int) f x
+  | `String x -> (Fmt.styled `Green Astring.String.dump) f x
+  | `Symbol "()" ->
+    (Fmt.styled `Yellow (Fmt.unit "()")) f ()
+  | `Symbol x when not (Char.Ascii.is_letter (String.get x 0)) ->
+    (Fmt.styled `Magenta Fmt.string) f x
+  | `Symbol x when Char.Ascii.is_upper (String.get x 0) ->
+    (Fmt.styled `Yellow Fmt.string) f x
   | `Symbol x -> Fmt.string f x
 
 let eof = `Symbol "__EOF__"
@@ -122,7 +128,7 @@ let name_literal =
   [%sedlex.regexp? Plus (operator_char | delimeter_char)]
 
 let comment =
-  [%sedlex.regexp? "--", Star (Compl '\n')]
+  [%sedlex.regexp? "//", Star (Compl '\n')]
 
 let white_space =
   [%sedlex.regexp? Plus (' ' | '\t')]
@@ -141,7 +147,7 @@ module Lexer = struct
     self.line_count <- self.line_count + 1
 
 
-  let current_location { lexbuf; line_count; line_start } =
+  let current_location { lexbuf; line_count; line_start; _ } =
     let open Sedlexing in
     let open Location in
     { line   = line_count;
@@ -246,7 +252,20 @@ module Lexer = struct
   let of_channel c =
     from_lexbuf (Sedlexing.Utf8.from_channel c)
 
-  let rec to_stream lexer =
+  let to_stream lexer =
+    let rec loop acc =
+      let t = read lexer in
+      if t = eof then
+        List.rev acc
+      else
+        loop (t :: acc)
+    in
+    let l = loop [] in
+    Fmt.pl "input = %a@." (Fmt.Dump.list Token.pp) l;
+    Pratt.Stream.of_list l
+
+  (* WTF??? *)
+  let broken_to_stream lexer =
     let token = read lexer in
     if token = eof then
       Pratt.Stream.Empty
