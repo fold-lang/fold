@@ -1,0 +1,6 @@
+{
+  "ocaml.sandbox": {
+    "kind": "custom",
+    "template": "nix develop -f ${workspaceFolder:fold}/default.nix -j auto -i shell -c $prog $args"
+  }
+}

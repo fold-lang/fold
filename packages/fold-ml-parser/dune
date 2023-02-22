@@ -1,0 +1,18 @@
+(ocamllex
+ (modules Lexer))
+
+(menhir
+ (modules Parser)
+ (flags --strict --unused-tokens --table --cmly))
+
+(library
+ (name fold_parser)
+ (public_name fold.parser)
+ (wrapped true)
+ (modules Parser Lexer Syntaxerr Printer)
+ (libraries compiler-libs.common menhirLib ocaml-migrate-parsetree))
+
+(executable
+ (name fold)
+ (modules Fold)
+ (libraries fold.parser))
