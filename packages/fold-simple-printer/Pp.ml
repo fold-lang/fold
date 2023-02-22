@@ -31,6 +31,13 @@ let special_infix_strings =
 let builtin_keywords = [ "let"; "module"; "type"; "val"; "..."; "~"; ":"; ":?" ]
 let is_builtin_keyword s = List.mem s builtin_keywords
 
+let is_alphanum_id s =
+  if String.length s = 0 then false
+  else
+    match s.[0] with
+    | 'a' .. 'z' | '_' -> true
+    | _ -> false
+
 let letop s =
   String.length s > 3
   && s.[0] = 'l'
@@ -78,19 +85,16 @@ let pp_constant f (constant : Syntax.constant) =
 
 let rec pp enclose out (syn : Syntax.t) =
   match syn with
-  | Void -> ()
-  | Ident (Longident.Lident s) -> pf out "%s" s
-  | Ident id -> pp_ident out id
-  | Constant const -> pf out "%a" pp_constant const
+  | Id (Longident.Lident s) -> pf out "%s" s
+  | Id id -> pp_ident out id
+  | Const const -> pf out "%a" pp_constant const
   | Apply (f, args) -> pp_apply out enclose f args
   | Form (kwd, args) -> pp_form out enclose kwd args
-  | Binding binding when enclose -> Fmt.pf out "@[(%a)@]" pp_binding binding
-  | Binding binding -> Fmt.pf out "@[%a@]" pp_binding binding
   | Variant cases ->
     Fmt.pf out "{@ %a@ }" (Fmt.list ~sep:Fmt.cut (pp true)) cases
-  | Seq items -> Fmt.pf out "@[%a@]" (Fmt.list ~sep:Fmt.comma (pp false)) items
+  | List items -> Fmt.pf out "@[%a@]" (Fmt.list ~sep:Fmt.comma (pp false)) items
   | Block [] -> Fmt.pf out "{}"
-  | Block [ Seq items ] ->
+  | Block [ List items ] ->
     Fmt.pf out "@[<hov>@[<hov2>{@;%a@]@;}@]"
       (Fmt.list ~sep:Fmt.comma (pp false))
       items
@@ -99,19 +103,11 @@ let rec pp enclose out (syn : Syntax.t) =
     Fmt.pf out "@[<v>@[<v2>{@;%a;@]@;}@]"
       (Fmt.list ~sep:Fmt.semi (pp false))
       items
-  | Constraint (v, t) -> Fmt.pf out "@[(%a : %a)@]" (pp true) v (pp true) t
   | Field (x, f) -> Fmt.pf out "@[%a.%a@]" (pp true) x (pp true) f
-
-and pp_binding out (left, right) =
-  match (left, right) with
-  | ( Syntax.Ident (Longident.Lident left_id)
-    , Syntax.Ident (Longident.Lident right_id) )
-    when left_id = right_id -> pf out "~%s" left_id
-  | _ -> pf out "@[%a = %a@]" (pp false) left (pp false) right
 
 and pp_apply out enclose f args =
   match f with
-  | Ident (Longident.Lident id) -> (
+  | Id (Longident.Lident id) -> (
     match (fixity_of_string id, args) with
     | `Infix _, [ arg_1; arg_2 ] when enclose ->
       pf out "@[<hv2>(%a@ %s@ %a)@]" (pp true) arg_1 id (pp true) arg_2
@@ -130,30 +126,37 @@ and pp_apply out enclose f args =
     pf out "@[<hv2>(%a@ %a)@]" (pp true) f (Fmt.list ~sep:Fmt.sp (pp true)) args
   | _ -> pf out "@[%a@ %a@]" (pp true) f (Fmt.list ~sep:Fmt.sp (pp true)) args
 
-and keyword_to_string kwd = if is_builtin_keyword kwd then kwd else kwd ^ "!"
-
-and pp_form out enclose kwds args =
-  match kwds with
-  | [ kwd ] -> (
-    let kwd' = keyword_to_string kwd in
+and pp_form out enclose kwd args =
+  match kwd with
+  | Prefix prefix -> (
+    let prefix = String.concat " " prefix in
+    let sp = if prefix = "..." then "" else " " in
     match args with
-    | [] -> pf out "%s" kwd'
+    | [] -> pf out "%s" prefix
     | _ when enclose ->
-      pf out "@[(%s %a)@]" kwd' (Fmt.list ~sep:Fmt.sp (pp false)) args
-    | _ -> pf out "@[%s %a@]" kwd' (Fmt.list ~sep:Fmt.sp (pp false)) args)
-  | [ "~"; l ] -> (
+      pf out "@[(%s%s%a)@]" prefix sp (Fmt.list ~sep:Fmt.sp (pp false)) args
+    | _ -> pf out "@[%s%s%a@]" prefix sp (Fmt.list ~sep:Fmt.sp (pp false)) args)
+  | Mixfix [ "~"; l ] -> (
     match args with
-    | [ Syntax.Ident (Longident.Lident v) ] when l = v -> pf out "~%s" l
+    | [ Syntax.Id (Longident.Lident v) ] when l = v -> pf out "~%s" l
     | [ v ] -> pf out "~%s:%a" l (pp false) v
     | _ -> invalid_arg "invalid labeled argument form")
-  | [ "?"; l ] -> (
+  | Mixfix [ "?"; l ] -> (
     match args with
-    | [ Syntax.Ident (Longident.Lident v) ] when l = v -> pf out "~%s?" l
+    | [ Syntax.Id (Longident.Lident v) ] when l = v -> pf out "~%s?" l
     | [ v ] -> pf out "~%s?:%a" l (pp false) v
     | _ -> invalid_arg "invalid labeled argument form")
-  | _ ->
+  | Mixfix mixfix ->
     pf out "(";
-    List.iter2
-      (fun kwd arg -> pf out "%s %a " (keyword_to_string kwd) (pp false) arg)
-      kwds args;
+    List.iter2 (fun kwd arg -> pf out "%s@ %a " kwd (pp false) arg) mixfix args;
     pf out ")"
+  | Enclose (left, right) ->
+    pf out "@[%s@ %a@ %s@]" left (Fmt.list ~sep:Fmt.sp (pp false)) args right
+  | Infix infix -> (
+    let sp = if infix = "." then "" else " " in
+    match args with
+    | [ arg_1; arg_2 ] when enclose ->
+      pf out "@[(%a%s%s%s%a)@]" (pp false) arg_1 sp infix sp (pp false) arg_2
+    | [ arg_1; arg_2 ] ->
+      pf out "@[%a%s%s%s%a@]" (pp false) arg_1 sp infix sp (pp false) arg_2
+    | _ -> invalid_arg "infix form with more than two arguments")

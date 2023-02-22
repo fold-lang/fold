@@ -12,7 +12,7 @@ let rec x = 2 and y = (3, 'a') in
 let person = { p with name = "Xavier"; age; } in
 Person.print person;
 let result = f ~a ?opt ?use:foo ~name:"hello" x in
-x + y - (let z = 1 in z * 2)
+x + y - (let z = p.age in z * 2)
 |}
 
 (*

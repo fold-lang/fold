@@ -2,12 +2,13 @@ let todo = Syntax.ident "TODO"
 
 let rec conv_exp (exp : Parsetree.expression) =
   match exp.pexp_desc with
-  | Pexp_ident { txt = ident; _ } -> Syntax.Ident ident
-  | Pexp_constant constant -> Syntax.Constant constant
+  | Pexp_ident { txt = id; _ } -> Syntax.Id id
+  | Pexp_constant constant -> Syntax.Const constant
   | Pexp_let (rec_flag, vbl, body) -> let_ rec_flag vbl body
   | Pexp_apply (f_exp, args) -> apply f_exp args
   | Pexp_tuple items -> tuple items
   | Pexp_record (bindings, r0) -> record bindings r0
+  | Pexp_field (exp, { txt = id; _ }) -> field exp id
   | Pexp_sequence (exp_1, exp_2) -> sequence exp_1 exp_2
   | _ -> todo
 
@@ -19,7 +20,7 @@ and conv_pat (pat : Parsetree.pattern) =
 and conv_vb (vb : Parsetree.value_binding) =
   let pat' = conv_pat vb.pvb_pat in
   let exp' = conv_exp vb.pvb_expr in
-  Syntax.Binding (pat', exp')
+  Syntax.Form (Infix "=", [ pat'; exp' ])
 
 and let_ ?loc:_ ?attrs:_ rec_flag vbl body =
   let rec flatten (exp : Parsetree.expression) acc =
@@ -27,23 +28,23 @@ and let_ ?loc:_ ?attrs:_ rec_flag vbl body =
     | Pexp_let (rec_flag, vbl, body) ->
       let kwd =
         match rec_flag with
-        | Recursive -> "let-rec"
-        | Nonrecursive -> "let"
+        | Recursive -> [ "let"; "rec" ]
+        | Nonrecursive -> [ "let" ]
       in
-      let vbl' = Syntax.Seq (List.map conv_vb vbl) in
-      let form = Syntax.Form ([ kwd ], [ vbl' ]) in
+      let vbl' = Syntax.List (List.map conv_vb vbl) in
+      let form = Syntax.Form (Prefix kwd, [ vbl' ]) in
       flatten body (form :: acc)
     | Pexp_sequence (exp_1, exp_2) -> flatten exp_2 (conv_exp exp_1 :: acc)
     | _ -> List.rev (conv_exp exp :: acc)
   in
   let kwd =
     match rec_flag with
-    | Recursive -> "let-rec"
-    | Nonrecursive -> "let"
+    | Recursive -> [ "let"; "rec" ]
+    | Nonrecursive -> [ "let" ]
   in
-  let vbl' = Syntax.Seq (List.map conv_vb vbl) in
+  let vbl' = Syntax.List (List.map conv_vb vbl) in
   let body' = flatten body [] in
-  let form = Syntax.Form ([ kwd ], [ vbl' ]) in
+  let form = Syntax.Form (Prefix kwd, [ vbl' ]) in
   Syntax.Block (form :: body')
 
 and apply ?loc:_ ?attrs:_ f_exp args =
@@ -53,12 +54,12 @@ and apply ?loc:_ ?attrs:_ f_exp args =
 
 and conv_arg (arg_label, exp) =
   match arg_label with
-  | Labelled l -> Syntax.Form ([ "~"; l ], [ conv_exp exp ])
-  | Optional l -> Syntax.Form ([ "?"; l ], [ conv_exp exp ])
+  | Labelled l -> Syntax.Form (Mixfix [ "~"; l ], [ conv_exp exp ])
+  | Optional l -> Syntax.Form (Mixfix [ "?"; l ], [ conv_exp exp ])
   | Nolabel -> conv_exp exp
 
 and tuple ?loc:_ ?attrs:_ items =
-  Syntax.Block [ Syntax.Seq (List.map conv_exp items) ]
+  Syntax.Block [ Syntax.List (List.map conv_exp items) ]
 
 and sequence ?loc:_ ?attrs:_ exp0_1 exp0_2 =
   let rec flatten (exp : Parsetree.expression) acc =
@@ -72,11 +73,17 @@ and record ?loc:_ ?attrs:_ bindings r0 =
   let bindings' =
     List.map
       (fun ({ Location.txt = lid; _ }, v) ->
-        Syntax.Binding (Syntax.Ident lid, conv_exp v))
+        Syntax.Form (Infix "=", [ Syntax.Id lid; conv_exp v ]))
       bindings
   in
   match r0 with
   | Some r0 ->
     Syntax.Block
-      [ Syntax.Seq (Syntax.Form ([ "..." ], [ conv_exp r0 ]) :: bindings') ]
+      [ Syntax.List
+          (Syntax.Form (Prefix [ "..." ], [ conv_exp r0 ]) :: bindings')
+      ]
   | None -> Syntax.Block bindings'
+
+and field ?loc:_ ?attrs:_ exp id =
+  let exp' = conv_exp exp in
+  Syntax.Form (Infix ".", [ exp'; Syntax.Id id ])
