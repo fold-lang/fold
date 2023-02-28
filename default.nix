@@ -5,7 +5,7 @@ let
 
   onix = import (builtins.fetchGit {
     url = "https://github.com/odis-labs/onix.git";
-    rev = "734386c62f4022d0d48ebd7d20b2d41915bbd1dd";
+    rev = "f28db771d96eb923d2a525e6c42d92d710764647";
   }) {
     inherit pkgs ocamlPackages;
     verbosity = "debug";
@@ -14,6 +14,7 @@ let
 in onix.env {
   repo = { url = "https://github.com/ocaml/opam-repository.git"; };
   path = ./.;
+  env-file = ./.onix.env;
   gitignore = ./.gitignore;
   deps = { "ocaml-system" = "*"; };
   vars = {

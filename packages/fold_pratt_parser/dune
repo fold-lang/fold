@@ -1,0 +1,5 @@
+(executable
+ (name fold_pratt_parser)
+ (libraries fmt sedlex)
+ (preprocess
+  (pps sedlex.ppx)))

@@ -1,0 +1,42 @@
+val x = 1
+let x = string_of_int x
+
+val x =
+  let
+    a = 1,
+    b = a + 2
+  in
+    Ok (a, b)
+
+type person = { name : string, age : int, profession : option string }
+
+module Person = {
+  let print p = print_endline (p.name ++ " " ++ string_of_int p.age)
+}
+
+val p = { name = "Anonymous", age = 0, profession = None }
+
+val f = fn ~a ~(opt = 0) ~use? ~name x ->
+  ignore (a, opt, use, name, x);
+  opt
+
+val x =
+  let
+    rec x = 2, y = (3, 'a'),
+    age = 30 - fst y,
+    person = { ...p, name = "Xavier"; ~age }
+  in
+  Person.print person;
+  let result = {
+    let (a, opt, foo) = (1, None, Some (if (age > 30) { 0 } else { 10 }));
+    f ~a ~opt? ~use?:foo ~name:"hello" x;
+  };
+  let rec map : ('a -> 'b) -> list 'a -> list 'b =
+   fn f -> fn {
+    | [] -> []
+    | [x & xs] -> [f x & map f xs]
+    };
+  x + result - {
+    let z = p.age;
+    z * 2
+  }

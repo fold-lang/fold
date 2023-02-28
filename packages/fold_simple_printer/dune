@@ -1,0 +1,18 @@
+(executable
+ (name fold_simple_printer)
+ (libraries
+  fold_syntax
+  compiler-libs.common
+  ocaml-migrate-parsetree
+  fmt
+  pprint))
+
+(rule
+ (with-stdout-to
+  fold_pprint.actual
+  (run ./fold_simple_printer.exe)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff fold_pprint.expected fold_pprint.actual)))

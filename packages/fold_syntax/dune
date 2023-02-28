@@ -1,0 +1,3 @@
+(library
+ (name fold_syntax)
+ (libraries fmt compiler-libs.common ocaml-migrate-parsetree))

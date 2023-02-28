@@ -1,3 +1,0 @@
-(executable
- (name fold_simple_printer)
- (libraries compiler-libs.common ocaml-migrate-parsetree fmt))
