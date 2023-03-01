@@ -1,5 +1,3 @@
-let todo = Syntax.id "$SYNTAX"
-
 type lid = Longident.t
 
 let check_has_explicit_arity_attr attrs =
@@ -61,18 +59,20 @@ module rec Exp : sig
     -> Parsetree.expression
     -> Syntax.t
 end = struct
+  let todo what = Syntax.id ("$EXP: " ^ what)
+
   let flatten_map_list ~hd ~tl:tl0 f =
-    let exception Not_a_list in
     let rec loop (tl : Parsetree.expression) acc =
       match tl.pexp_desc with
-      | Pexp_construct ({ txt = Lident "[]"; _ }, None) -> List.rev_map f acc
+      | Pexp_construct ({ txt = Lident "[]"; _ }, None) ->
+        (List.rev_map f acc, None)
       | Pexp_construct
           ( { txt = Lident "::"; _ }
           , Some { pexp_desc = Pexp_tuple [ hd; tl' ]; _ } ) ->
         loop tl' (hd :: acc)
-      | _ -> raise Not_a_list
+      | _ -> (List.rev_map f acc, Some (f tl))
     in
-    try Some (loop tl0 [ hd ]) with Not_a_list -> None
+    loop tl0 [ hd ]
 
   let rec conv (exp : Parsetree.expression) =
     let attrs = exp.pexp_attributes in
@@ -81,20 +81,41 @@ end = struct
     | Pexp_constant constant -> Syntax.Const constant
     | Pexp_let (rec_flag, vbl, body) -> let_ rec_flag vbl body
     | Pexp_match (exp, cases) -> match_ exp cases
+    | Pexp_try (exp, cases) -> todo "try"
     | Pexp_apply (f_exp, args) -> apply f_exp args
     | Pexp_tuple items -> tuple items
     | Pexp_array items -> array items
     | Pexp_construct ({ txt = id; _ }, args) -> construct ~attrs id args
+    | Pexp_variant (label, arg) -> todo "polyvar"
     | Pexp_record (bindings, r0) -> record bindings r0
     | Pexp_field (exp, { txt = id; _ }) -> field exp id
+    | Pexp_setfield (lexp, id, rexp) -> todo "setfield"
     | Pexp_sequence (exp_1, exp_2) -> sequence exp_1 exp_2
-    | Pexp_while (cond, body) -> while_ cond body
     | Pexp_fun (l, default, pat, body) -> fun_ l default pat body
+    | Pexp_function cases -> todo "function"
+    | Pexp_while (cond, body) -> while_ cond body
     | Pexp_for (i, from_exp, to_exp, dir_flag, body) ->
       for_ i from_exp to_exp dir_flag body
     | Pexp_ifthenelse (cond, if_true, if_false_opt) ->
       ifthenelse cond if_true if_false_opt
-    | _ -> todo
+    | Pexp_constraint (exp, typ) -> constraint_ exp typ
+    | Pexp_coerce (exp, typ_opt, typ) -> todo "coerce"
+    | Pexp_send (exp, l) -> todo "send"
+    | Pexp_new id -> todo "new"
+    | Pexp_setinstvar (l, exp) -> todo "setinstvar"
+    | Pexp_override items -> todo "override"
+    | Pexp_letmodule (mod_name, mexpr, exp) -> todo "letmodule"
+    | Pexp_letexception (ext_constr, exp) -> todo "letexception"
+    | Pexp_assert exp -> todo "assert"
+    | Pexp_lazy exp -> todo "lazy"
+    | Pexp_poly (exp, typ_opt) -> todo "poly"
+    | Pexp_object cls -> todo "object"
+    | Pexp_newtype (typ_name, exp) -> todo "newtype"
+    | Pexp_pack mexp -> todo "pack"
+    | Pexp_open (decl, exp) -> open_ decl exp
+    | Pexp_letop letop -> todo "letop"
+    | Pexp_extension ext -> todo "extension"
+    | Pexp_unreachable -> todo "unreachable"
 
   and let_ ?loc:_ ?attrs:_ rec_flag vbl body =
     let rec flatten (exp : Parsetree.expression) acc =
@@ -108,6 +129,8 @@ end = struct
         in
         flatten body (form :: acc)
       | Pexp_sequence (exp_1, exp_2) -> flatten exp_2 (conv exp_1 :: acc)
+      | Pexp_open (decl, exp) ->
+        flatten exp (Syntax_builder.open_ (Mod.conv decl.popen_expr) :: acc)
       | _ -> List.rev (conv exp :: acc)
     in
     let vbl' = List.map Vb.conv vbl in
@@ -218,20 +241,20 @@ end = struct
       | _ -> [ conv args ]
     in
     match id with
-    (* List constructors *)
+    (* Empty list *)
     | Longident.Lident "[]" -> (
       match args_opt with
       (* [] *)
-      | None -> Syntax_builder.list []
+      | None -> Syntax_builder.list [] None
       (* [([]) x], i.e., not a list. *)
       | Some args -> Syntax_builder.apply (Syntax.Id id) (mk_args args))
+    (* Non-empty list *)
     | Longident.Lident "::" -> (
       match args_opt with
       (* [(::) (hd, tl)] *)
-      | Some ({ pexp_desc = Pexp_tuple [ hd; tl ]; _ } as args) -> (
-        match flatten_map_list ~hd ~tl conv with
-        | Some list -> Syntax_builder.list list
-        | None -> Syntax_builder.apply (Syntax.Id id) (mk_args args))
+      | Some { pexp_desc = Pexp_tuple [ hd; tl ]; _ } ->
+        let items, tl = flatten_map_list ~hd ~tl conv in
+        Syntax_builder.list items tl
       (* [(::) x] where [x] is not (hd, tl), i.e., not a list. *)
       | Some args -> Syntax_builder.apply (Syntax.Id id) (mk_args args)
       (* [(::)], i.e., not a list. *)
@@ -258,35 +281,111 @@ end = struct
            cases)
     in
     Syntax_builder.match_ exp_syn cases_syn
+
+  and constraint_ ?loc:_ ?attrs:_ exp typ =
+    let exp_syn = conv exp in
+    let typ_syn = Typ.conv typ in
+    Syntax_builder.constraint_ exp_syn typ_syn
+
+  and open_ ?loc:_ ?attrs:_ (decl : Parsetree.open_declaration) exp =
+    Syntax_builder.block
+      [ Syntax_builder.open_ (Mod.conv decl.popen_expr); conv exp ]
+end
+
+and Typ : sig
+  val conv : Parsetree.core_type -> Syntax.t
+end = struct
+  let todo what = Syntax.id ("XXX: " ^ what)
+
+  let rec conv (typ : Parsetree.core_type) =
+    match typ.ptyp_desc with
+    | Ptyp_any -> Syntax_builder.id "_"
+    | Ptyp_var var -> Syntax_builder.id ("'" ^ var)
+    | Ptyp_arrow (arg_label, typ_1, typ_2) -> arrow arg_label typ_1 typ_2
+    | Ptyp_tuple items -> tuple items
+    | Ptyp_constr (id, typs) -> constr id typs
+    | Ptyp_object (object_field_list, closed_flag) -> todo "object"
+    | Ptyp_class (id, core_type_list) -> todo "class"
+    | Ptyp_alias (core_type, string) -> todo "alias"
+    | Ptyp_variant (row_fields, closed_flag, label_list_option) ->
+      todo "variant"
+    | Ptyp_poly (vars, typ) -> poly vars typ
+    | Ptyp_package package_type -> todo "package"
+    | Ptyp_extension extension -> todo "extension"
+
+  and tuple items = Syntax_builder.tuple (List.map conv items)
+
+  and constr ?loc:_ ?attrs:_ (id : _ Location.loc) typs =
+    let typs_syn = List.map conv typs in
+    Syntax_builder.apply (Syntax.Id id.txt) typs_syn
+
+  and arrow ?loc:_ ?attrs:_ arg_label typ_1 typ_2 =
+    let typ_1_syn = conv typ_1 in
+    let typ_2_syn = conv typ_2 in
+    let typ_1_arg =
+      match arg_label with
+      | Labelled l -> Syntax_builder.label ~optional:false l typ_1_syn
+      | Optional l -> Syntax_builder.label ~optional:true l typ_1_syn
+      | Nolabel -> typ_1_syn
+    in
+    Syntax_builder.arrow typ_1_arg typ_2_syn
+
+  and poly ?loc:_ ?attrs:_ vars typ =
+    match vars with
+    | [] -> conv typ
+    | vars ->
+      let items =
+        Syntax.id "forall"
+        :: List.map
+             (fun { Location.txt = var; _ } -> Syntax.id ("'" ^ var))
+             vars
+      in
+      Syntax.Form (List.append items [ Syntax.id "."; conv typ ])
 end
 
 and Pat : sig
   val conv : Parsetree.pattern -> Syntax.t
 end = struct
+  let todo what = Syntax.id ("XXX: " ^ what)
+
   let flatten_map_list ~hd ~tl:tl0 f =
-    let exception Not_a_list in
     let rec loop (tl : Parsetree.pattern) acc =
       match tl.ppat_desc with
-      | Ppat_construct ({ txt = Lident "[]"; _ }, None) -> List.rev_map f acc
+      | Ppat_construct ({ txt = Lident "[]"; _ }, None) ->
+        (List.rev_map f acc, None)
       | Ppat_construct
           ( { txt = Lident "::"; _ }
             (* XXX this is niche, ignore types for now in lists? *)
           , Some (_types, { ppat_desc = Ppat_tuple [ hd; tl' ]; _ }) ) ->
         loop tl' (hd :: acc)
-      | _ -> raise Not_a_list
+      | _ -> (List.rev_map f acc, Some (f tl))
     in
-    try Some (loop tl0 [ hd ]) with Not_a_list -> None
+    loop tl0 [ hd ]
 
   let rec conv (pat : Parsetree.pattern) =
     let attrs = pat.ppat_attributes in
     match pat.ppat_desc with
     | Ppat_constant constant -> Syntax.Const constant
+    | Ppat_any -> Syntax.id "_"
     | Ppat_var { txt = var; _ } -> Syntax.id var
     | Ppat_construct ({ txt = id; _ }, args) -> construct ~attrs id args
+    | Ppat_constraint (pat, ctype) -> constraint_ pat ctype
     | Ppat_tuple items -> tuple items
-    | _ -> todo
+    | Ppat_record (fields, closed_flag) -> record fields closed_flag
+    | _ -> todo "pat"
 
   and tuple ?loc:_ ?attrs:_ items = Syntax_builder.tuple (List.map conv items)
+
+  and record ?loc:_ ?attrs:_ fields closed_flag =
+    let fields_syn =
+      List.map
+        (fun ({ Location.txt = id; _ }, p) ->
+          Syntax_builder.binding (Syntax.Id id) (Pat.conv p))
+        fields
+    in
+    match closed_flag with
+    | Closed -> Syntax_builder.record None fields_syn
+    | Open -> Syntax_builder.record (Some (Syntax_builder.id "_")) fields_syn
 
   (* IMPORTANT: Keep in sync with Exp.construct *)
   and construct ?loc:_ ~attrs id args_opt =
@@ -301,16 +400,15 @@ end = struct
     | Longident.Lident "[]" -> (
       match args_opt with
       (* [] *)
-      | None -> Syntax_builder.list []
+      | None -> Syntax_builder.list [] None
       (* [([]) x], i.e., not a list. *)
       | Some args -> Syntax_builder.apply (Syntax.Id id) (mk_args args))
     | Longident.Lident "::" -> (
       match args_opt with
       (* [(::) (hd, tl)] *)
-      | Some ((_types, { ppat_desc = Ppat_tuple [ hd; tl ]; _ }) as args) -> (
-        match flatten_map_list ~hd ~tl conv with
-        | Some list -> Syntax_builder.list list
-        | None -> Syntax_builder.apply (Syntax.Id id) (mk_args args))
+      | Some (_types, { ppat_desc = Ppat_tuple [ hd; tl ]; _ }) ->
+        let items, tl = flatten_map_list ~hd ~tl conv in
+        Syntax_builder.list items tl
       (* [(::) x] where [x] is not (hd, tl), i.e., not a list. *)
       | Some args -> Syntax_builder.apply (Syntax.Id id) (mk_args args)
       (* [(::)], i.e., not a list. *)
@@ -320,6 +418,11 @@ end = struct
       match args_opt with
       | None -> Syntax_builder.apply (Id id) []
       | Some args -> Syntax_builder.apply (Id id) (mk_args args))
+
+  and constraint_ ?loc:_ ?attrs:_ pat typ =
+    let pat_syn = Pat.conv pat in
+    let typ_syn = Typ.conv typ in
+    Syntax_builder.constraint_ pat_syn typ_syn
 end
 
 and Vb : sig
@@ -346,33 +449,39 @@ and Str : sig
   val mk : ?loc:'loc -> Parsetree.structure_item_desc -> Syntax.t
   val conv : Parsetree.structure_item -> Syntax.t
 end = struct
+  let todo what = Syntax.id ("$STR: " ^ what)
+
   let rec mk ?loc:_ (str_item_desc : Parsetree.structure_item_desc) =
     match str_item_desc with
     | Pstr_eval (exp, _attrs) -> Exp.conv exp
     | Pstr_value (rec_flag, vbl) -> value rec_flag vbl
-    | Pstr_primitive _val_desc -> todo
-    | Pstr_type (_rec_flag, _tdl) -> todo
-    | Pstr_typext _text -> todo
-    | Pstr_exception _texn -> todo
+    | Pstr_primitive _val_desc -> todo "primitive"
+    | Pstr_type (_rec_flag, _tdl) -> todo "type"
+    | Pstr_typext _text -> todo "typext"
+    | Pstr_exception _texn -> todo "exception"
     | Pstr_module mb -> module_ mb
-    | Pstr_recmodule _mbl -> todo
-    | Pstr_modtype _mtd -> todo
-    | Pstr_open _od -> todo
-    | Pstr_class _cd -> todo
-    | Pstr_class_type _cdl -> todo
-    | Pstr_include _incd -> todo
-    | Pstr_attribute _attr -> todo
-    | Pstr_extension (_ext, _attrs) -> todo
+    | Pstr_recmodule mbl -> rec_module mbl
+    | Pstr_modtype _mtd -> todo "modtype"
+    | Pstr_open decl -> Syntax_builder.open_ (Mod.conv decl.popen_expr)
+    | Pstr_class _cd -> todo "class"
+    | Pstr_class_type _cdl -> todo "class_type"
+    | Pstr_include _incd -> todo "include"
+    | Pstr_attribute _attr -> todo "attribute"
+    | Pstr_extension (_ext, _attrs) -> todo "extension"
 
   and value ?loc:_ rec_flag vbl =
     let vbl' = List.map Vb.conv vbl in
     match rec_flag with
-    | Asttypes.Nonrecursive -> Syntax_builder.let_ vbl'
-    | Recursive -> Syntax_builder.let_rec vbl'
+    | Asttypes.Nonrecursive -> Syntax_builder.val_ vbl'
+    | Recursive -> Syntax_builder.val_rec vbl'
 
   and module_ ?loc:_ mb =
     let mb' = Mb.conv mb in
     Syntax_builder.module_ mb'
+
+  and rec_module ?loc:_ mbl =
+    let mbl_syn = List.map Mb.conv mbl in
+    Syntax_builder.rec_module mbl_syn
 
   let conv (str_item : Parsetree.structure_item) = mk str_item.pstr_desc
 end
@@ -408,16 +517,18 @@ and Mod : sig
   val mk : ?loc:'a -> ?attrs:'b -> Parsetree.module_expr_desc -> Syntax.t
   val conv : Parsetree.module_expr -> Syntax.t
 end = struct
+  let todo ?(what = "?") () = Syntax.id ("$MOD: " ^ what)
+
   let mk ?loc:_ ?attrs:_ (mod_exp_desc : Parsetree.module_expr_desc) =
     match mod_exp_desc with
-    | Pmod_ident _id -> todo
+    | Pmod_ident { txt = id; _ } -> Syntax.Id id
     | Pmod_structure str -> Syntax_builder.block (List.map Str.conv str)
-    | Pmod_functor (_functor_parameter, _body) -> todo
-    | Pmod_apply (_f, _arg) -> todo
-    (* | Pmod_apply_unit f -> todo *)
-    | Pmod_constraint (_me, _mt) -> todo
-    | Pmod_unpack _expr -> todo
-    | Pmod_extension _ext -> todo
+    | Pmod_functor (_functor_parameter, _body) -> todo ~what:"functor " ()
+    | Pmod_apply (_f, _arg) -> todo ~what:"apply " ()
+    (* | Pmod_apply_unit f -> todo () *)
+    | Pmod_constraint (_me, _mt) -> todo ~what:"constraint " ()
+    | Pmod_unpack _expr -> todo ~what:"unpack " ()
+    | Pmod_extension _ext -> todo ~what:"extension " ()
 
   let conv (mod_exp : Parsetree.module_expr) =
     mk ~loc:mod_exp.pmod_loc ~attrs:mod_exp.pmod_attributes mod_exp.pmod_desc
