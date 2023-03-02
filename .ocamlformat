@@ -15,4 +15,4 @@ break-separators = before
 space-around-lists = true
 dock-collection-brackets = false
 wrap-fun-args = true
-#indicate-multiline-delimiters = closing-on-separate-line
+indicate-multiline-delimiters = closing-on-separate-line
