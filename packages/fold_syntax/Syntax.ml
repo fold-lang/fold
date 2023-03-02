@@ -116,18 +116,26 @@ type t =
   | Arrow of t * t  (** x1 -> x2 *)
   | Constraint of t * t  (** x1 : x2 *)
   | Fn of t list * t  (** fn x1 x2 *)
-  | Or of t list  (** x1 | x2 | x3 *)
-  | As of t * t  (** x1 as x2 *)
-  | Binding of t * t  (** x1 = x2 *)
-  | Field of t * id  (** x.l *)
+  | Or of t list  (** [{x1 | x2 | x3 }] *)
+  | As of t * t  (** [x1 as x2] *)
+  | Binding of t * t  (** [x1 = x2] *)
+  | Field of t * id  (** [x.l] *)
   | Labeled of string * bool * t
+      (** [Labeled (l, optional, value)]:
+
+          - [~l] when [optional] is [false] and [value] is [Id l].
+          - [~l?] when [optional] is [true] and [value] is [Id l].
+          - [~l:value] when [optional] is [false].
+          - [~l?:value] when [optional] is [true].
+          - [~(l : t)] when [optional] is [false] and [value] is
+            [Constraint (Id l, _)].
+          - [~(l? : t)] when [optional] is [true] and [value] is
+            [Constraint (Id l, _)].
+          - [~(l = t)] when [optional] is [false] and [value] is
+            [Binding (Id l, _)].
+          - [~(l? = t)] when [optional] is [false] and [value] is
+            [Binding (Id l, _)]. *)
   | Form of t list  (** kwd1 x1 kwd2 x2 *)
-
-(* XXX: Consider turning block into [t] and adding [Sequence of t list] for any [a; b]
-
-    match x with {  }
-    fn {  }
-*)
 
 let id ?(path = []) id = Id (Option.get (Longident.unflatten (path @ [ id ])))
 
@@ -189,7 +197,8 @@ let rec pp_syn fmt t =
     | Some r ->
       Fmt.pf fmt "@[{@[<hov2>..%a, %a@]}@]" pp_syn r
         (Fmt.list ~sep:Fmt.comma pp_syn)
-        fields)
+        fields
+  )
   | Arrow (t1, t2) -> Fmt.pf fmt "%a -> %a" pp_syn t1 pp_syn t2
   | Constraint (t1, t2) -> Fmt.pf fmt "(%a : %a)" pp_syn t1 pp_syn t2
   | Fn (args, body) ->

@@ -9,14 +9,29 @@ let foldli (f : int -> 'b -> 'a -> 'b) (accu : 'b) (xs : 'a list) : 'b =
     (fun accu x ->
       let i = !r in
       r := i + 1;
-      f i accu x)
+      f i accu x
+    )
     accu xs
 
 let ( ^^ ) = PPrint.( ^^ )
 let ( !^ ) = PPrint.( !^ )
 let ( ^/^ ) = PPrint.( ^/^ )
 let parens_on b doc = if b then P.parens doc else doc
+
 let on b doc = if b then doc else P.empty
+
+and flow_map_sep ?(inline = true) ~sep_after mk_doc items =
+  let rec loop xs acc =
+    match xs with
+    | [] -> acc
+    | [ x ] -> acc ^^ mk_doc x
+    | x :: xs' ->
+      let sep = sep_after x in
+      let doc = mk_doc x in
+      if inline then loop xs' (acc ^^ P.group (doc ^^ sep))
+      else loop xs' (acc ^^ doc ^^ sep)
+  in
+  loop items PPrint.empty
 
 module Syntax_formatter = struct
   let fmt_id id = P.string (Fmt.str "%a" Syntax.pp_id id)
@@ -33,17 +48,15 @@ module Syntax_formatter = struct
     | Tuple items -> fmt_seq P.parens items
     | Array items -> fmt_seq P.braces items
     | List (items, tl) -> fmt_list items tl
-    | Binding (lval, ((Block _ | Record _) as rval)) ->
-      fmt_binding_bracket lval (fmt_syntax rval)
     | Binding (lval, rval) -> fmt_binding lval rval
-    | Fn (args, ((Block _ | Record _) as body)) ->
-      fmt_fn_bracket ~enclose args body
     | Fn (args, body) -> fmt_fn ~enclose args body
     | Labeled (l, optional, value) -> fmt_labeled l optional value
     | Field (r, l) -> fmt_field r l
     | Or items -> fmt_or items
     | Arrow (a, b) -> fmt_arrow a b
-    | Constraint (a, b) -> fmt_constraint ~enclose a b
+    | Constraint (v, ((Block _ | Record _) as t)) ->
+      fmt_constraint_blockish ~enclose v t
+    | Constraint (v, t) -> fmt_constraint ~enclose v t
     | _ -> P.string "$FMT"
 
   and fmt (syn : Syntax.t) =
@@ -54,29 +67,62 @@ module Syntax_formatter = struct
   and root_block items = P.flow_map (P.twice P.hardline) fmt_syntax items
 
   and fmt_binding lval rval =
+    let lval_doc =
+      match lval with
+      | Apply _ | Constraint (Apply _, _) ->
+        P.nest 2 (fmt_syntax ~enclose:false lval)
+      | _ -> fmt_syntax ~enclose:false lval
+    in
     match (lval, rval) with
+    | _, (Block _ | Record _) ->
+      P.group (lval_doc ^^ P.space ^^ P.string "=" ^^ P.space ^^ fmt_syntax rval)
     | Syntax.Id (Longident.Lident lid), Syntax.Id (Longident.Lident rid)
       when String.equal lid rid -> P.string "~" ^^ P.string lid
     | _ ->
       P.group
-        (fmt_syntax ~enclose:false lval
+        (lval_doc
         ^^ P.blank 1
         ^^ P.string "="
-        ^^ P.nest 2 (P.break 1 ^^ (fmt_syntax ~enclose:false) rval))
+        ^^ P.nest 2 (P.break 1 ^^ (fmt_syntax ~enclose:false) rval)
+        )
 
   and fmt_arrow a b =
-    P.group
-      (fmt_syntax ~enclose:false a
-      ^^ P.blank 1
-      ^^ P.string "->"
-      ^^ P.nest 2 (P.break 1 ^^ (fmt_syntax ~enclose:false) b))
+    match b with
+    | Block _ ->
+      P.group
+        (fmt_syntax ~enclose:false a
+        ^^ P.string " -> "
+        ^^ (fmt_syntax ~enclose:false) b
+        )
+      (* P.group
+         (fmt_syntax ~enclose:false a
+         ^^ P.string " -> "
+         ^^ P.nest 2 ((fmt_syntax ~enclose:false) b)
+         ) *)
+    | _ ->
+      P.group
+        (fmt_syntax ~enclose:false a
+        ^^ P.string " ->"
+        ^^ P.nest 2 (P.break 1 ^^ (fmt_syntax ~enclose:false) b)
+        )
 
-  and fmt_constraint ~enclose a b =
+  and fmt_constraint ~enclose v t =
     P.group
       (parens_on enclose
-         (fmt_syntax ~enclose:false a
+         (fmt_syntax ~enclose:false v
          ^^ P.string " : "
-         ^^ P.nest 2 ((fmt_syntax ~enclose:false) b)))
+         ^^ P.nest 2 ((fmt_syntax ~enclose:false) t)
+         )
+      )
+
+  and fmt_constraint_blockish ~enclose v t =
+    P.group
+      (parens_on enclose
+         (fmt_syntax ~enclose:false v
+         ^^ P.string " : "
+         ^^ (fmt_syntax ~enclose:false) t
+         )
+      )
 
   and fmt_block items =
     if items = [] then P.braces P.empty
@@ -88,8 +134,11 @@ module Syntax_formatter = struct
               ^^ P.flow_map (P.semi ^^ P.hardline)
                    (fmt_syntax ~enclose:false)
                    items
-              ^^ P.semi)
-           ^^ P.break 1))
+              ^^ P.semi
+              )
+           ^^ P.break 1
+           )
+        )
 
   and fmt_seq brackets items =
     if items = [] then brackets P.empty
@@ -100,7 +149,10 @@ module Syntax_formatter = struct
               (P.flow_map
                  (P.comma ^^ P.break 1)
                  (fmt_syntax ~enclose:false)
-                 items)))
+                 items
+              )
+           )
+        )
 
   and fmt_list items tl =
     if items = [] then
@@ -120,14 +172,27 @@ module Syntax_formatter = struct
               ^^ P.flow_map
                    (P.comma ^^ P.break 1)
                    (fmt_syntax ~enclose:false)
-                   items)
+                   items
+              )
            ^^ tl_doc
-           ^^ P.break 1))
+           ^^ P.break 1
+           )
+        )
 
-  and fmt_binding_bracket lval rval =
-    P.group (fmt_syntax lval ^^ P.space ^^ P.string "=" ^^ P.space ^^ rval)
+  and fmt_juxt items =
+    let sep_after = function
+      | Syntax.Fn _ -> P.hardline
+      | _ -> P.break 1
+    in
+    flow_map_sep ~sep_after fmt_syntax items
 
-  and fmt_juxt items = P.group (P.flow_map (P.break 1) fmt_syntax items)
+  (* foldli
+     (fun i acc x ->
+       let sep = mk_sep x in
+       if i = 0 then mk_doc x else acc ^^ P.group (sep ^^ mk_doc x))
+     P.empty items *)
+
+  (* P.flow_map (P.break 1) fmt_syntax items *)
 
   and fmt_apply ~enclose f args =
     match (f, args) with
@@ -143,17 +208,12 @@ module Syntax_formatter = struct
       when Fold_syntax.Operators.is_prefix op ->
       P.string op ^^ fmt_syntax ~enclose:false arg
     | _ ->
-      parens_on enclose <| P.group (P.prefix 2 1 (fmt_syntax f) (fmt_juxt args))
+      parens_on enclose
+      <| P.group (fmt_syntax f ^^ P.nest 2 (P.break 1 ^^ fmt_juxt args))
+  (* parens_on enclose <| P.group (P.prefix 2 1 (fmt_syntax f) (fmt_juxt args)) *)
 
   and fmt_form_ items =
     P.group (P.flow_map (P.break 1) (fmt_syntax ~enclose:false) items)
-
-  and flow_map_sep mk_sep mk_doc items =
-    foldli
-      (fun i acc x ->
-        let sep = mk_sep x in
-        if i = 0 then mk_doc x else acc ^^ P.group (sep ^^ mk_doc x))
-      P.empty items
 
   and fmt_form items =
     match items with
@@ -166,8 +226,10 @@ module Syntax_formatter = struct
              (function
                | x ->
                  (if Syntax.is_binding x then P.space else P.break 1)
-                 ^^ fmt_syntax x)
-             bindings)
+                 ^^ fmt_syntax x
+               )
+             bindings
+        )
     (* let *)
     | Syntax.(Id (Lident "let") :: bindings) ->
       P.group
@@ -176,28 +238,39 @@ module Syntax_formatter = struct
              (function
                | x ->
                  (if Syntax.is_binding x then P.space else P.break 1)
-                 ^^ fmt_syntax x)
-             bindings)
-    (* val rec *)
-    | Syntax.(Id (Lident "val") :: Id (Lident "rec") :: bindings) ->
+                 ^^ fmt_syntax x
+               )
+             bindings
+        )
+    (* val|module rec *)
+    | Syntax.(
+        Id (Lident (("val" | "module") as kwd))
+        :: Id (Lident "rec")
+        :: (Syntax.Binding _ :: _ as bindings)) ->
       P.group
-        (!^"val rec"
+        (!^(kwd ^ " " ^ "rec")
         ^^ P.concat_map
              (function
                | x ->
                  (if Syntax.is_binding x then P.space else P.twice P.hardline)
-                 ^^ fmt_syntax x)
-             bindings)
-    (* val *)
-    | Syntax.(Id (Lident "val") :: bindings) ->
+                 ^^ fmt_syntax x
+               )
+             bindings
+        )
+    (* val|module *)
+    | Syntax.(
+        Id (Lident (("val" | "module") as kwd))
+        :: (Syntax.Binding _ :: _ as bindings)) ->
       P.group
-        (!^"val"
+        (!^kwd
         ^^ P.concat_map
              (function
                | x ->
                  (if Syntax.is_binding x then P.space else P.twice P.hardline)
-                 ^^ fmt_syntax x)
-             bindings)
+                 ^^ fmt_syntax x
+               )
+             bindings
+        )
     | Syntax.[ Id (Lident "if"); cond; Id (Lident "then"); if_true ] ->
       P.group
         (!^"if"
@@ -209,7 +282,8 @@ module Syntax_formatter = struct
              if Syntax.is_block if_true then
                P.space ^^ fmt_syntax ~enclose:false if_true
              else P.nest 2 (P.break 1 ^^ fmt_syntax ~enclose:false if_true)
-           end)
+           end
+        )
     | Syntax.
         [ Id (Lident "if")
         ; cond
@@ -235,29 +309,41 @@ module Syntax_formatter = struct
              if Syntax.is_block if_false then
                P.space ^^ fmt_syntax ~enclose:false if_false
              else P.nest 2 (P.break 1 ^^ fmt_syntax ~enclose:false if_false)
-           end)
+           end
+        )
     | _ -> P.group (P.flow_map P.space (fmt_syntax ~enclose:false) items)
 
   and fmt_fn ~enclose args body =
-    P.group
-      (parens_on enclose
-         (P.string "fn"
-         ^^ P.space
-         ^^ P.flow_map (P.break 1) fmt_syntax args
-         ^^ P.space
-         ^^ P.string "->"
-         ^^ P.nest 2 (P.break 1 ^^ fmt_syntax ~enclose:false body)))
-
-  and fmt_fn_bracket ~enclose args body =
-    P.group
-      (parens_on enclose
-         (P.string "fn"
-         ^^ P.space
-         ^^ P.flow_map (P.break 1) fmt_syntax args
-         ^^ P.space
-         ^^ P.string "->"
-         ^^ P.space
-         ^^ fmt_syntax body))
+    match body with
+    | Block _ | Record _ ->
+      P.group
+        (parens_on enclose
+           (P.string "fn "
+           ^^ P.flow_map (P.break 1) fmt_syntax args
+           ^^ P.string " -> "
+           ^^ fmt_syntax body
+           )
+        )
+    | _ -> (
+      let body_doc, ret_typ_doc =
+        match body with
+        | Syntax.Constraint (body, t) ->
+          (fmt_syntax ~enclose:false body, !^" : " ^^ fmt_syntax t)
+        | _ -> (fmt_syntax ~enclose:false body, P.empty)
+      in
+      match args with
+      | [] -> P.group (parens_on enclose (P.string "fn " ^^ body_doc))
+      | _ ->
+        P.group
+          (parens_on enclose
+             (P.string "fn "
+             ^^ P.flow_map (P.break 1) fmt_syntax args
+             ^^ ret_typ_doc
+             ^^ P.string " ->"
+             ^^ P.nest 2 (P.break 1 ^^ body_doc)
+             )
+          )
+    )
 
   and fmt_record r0 fields =
     let fields_doc = P.flow_map (P.comma ^^ P.hardline) fmt_syntax fields in
@@ -270,7 +356,8 @@ module Syntax_formatter = struct
       (P.lbrace
       ^^ P.nest 2 (P.break 1 ^^ fields_doc ^^ r0_doc)
       ^^ P.break 1
-      ^^ P.rbrace)
+      ^^ P.rbrace
+      )
 
   and fmt_labeled l optional value =
     let map_to_optional_id (syn : Syntax.t) : Syntax.t =
@@ -307,7 +394,20 @@ module Syntax_formatter = struct
 
   and fmt_field r l = fmt_syntax r ^^ P.string "." ^^ fmt_id l
 
-  and fmt_or items =
+  and fmt_or_pipe_no_braces items =
+    if items = [] then P.braces P.empty
+    else
+      P.group
+        (P.break 1
+        ^^ P.string "| "
+        ^^ P.flow_map
+             (P.hardline ^^ P.string "| ")
+             (fmt_syntax ~enclose:false)
+             items
+        ^^ P.break 1
+        )
+
+  and fmt_or_braces_pipe items =
     if items = [] then P.braces P.empty
     else
       P.group
@@ -318,7 +418,24 @@ module Syntax_formatter = struct
                 (P.hardline ^^ P.string "| ")
                 (fmt_syntax ~enclose:false)
                 items
-           ^^ P.break 1))
+           ^^ P.break 1
+           )
+        )
+
+  and fmt_or items =
+    if items = [] then P.braces P.empty
+    else
+      P.group
+        (P.braces
+           (P.nest 2
+              (P.break 1
+              ^^ P.flow_map (P.comma ^^ P.hardline)
+                   (fmt_syntax ~enclose:false)
+                   items
+              )
+           ^^ P.break 1
+           )
+        )
 end
 
 let print syntax =
