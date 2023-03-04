@@ -1,4 +1,3 @@
-module Pratt = Pratt
 module Parser = Pratt.Make (Lexer)
 
 module Syntax = struct
@@ -7,7 +6,9 @@ module Syntax = struct
     | `Int of int
     | `String of string
     | `Symbol of string
-    | `Var of string * t ]
+    | `Var of string * t
+    | `If_then of t * t
+    | `If_then_else of t * t * t ]
 
   let rec pp f t =
     match t with
@@ -37,7 +38,8 @@ let filter_map f =
 let identifier =
   filter_map (function
     | `Symbol x -> Some x
-    | _ -> None)
+    | _ -> None
+    )
 
 let literal g : 'ast Parser.parser =
   let* current = Parser.current in
@@ -69,24 +71,11 @@ let var grammar =
   let* value = Parser.parse grammar in
   Parser.return (`Var (name, value))
 
-let rules =
+let rules : Syntax.t Parser.rule list =
   [ Parser.term literal
-  ; (* XXX: WTF? *)
-    (* TODO: Add context: "while parsing `var` expected x but got y". *)
-    (* P.null (`Keyword "var") (fun g -> P.consume (`Keyword "varx") >>= fun () -> return (`Int 42)); *)
-    Parser.null (`Symbol "var") var
+  ; Parser.null (`Symbol "var") var
   ; Parser.null (`Symbol "if") if_then_else
   ]
 
-let parse = Parser.parse (Parser.grammar rules)
-
-let input = {|
-var x = if c then a else b
-|}
-
-let () =
-  let lexer = Lexer.of_string input in
-  match Parser.run parse lexer with
-  | Ok syn -> Fmt.pr "%a@.@." Syntax.pp syn
-  | Error Zero -> ()
-  | Error e -> Fmt.pr "error: %s@." (Parser.error_to_string e)
+let parse = Parser.run (Parser.parse (Parser.grammar rules))
+let error_to_string = Parser.error_to_string

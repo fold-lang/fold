@@ -20,6 +20,33 @@ and 'a form = string * 'a t list
 type 'a root = 'a form list
 type atom = Num of float | Sym of string
 
+module Fmt = struct
+  let pf = Format.fprintf
+  let string = Format.pp_print_string
+  let float = Format.pp_print_float
+  let int = Format.pp_print_int
+  let sp ppf _ = Format.pp_print_space ppf ()
+  let cut ppf _ = Format.pp_print_cut ppf ()
+
+  let iter ?sep:(pp_sep = cut) iter pp_elt ppf v =
+    let is_first = ref true in
+    let pp_elt v =
+      if !is_first then is_first := false else pp_sep ppf ();
+      pp_elt ppf v
+    in
+    iter pp_elt v
+
+  let list ?sep pp_elt = iter ?sep List.iter pp_elt
+
+  let comma ppf _ =
+    Format.pp_print_string ppf ",";
+    sp ppf ()
+
+  let semi ppf _ =
+    Format.pp_print_string ppf ";";
+    sp ppf ()
+end
+
 let rec pp fmt t =
   match t with
   | Atom (Sym x) -> Fmt.string fmt x

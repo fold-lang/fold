@@ -12,6 +12,11 @@ let f042 (aaaaaaaaaaaaaaaaaaaaaaa : aaaaaaaaaaaaaaaaa)
     bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb c : float -> unit =
   a + b + c
 
+let f0422 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    cccccccccccccccccccccccccccccccccccccccccccccccccccccc =
+  a + b + c
+
 let f043 x : int = x
 
 let f05 = function
@@ -30,12 +35,18 @@ let f09 : int -> int option = function
   | 0 -> None
   | x -> Some x
 
+
 let f10 =
   ( function
     | 0 -> None
     | x -> Some x
     : int -> int option
     )
+
+let f11 =
+  List.iter
+    (fun x -> let msg = x ^ "!" in prtin_endline msg)
+    ["a"; "b"; "c"]
 
 let main () =
   let x = 1 in

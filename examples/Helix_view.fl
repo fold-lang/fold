@@ -1,0 +1,285 @@
+module Js = Helix_js;
+
+module Attr = Html.Attr;
+
+module Node = Stdweb.Dom.Node;
+
+module Element = Stdweb.Dom.Element;
+
+module Comment = Stdweb.Dom.Comment;
+
+module Document_fragment = Stdweb.Dom.Document_fragment;
+
+module Document = Stdweb.Dom.Document;
+
+module Html_element = Stdweb.Dom.Html_element;
+
+
+open X;
+valy X;
+
+val option_get option =
+  match option with {
+  | Some x -> x
+  | None -> invalid_arg "option is None"
+  };
+
+val insert_after_anchor ~parent ~anchor node =
+  match Node.next_sibling anchor with {
+  | Some anchor_sibling ->
+    Node.insert_before ~parent ~reference:anchor_sibling node
+  | None -> Node.append_child ~parent node
+  };
+
+val gen_show_id = {
+  let i = ref (-1);
+  fn () -> {
+    incr i;
+    "show:" ^ string_of_int !i;
+  };
+};
+
+val show (to_html : 'a -> Html.html) signal : Html.html = {
+  let anchor = Comment.to_node (Comment.make (gen_show_id ()));
+  let init = to_html (Signal.get signal);
+  let init = Html.Elem.Internal.of_html init;
+  let prev = ref init;
+  let fragment = {
+    open Document_fragment;
+    to_node (make ());
+  };
+  let mount parent = {
+    Node.append_child ~parent anchor;
+    init.mount parent;
+    Signal.sub (fn x -> {
+        let next = to_html x;
+        let next = Html.Elem.Internal.of_html next;
+        !prev.remove ();
+        prev := next;
+        next.mount fragment;
+        insert_after_anchor ~parent ~anchor fragment;
+      })
+      signal;
+  };
+  let remove () = !prev.remove ();
+  Html.Elem.Internal.to_html {
+    ~mount,
+    ~remove
+  };
+};
+
+val gen_conditional_id = {
+  let i = ref (-1);
+  fn () -> {
+    incr i;
+    "conditional:" ^ string_of_int !i;
+  };
+};
+
+val conditional ~on:active_sig : Attr.t = {
+  let active_sig = Signal.uniq ~equal:(==) active_sig;
+  let anchor =
+    Comment.to_node (Comment.make (gen_conditional_id ()));
+  let should_activate0 = Signal.get active_sig;
+  let set elem = {
+    let node = Element.to_node elem;
+    let parent =
+      match Node.parent_node node with {
+      | Some parent -> parent
+      | None ->
+        failwith "[BUG]: View.conditional: element does not have a parent"
+      };
+    if not should_activate0 then
+      Node.replace_child ~parent ~reference:node anchor;
+    Signal.sub (fn should_activate ->
+        if should_activate then
+          Node.replace_child ~parent ~reference:anchor node
+        else
+          Node.replace_child ~parent ~reference:node anchor)
+      active_sig;
+  };
+  let remove elem = {
+    let node = Element.to_node elem;
+    let parent =
+      match Node.parent_node node with {
+      | Some parent -> parent
+      | None ->
+        failwith "[BUG]: View.conditional: element does not have a parent"
+      };
+    if not should_activate0 then
+      Node.replace_child ~parent ~reference:anchor node;
+  };
+  Attr.Internal.to_attr {
+    ~set,
+    ~remove
+  };
+};
+
+val gen_each_id = {
+  let i = ref (-1);
+  fn () -> {
+    incr i;
+    "each:" ^ string_of_int !i;
+  };
+};
+
+module Each_cache : {
+  ($MOD: type);
+  ($MOD: type);
+  ($MOD: type);
+  val key : 'a -> key;
+  val make : unit -> t;
+  val set : t -> ~key:key -> slots -> unit;
+  val get : t -> ~key:key -> option slots;
+  val get_slot : slots -> (int, Html.Elem.Internal.t);
+  val add_slot : t ->
+      ~key:key -> int -> Html.Elem.Internal.t -> unit;
+  val del_slot : t -> ~key:key -> slots -> int -> unit;
+  val clear : t -> unit;
+} = {
+  module Map = Stdweb.Map;
+  module Iterator = Stdweb.Iterator;
+  module Dict = Stdweb.Dict;
+  ($STR: type);
+  ($STR: type);
+  ($STR: type);
+  val key x = string_of_int (Hashtbl.hash x);
+  val make () = Dict.empty ();
+  val make_slots = Map.make;
+  val get_slot slots =
+    match Map.first_key slots with {
+    | None -> failwith "BUG: get_slot: slots must not be empty"
+    | Some idx_js -> {
+        let idx = Js.Decoder.int idx_js;
+        let html = Map.get slots idx_js;
+        (idx, html);
+      }
+    };
+  val set cache ~key slots = Dict.set cache key slots;
+  val get cache ~key = Dict.get_opt cache key;
+  val add_slot cache ~key idx html = {
+    let slots =
+      match get cache ~key with {
+      | None -> make_slots ()
+      | Some slots -> slots
+      };
+    Map.set slots (Js.Encoder.int idx) html;
+    set cache ~key slots;
+  };
+  val del_slot cache ~key slots idx = {
+    Map.delete slots (Js.Encoder.int idx);
+    if Map.size slots = 0 then Dict.del cache key;
+  };
+  val clear cache =
+    Dict.iter cache
+      (fn slots -> {
+        let values = Map.values slots;
+        Iterator.iter (fn (html : Html.Elem.Internal.t) ->
+            html.remove ())
+          values;
+        Map.clear slots;
+      });
+};
+
+val each (render : 'a -> Html.html) items_signal : Html.html = {
+  let comment = Comment.to_node (Comment.make (gen_each_id ()));
+  let anchor = ref comment;
+  let fragment = {
+    open Document_fragment;
+    to_node (make ());
+  };
+  let items0 = Signal.get items_signal;
+  let old_cache = ref (Each_cache.make ());
+  List.iteri (fn i item -> {
+      let key = Each_cache.key item;
+      let html = Html.Elem.Internal.of_html (render item);
+      html.mount fragment;
+      Each_cache.add_slot !old_cache ~key i html;
+    })
+    items0;
+  let mount parent = {
+    Node.append_child ~parent !anchor;
+    Node.append_child ~parent fragment;
+    Signal.sub (fn new_items -> {
+        let new_cache = Each_cache.make ();
+        List.iteri (fn j item -> {
+            let key = Each_cache.key item;
+            match Each_cache.get !old_cache ~key with {
+            | None -> {
+                let html = Html.Elem.Internal.of_html (render item);
+                html.mount fragment;
+                Each_cache.add_slot new_cache ~key j html;
+              }
+            | Some old_slots -> {
+                let (i, i_html) = Each_cache.get_slot old_slots;
+                if i = j then {
+                  anchor
+                  := Node.next_sibling !anchor
+                  |> option_get;
+                  Each_cache.del_slot !old_cache ~key old_slots j;
+                  Each_cache.add_slot new_cache ~key j i_html;
+                }
+                else {
+                  i_html.mount fragment;
+                  Each_cache.del_slot !old_cache ~key old_slots i;
+                  Each_cache.add_slot new_cache ~key j i_html;
+                };
+              }
+            };
+          })
+          new_items;
+        Each_cache.clear !old_cache;
+        insert_after_anchor ~parent ~anchor:!anchor fragment;
+        old_cache := new_cache;
+        anchor := comment;
+      })
+      items_signal;
+  };
+  let remove () = Each_cache.clear !old_cache;
+  Html.Elem.Internal.to_html {
+    ~mount,
+    ~remove
+  };
+};
+
+val bind to_attr signal : Attr.t = {
+  let prev0 = to_attr (Signal.get signal);
+  let prev' : ref Attr.Internal.t =
+    ref (Attr.Internal.of_attr prev0);
+  let set elem = {
+    !prev'.set elem;
+    Signal.use (fn x -> {
+        let next' = Attr.Internal.of_attr (to_attr x);
+        !prev'.remove elem;
+        next'.set elem;
+        prev' := next';
+      })
+      signal;
+  };
+  let remove elem = !prev'.remove elem;
+  Attr.Internal.to_attr {
+    ~set,
+    ~remove
+  };
+};
+
+val toggle ~on:active_sig attr0 : Attr.t = {
+  let active_sig = Signal.uniq ~equal:(=) active_sig;
+  let internal = Attr.Internal.of_attr attr0;
+  let should_activate0 = Signal.get active_sig;
+  let set elem = {
+    if should_activate0 then internal.set elem;
+    Signal.use (fn should_activate ->
+        if should_activate then
+          internal.set elem
+        else
+          internal.remove elem)
+      active_sig;
+  };
+  Attr.Internal.to_attr { ~set, ..internal };
+};
+
+val visible ~on:cond : Attr.t =
+  toggle ~on:(Signal.map not cond)
+    (Html.style [("display", "none")]);
+

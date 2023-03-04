@@ -4,6 +4,13 @@ let b02 =
   let a = 1 in
   a
 
+let b021 =
+  let a =
+    let b = 1 in
+    b - 1
+  in
+  a
+
 let b03 =
   let a = 1 in
   let b = 2 in

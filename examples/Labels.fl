@@ -1,41 +1,42 @@
-val f01 = fn a -> a
+val f01 a = a;
 
-val f02 = fn a b -> a
+val f02 a b = a;
 
-val f03 = fn a b c -> a
+val f03 a b c = a;
 
-val f04 = fn ~a -> a
+val f04 ~a = a;
 
-val f05 = fn ~a:b -> a
+val f05 ~a:b = a;
 
-val f06 = fn ~(a : t) -> a
+val f06 ~(a : t) = a;
 
-val f07 = fn ~a:(b : t) -> a
+val f07 ~a:(b : t) = a;
 
-val f08 = fn ~a? -> a
+val f08 ~a? = a;
 
-val f09 = fn ~a?:b -> a
+val f09 ~a?:b = a;
 
-val f10 = fn ~(a? = 1) -> a
+val f10 ~(a? = 1) = a;
 
-val f11 = fn ~a?:(b = 1) -> a
+val f11 ~a?:(b = 1) = a;
 
-val f12 = fn ~(a? : t = 42) -> a
+val f12 ~(a? : t = 42) = a;
 
-val f13 = fn ~a?:(x : t = 42) -> a
+val f13 ~a?:(x : t = 42) = a;
 
-val a01 = f ~a
+val a01 = f ~a;
 
-val a02 = f ~a:b
+val a02 = f ~a:b;
 
-val a03 = f ~(a : t)
+val a03 = f ~(a : t);
 
-val a04 = f ~a:(b : t)
+val a04 = f ~a:(b : t);
 
-val a05 = f ~a?
+val a05 = f ~a?;
 
-val a06 = f ~a?:b
+val a06 = f ~a?:b;
 
-val a07 = f ~(a? : t)
+val a07 = f ~(a? : t);
 
-val a08 = f ~a?:(b : t)
+val a08 = f ~a?:(b : t);
+

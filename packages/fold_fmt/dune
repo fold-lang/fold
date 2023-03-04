@@ -1,0 +1,9 @@
+(executable
+ (name Main)
+ (public_name fold-fmt)
+ (libraries
+  fold_syntax
+  compiler-libs.common
+  ocaml-migrate-parsetree
+  fmt
+  pprint))

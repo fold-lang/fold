@@ -9,4 +9,4 @@ let () =
   let structure = parse_structure chan in
   let syn = Fold_syntax.Syntax_encoder.structure structure in
   (* Fmt.pr "%a@." Fold_syntax.Syntax.pp syn *)
-  Fold_pprint.print syn
+  Formatter.print syn

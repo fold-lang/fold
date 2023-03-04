@@ -1,0 +1,20 @@
+val v01 : 'a = ();
+
+val v02 : t = ();
+
+val v03 : t 'a = ();
+
+val v04 : t 'a 'b = ();
+
+val v05 : t 'a 'b 'c = ();
+
+val v06 : (t1, t2) = ();
+
+val v07 : t1 -> t2 = ();
+
+val v08 : ~a:t1 -> t2 = ();
+
+val v09 : ~a?:t1 -> t2 = ();
+
+val v10 : forall 'a 'b (.) 'a -> 'b = ();
+

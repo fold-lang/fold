@@ -1,0 +1,29 @@
+val b01 = 1;
+
+val b02 = {
+  let a = 1;
+  a;
+};
+
+val b03 = {
+  let a = 1;
+  let b = 2;
+  let c = 3;
+  let d = 4;
+  a + b + c + d;
+};
+
+val b04 = {
+  let a = 1
+  and bbbbbbbbb = 2
+  and ccccccccc = 3
+  and dddddddddddddd = 4;
+  a + b + c + d;
+};
+
+val b05 = 1
+
+and b06 = 2;
+
+val b07 : int = 2;
+

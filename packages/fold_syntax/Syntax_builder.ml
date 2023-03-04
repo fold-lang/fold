@@ -41,6 +41,7 @@ let if_then cond if_true = Syntax.Form [ id "if"; cond; id "then"; if_true ]
 let if_then_else cond if_true if_false =
   Syntax.Form [ id "if"; cond; id "then"; if_true; id "else"; if_false ]
 
+(* [pat -> exp] or [pat if guard -> exp] *)
 let case pat ?guard exp =
   match guard with
   | None -> arrow pat exp
@@ -56,6 +57,7 @@ let for_ ?(down = false) binding to_exp body =
     ; body
     ]
 
-let fn args body = Syntax.Fn (args, body)
+let fn_ args body = Syntax.Fn (args, body)
+let fn args body = Syntax.Arrow (Syntax.Form (id "fn" :: args), body)
 let array items = Syntax.Array items
 let list items tl = Syntax.List (items, tl)
