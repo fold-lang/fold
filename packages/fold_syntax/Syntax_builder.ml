@@ -24,8 +24,8 @@ let let_rec vbl = mk_let ~prefix:[ id "let"; id "rec" ] vbl
 let val_ vbl = mk_let ~prefix:[ id "val" ] vbl
 let val_rec vbl = mk_let ~prefix:[ id "val"; id "rec" ] vbl
 let or_ cases = Syntax.Or cases
-let arrow a b = Syntax.Arrow (a, b)
-let constraint_ a b = Syntax.Constraint (a, b)
+let arrow a b = Syntax.Form [ id "->"; a; b ]
+let constraint_ a b = Syntax.Form [ id ":"; a; b ]
 let block items = Syntax.Block items
 let tuple items = Syntax.Tuple items
 let apply f args = Syntax.Apply (f, args)
@@ -57,7 +57,6 @@ let for_ ?(down = false) binding to_exp body =
     ; body
     ]
 
-let fn_ args body = Syntax.Fn (args, body)
-let fn args body = Syntax.Arrow (Syntax.Form (id "fn" :: args), body)
+let fn args body = arrow (Syntax.Form (id "fn" :: args)) body
 let array items = Syntax.Array items
 let list items tl = Syntax.List (items, tl)

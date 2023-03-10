@@ -37,6 +37,8 @@ let rec fmt ?(enclose = true) ?(inline = false) (syn : Syntax.t) =
   | Id id -> fmt_id id
   | Const const -> fmt_const const
   | Apply (f, args) -> fmt_apply ~enclose ~inline f args
+  | Form [ Syntax.Id (Lident "->"); a; b ] -> fmt_arrow ~enclose a b
+  | Form [ Syntax.Id (Lident ":"); v; t ] -> fmt_constraint ~enclose v t
   | Form items -> fmt_form ~enclose items
   | Block items -> fmt_block items
   | Record (r0, fields) -> fmt_record r0 fields
@@ -48,10 +50,6 @@ let rec fmt ?(enclose = true) ?(inline = false) (syn : Syntax.t) =
   | Labeled (l, optional, value) -> fmt_labeled l optional value
   | Field (r, l) -> fmt_field r l
   | Or items -> fmt_or items
-  | Arrow (a, b) -> fmt_arrow ~enclose a b
-  | Constraint (v, t) when check_is_blockish t ->
-    fmt_constraint_blockish ~enclose v t
-  | Constraint (v, t) -> fmt_constraint ~enclose v t
   | _ -> P.string "$FMT"
 
 and fmt_root (syn : Syntax.t) =
@@ -69,7 +67,7 @@ and fmt_root (syn : Syntax.t) =
 and fmt_binding lval rval =
   let lval_doc =
     match lval with
-    | Apply _ | Constraint (Apply _, _) ->
+    | Apply _ | Form [ Syntax.Id (Lident ":"); Apply _; _ ] ->
       P.nest 2 (fmt ~enclose:false ~inline:true lval)
     | _ -> fmt ~enclose:false lval
   in
@@ -79,7 +77,7 @@ and fmt_binding lval rval =
   | Syntax.Id (Longident.Lident lid), Syntax.Id (Longident.Lident rid)
     when String.equal lid rid -> P.string "~" ^^ P.string lid
   (* [a = (b : t)] *)
-  | _, Constraint _ ->
+  | _, Form (Syntax.Id (Lident ":") :: _) ->
     P.group
       (lval_doc
       ^^ P.blank 1
@@ -126,7 +124,7 @@ and fmt_arrow_fn ~enclose args body =
   else
     let body_doc, ret_typ_doc =
       match body with
-      | Syntax.Constraint (body, t) ->
+      | Form [ Syntax.Id (Lident ""); body; t ] ->
         (fmt ~enclose:false body, !^" : " ^^ fmt t)
       | _ -> (fmt ~enclose:false body, P.empty)
     in
@@ -144,19 +142,19 @@ and fmt_arrow_fn ~enclose args body =
         )
 
 and fmt_constraint ~enclose v t =
-  P.group
-    (P.parens_on enclose
-       (fmt ~enclose:false v
-       ^^ P.string " : "
-       ^^ P.nest 2 ((fmt ~enclose:false) t)
-       )
-    )
-
-and fmt_constraint_blockish ~enclose v t =
-  P.group
-    (P.parens_on enclose
-       (fmt ~enclose:false v ^^ P.string " : " ^^ (fmt ~enclose:false) t)
-    )
+  if check_is_blockish t then
+    P.group
+      (P.parens_on enclose
+         (fmt ~enclose:false v ^^ P.string " : " ^^ (fmt ~enclose:false) t)
+      )
+  else
+    P.group
+      (P.parens_on enclose
+         (fmt ~enclose:false v
+         ^^ P.string " : "
+         ^^ P.nest 2 ((fmt ~enclose:false) t)
+         )
+      )
 
 and fmt_block items =
   if items = [] then P.braces P.empty
@@ -365,10 +363,10 @@ and fmt_labeled l optional value =
   let map_to_optional_id (syn : Syntax.t) : Syntax.t =
     match syn with
     | Binding (Id (Lident id), rval) -> Binding (Id (Lident (id ^ "?")), rval)
-    | Constraint (Id (Lident id), rval) ->
-      Constraint (Id (Lident (id ^ "?")), rval)
-    | Binding (Constraint (Id (Lident id), typ), rval) ->
-      Binding (Constraint (Id (Lident (id ^ "?")), typ), rval)
+    | Form [ Id (Lident ":"); Id (Lident id); rval ] ->
+      Form [ Id (Lident ":"); Id (Lident (id ^ "?")); rval ]
+    | Binding (Form [ Id (Lident ":"); Id (Lident id); typ ], rval) ->
+      Binding (Form [ Id (Lident ":"); Id (Lident (id ^ "?")); typ ], rval)
     | _ -> syn
   in
   let enclose = Syntax.is_binding value in
@@ -376,8 +374,8 @@ and fmt_labeled l optional value =
   | Id (Lident id) when String.equal id l ->
     if optional then P.string "~" ^^ P.string l ^^ P.string "?"
     else P.string "~" ^^ P.string l
-  | Binding ((Id (Lident id) | Constraint (Id (Lident id), _)), _)
-  | Constraint (Id (Lident id), _) ->
+  | Binding ((Id (Lident id) | Form [ Id (Lident ":"); Id (Lident id); _ ]), _)
+  | Form [ Id (Lident ":"); Id (Lident id); _ ] ->
     if String.equal id l then
       let constraint' = if optional then map_to_optional_id value else value in
       P.string "~" ^^ P.parens_on enclose (fmt ~enclose:true constraint')

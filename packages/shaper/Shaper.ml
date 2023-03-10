@@ -1,3 +1,16 @@
+(*
+ - Atom 'a
+ - Call t * t list
+ - Form string * t list
+ - List t list
+ *)
+
+type 'a syntax =
+  | Atom of 'a
+  | List of 'a syntax
+  | Call of 'a syntax * 'a syntax list
+  | Form of string * 'a syntax list
+
 type 'a t =
   | Atom of 'a
   | Apply of 'a t * 'a t list

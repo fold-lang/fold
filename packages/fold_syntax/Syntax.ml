@@ -113,8 +113,6 @@ type t =
       (** - [{ l1=x1, l2=x2, ln=xn }]
           - [{ l1=x1, l2=x2, ln=xn, ..x0 }]
           - [{ l1=x1, l2=x2, ln=xn, _ }] *)
-  | Arrow of t * t  (** x1 -> x2 *)
-  | Constraint of t * t  (** x1 : x2 *)
   | Fn of t list * t  (** fn x1 x2 *)
   | Or of t list  (** [{x1 | x2 | x3 }] *)
   | As of t * t  (** [x1 as x2] *)
@@ -199,8 +197,6 @@ let rec pp_syn fmt t =
         (Fmt.list ~sep:Fmt.comma pp_syn)
         fields
   )
-  | Arrow (t1, t2) -> Fmt.pf fmt "%a -> %a" pp_syn t1 pp_syn t2
-  | Constraint (t1, t2) -> Fmt.pf fmt "(%a : %a)" pp_syn t1 pp_syn t2
   | Fn (args, body) ->
     Fmt.pf fmt "@[<2>(fn %a -> %a)@]"
       (Fmt.list ~sep:Fmt.sp pp_syn)
