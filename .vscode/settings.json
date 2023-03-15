@@ -1,6 +1,6 @@
 {
   "ocaml.sandbox": {
     "kind": "custom",
-    "template": "source ${workspaceFolder:fold}/.onix.env; $prog $args"
+    "template": ". ${workspaceFolder:fold}/.onix.env; $prog $args"
   }
 }

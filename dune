@@ -1,1 +1,1 @@
-(dirs :standard \ experiments examples)
+(dirs src tests)

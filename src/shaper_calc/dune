@@ -1,0 +1,3 @@
+(library
+ (name shaper_calc)
+ (libraries fmt shaper shaper_parser))

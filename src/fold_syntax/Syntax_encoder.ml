@@ -237,7 +237,7 @@ end = struct
 
   and function_ cases =
     let cases_syn =
-      Syntax_builder.or_
+      Syntax_builder.cases
         (List.map
            (fun (c : Parsetree.case) -> case c.pc_lhs ?guard:c.pc_guard c.pc_rhs)
            cases
@@ -292,7 +292,7 @@ end = struct
   and match_ ?loc:_ ?attrs:_ exp cases =
     let exp_syn = conv exp in
     let cases_syn =
-      Syntax_builder.or_
+      Syntax_builder.cases
         (List.map
            (fun (c : Parsetree.case) -> case c.pc_lhs ?guard:c.pc_guard c.pc_rhs)
            cases
@@ -493,7 +493,7 @@ end = struct
       | _ -> conv pat :: acc
     in
     let pats = flatten pat_1 [ conv pat_2 ] in
-    Syntax_builder.or_ pats
+    Syntax_builder.cases pats
 end
 
 and Vb : sig

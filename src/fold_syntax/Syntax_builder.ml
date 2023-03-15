@@ -23,17 +23,17 @@ let let_ vbl = mk_let ~prefix:[ id "let" ] vbl
 let let_rec vbl = mk_let ~prefix:[ id "let"; id "rec" ] vbl
 let val_ vbl = mk_let ~prefix:[ id "val" ] vbl
 let val_rec vbl = mk_let ~prefix:[ id "val"; id "rec" ] vbl
-let or_ cases = Syntax.Or cases
+let cases items = Syntax.Form (id "|" :: items)
 let arrow a b = Syntax.Form [ id "->"; a; b ]
 let constraint_ a b = Syntax.Form [ id ":"; a; b ]
 let block items = Syntax.Block items
 let tuple items = Syntax.Tuple items
 let apply f args = Syntax.Apply (f, args)
 let label ~optional l v = Syntax.Labeled (l, optional, v)
-let field exp lid = Syntax.Field (exp, lid)
+let field exp lid = Syntax.Form [ id "."; exp; Id lid ]
 let record r0 fields = Syntax.Record (r0, fields)
 let open_ mexp = Syntax.Form [ id "open"; mexp ]
-let binding exp_1 exp_2 = Syntax.Binding (exp_1, exp_2)
+let binding exp_1 exp_2 = Syntax.Form [ id "="; exp_1; exp_2 ]
 let while_ cond body = Syntax.Form [ id "while"; cond; id "do"; body ]
 let match_ exp cases = Syntax.Form [ id "match"; exp; id "with"; cases ]
 let if_then cond if_true = Syntax.Form [ id "if"; cond; id "then"; if_true ]
@@ -60,3 +60,7 @@ let for_ ?(down = false) binding to_exp body =
 let fn args body = arrow (Syntax.Form (id "fn" :: args)) body
 let array items = Syntax.Array items
 let list items tl = Syntax.List (items, tl)
+
+let is_binding = function
+  | Syntax.Form [ Syntax.Id (Lident "="); _; _ ] -> true
+  | _ -> false

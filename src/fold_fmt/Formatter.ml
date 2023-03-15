@@ -39,17 +39,16 @@ let rec fmt ?(enclose = true) ?(inline = false) (syn : Syntax.t) =
   | Apply (f, args) -> fmt_apply ~enclose ~inline f args
   | Form [ Syntax.Id (Lident "->"); a; b ] -> fmt_arrow ~enclose a b
   | Form [ Syntax.Id (Lident ":"); v; t ] -> fmt_constraint ~enclose v t
+  | Form [ Syntax.Id (Lident "="); lval; rval ] -> fmt_binding lval rval
+  | Form (Syntax.Id (Lident "|") :: items) -> fmt_cases items
+  | Form [ Syntax.Id (Lident "."); a; b ] -> fmt_field a b
   | Form items -> fmt_form ~enclose items
   | Block items -> fmt_block items
   | Record (r0, fields) -> fmt_record r0 fields
   | Tuple items -> fmt_seq P.parens items
   | Array items -> fmt_seq P.braces items
   | List (items, tl) -> fmt_list items tl
-  | Binding (lval, rval) -> fmt_binding lval rval
-  | Fn (args, body) -> fmt_arrow_fn ~enclose args body
   | Labeled (l, optional, value) -> fmt_labeled l optional value
-  | Field (r, l) -> fmt_field r l
-  | Or items -> fmt_or items
   | _ -> P.string "$FMT"
 
 and fmt_root (syn : Syntax.t) =
@@ -206,7 +205,7 @@ and fmt_juxt ~inline items =
   (* let juxt_sep = P.comma in *)
   let juxt_sep = P.empty in
   let sep_after = function
-    | Syntax.Fn _ -> juxt_sep ^^ P.hardline
+    | Syntax.Form (Id (Lident "fn") :: _) -> juxt_sep ^^ P.hardline
     | _ -> juxt_sep ^^ P.break 1
   in
   P.flow_map_sep ~inline ~sep_after fmt items
@@ -257,7 +256,10 @@ and fmt_form ~enclose items =
         ^^ P.concat_map
              (function
                | x ->
-                 (if Syntax.is_binding x then P.space else P.break 1) ^^ fmt x
+                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
+                 else P.break 1
+                 )
+                 ^^ fmt x
                )
              bindings
         )
@@ -268,7 +270,10 @@ and fmt_form ~enclose items =
         ^^ P.concat_map
              (function
                | x ->
-                 (if Syntax.is_binding x then P.space else P.break 1) ^^ fmt x
+                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
+                 else P.break 1
+                 )
+                 ^^ fmt x
                )
              bindings
         )
@@ -276,27 +281,35 @@ and fmt_form ~enclose items =
     | Syntax.(
         Id (Lident (("val" | "module") as kwd))
         :: Id (Lident "rec")
-        :: (Syntax.Binding _ :: _ as bindings)) ->
+        :: (form :: _ as bindings))
+      when Fold_syntax.Syntax_builder.is_binding form ->
+      (* :: (Syntax.Form (Id (Lident "=") :: _) :: _ as bindings)) -> *)
+      (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
       P.group
         (!^(kwd ^ " " ^ "rec")
         ^^ P.concat_map
              (function
                | x ->
-                 (if Syntax.is_binding x then P.space else P.twice P.hardline)
+                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
+                 else P.twice P.hardline
+                 )
                  ^^ fmt x
                )
              bindings
         )
     (* val|module *)
     | Syntax.(
-        Id (Lident (("val" | "module") as kwd))
-        :: (Syntax.Binding _ :: _ as bindings)) ->
+        Id (Lident (("val" | "module") as kwd)) :: (form :: _ as bindings))
+      when Fold_syntax.Syntax_builder.is_binding form ->
+      (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
       P.group
         (!^kwd
         ^^ P.concat_map
              (function
                | x ->
-                 (if Syntax.is_binding x then P.space else P.twice P.hardline)
+                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
+                 else P.twice P.hardline
+                 )
                  ^^ fmt x
                )
              bindings
@@ -362,19 +375,33 @@ and fmt_record r0 fields =
 and fmt_labeled l optional value =
   let map_to_optional_id (syn : Syntax.t) : Syntax.t =
     match syn with
-    | Binding (Id (Lident id), rval) -> Binding (Id (Lident (id ^ "?")), rval)
+    (* id = rval *)
+    | Form [ Id (Lident "="); Id (Lident id); rval ] ->
+      Form [ Id (Lident "="); Id (Lident (id ^ "?")); rval ]
+    (* id : rval *)
     | Form [ Id (Lident ":"); Id (Lident id); rval ] ->
       Form [ Id (Lident ":"); Id (Lident (id ^ "?")); rval ]
-    | Binding (Form [ Id (Lident ":"); Id (Lident id); typ ], rval) ->
-      Binding (Form [ Id (Lident ":"); Id (Lident (id ^ "?")); typ ], rval)
+    (* (id : typ) = rval *)
+    | Form
+        [ Id (Lident "="); Form [ Id (Lident ":"); Id (Lident id); typ ]; rval ]
+      ->
+      Form
+        [ Id (Lident "=")
+        ; Form [ Id (Lident ":"); Id (Lident (id ^ "?")); typ ]
+        ; rval
+        ]
     | _ -> syn
   in
-  let enclose = Syntax.is_binding value in
+  let enclose = Fold_syntax.Syntax_builder.is_binding value in
   match value with
   | Id (Lident id) when String.equal id l ->
     if optional then P.string "~" ^^ P.string l ^^ P.string "?"
     else P.string "~" ^^ P.string l
-  | Binding ((Id (Lident id) | Form [ Id (Lident ":"); Id (Lident id); _ ]), _)
+  | Form
+      [ Id (Lident "=")
+      ; (Id (Lident id) | Form [ Id (Lident ":"); Id (Lident id); _ ])
+      ; _
+      ]
   | Form [ Id (Lident ":"); Id (Lident id); _ ] ->
     if String.equal id l then
       let constraint' = if optional then map_to_optional_id value else value in
@@ -390,7 +417,7 @@ and fmt_labeled l optional value =
     ^^ P.string (if optional then "?:" else ":")
     ^^ P.parens_on enclose (fmt value)
 
-and fmt_field r l = fmt r ^^ P.string "." ^^ fmt_id l
+and fmt_field a b = fmt a ^^ P.string "." ^^ fmt b
 
 and fmt_or_pipe_no_braces items =
   if items = [] then P.braces P.empty
@@ -402,7 +429,7 @@ and fmt_or_pipe_no_braces items =
       ^^ P.break 1
       )
 
-and fmt_or items =
+and fmt_cases items =
   if items = [] then P.braces P.empty
   else
     P.group

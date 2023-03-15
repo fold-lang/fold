@@ -1,0 +1,5 @@
+calc: 4
+calc: 8
+lang: {<<a,b>;<c,d>>}
+lang: <2 + 2>
+lang: 8

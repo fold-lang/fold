@@ -1,0 +1,62 @@
+[basic]
+1
+123456789
+{<>}
+{1}
+{<1 2>}
+{<1 2 3>}
+{{<>}}
+{{{<>}}}
+{<1 {<>}>}
+{<1 {<>} 3>}
+{<1 {<>} {<1 2 3>}>}
+{{{{{1}}}}}
+{<{0} {<1 2>} {<3 4 5>} {<6 7 8 9>}>}
+
+[juxt]
+1
+<1 2>
+<1 2 3>
+<1 2 3 4 5 6 7>
+
+[comma]
+1
+<1,2>
+<1,2,3>
+<1,2,3,4,5,6,7>
+
+[juxt_comma]
+<<0 1>,1>
+<1,<0 1>>
+<<0 1>,<0 2>>
+<1,<0 1>,<0 1 2>,<0 1 2 3>>
+<<0 1 2 3>,<0 1 2>,<0 1>,1>
+
+[seq_mixed]
+<<1,2>;<3,4>>
+<1;<2,3>;4>
+<<0 1>;<2,<0 3 4>>;<5,6>>
+<<1,<0 2>>;<{<0 3 4>},<0 {<<1,2>;3>}>,{<1;<2,3>>}>>
+
+[whitespace]
+1
+1
+{1}
+{1}
+
+[err_unbalanced]
+err: invalid syntax: unexpected end of file
+err: invalid syntax: '}' cannot be used in prefix position
+err: invalid syntax: end of file while expecting '}'
+err: invalid syntax: '}' cannot be used in prefix position
+
+[ident]
+a
+a_
+a1
+fooBar
+fooBar_BAZ_001
+X
+Xa
+X_
+X_fooBar

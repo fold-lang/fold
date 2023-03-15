@@ -40,6 +40,10 @@ type const = Parsetree.constant =
   initializer _
   inherit _
 
+  {Multi suffix}
+  ... with type t := b
+  ... with module type M = X
+
   {Enclose sep}
   { _; ...; _ }
   { _, ..., _ }
@@ -113,11 +117,6 @@ type t =
       (** - [{ l1=x1, l2=x2, ln=xn }]
           - [{ l1=x1, l2=x2, ln=xn, ..x0 }]
           - [{ l1=x1, l2=x2, ln=xn, _ }] *)
-  | Fn of t list * t  (** fn x1 x2 *)
-  | Or of t list  (** [{x1 | x2 | x3 }] *)
-  | As of t * t  (** [x1 as x2] *)
-  | Binding of t * t  (** [x1 = x2] *)
-  | Field of t * id  (** [x.l] *)
   | Labeled of string * bool * t
       (** [Labeled (l, optional, value)]:
 
@@ -136,10 +135,6 @@ type t =
   | Form of t list  (** kwd1 x1 kwd2 x2 *)
 
 let id ?(path = []) id = Id (Option.get (Longident.unflatten (path @ [ id ])))
-
-let is_binding = function
-  | Binding _ -> true
-  | _ -> false
 
 let is_block = function
   | Block _ -> true
@@ -197,14 +192,6 @@ let rec pp_syn fmt t =
         (Fmt.list ~sep:Fmt.comma pp_syn)
         fields
   )
-  | Fn (args, body) ->
-    Fmt.pf fmt "@[<2>(fn %a -> %a)@]"
-      (Fmt.list ~sep:Fmt.sp pp_syn)
-      args pp_syn body
-  | Or cases -> Fmt.pf fmt "@[%a@]" (Fmt.list ~sep:(Fmt.any "|") pp_syn) cases
-  | As (t1, t2) -> Fmt.pf fmt "@[(%a as %a)@]" pp_syn t1 pp_syn t2
-  | Binding (t1, t2) -> Fmt.pf fmt "(%a = %a)" pp_syn t1 pp_syn t2
-  | Field (t, id) -> Fmt.pf fmt "%a.%a" pp_syn t pp_id id
   | Labeled (l, false, value) -> Fmt.pf fmt "~%s:(%a)" l pp_syn value
   | Labeled (l, true, value) -> Fmt.pf fmt "~%s?:(%a)" l pp_syn value
   | Form items -> Fmt.pf fmt "@[!(%a)@]" (Fmt.list ~sep:Fmt.sp pp_syn) items
