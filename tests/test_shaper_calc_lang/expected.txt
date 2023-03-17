@@ -1,5 +1,42 @@
-calc: 4
-calc: 8
-lang: {<<a,b>;<c,d>>}
-lang: <2 + 2>
-lang: 8
+
+[no_calc_lang]
+2
+<2 + 2>
+<<2 + 2>,<2 - 2>>
+{<<a,b>;<c,d>>}
+
+[scoping]
+1
+{<2 + a>}
+<2 + a>
+(2)
+(2)
+<2 + neg (2)>
+<5 + pow (<2,4>)>
+
+[calc_lang]
+1
+<2 + 3>
+<<2 + 3>,a>
+<a,<2 + 3>,b>
+<a,8>
+<a,8,b>
+<a {8} b>
+<a {8} b>
+{<2 + 2>}
+<{2} + 2>
+<{<2 + 3>} + 2>
+(<<f a b>,<2 + 3>>)
+
+[errors]
+err: invalid macro call form, must be kwd!
+<2 a>
+err: shaper: not a constant: )
+err: shaper: not a constant: }
+err: shaper: invalid syntax: unexpected end of file
+err: calc: not constant: )
+err: calc: not constant: )
+err: calc (default infix): invalid syntax: '(' cannot be used in infix postion
+err: calc (default infix): invalid syntax: '}' cannot be used in infix postion
+err: calc (default infix): invalid syntax: '}' cannot be used in infix postion
+err: no such macro: math

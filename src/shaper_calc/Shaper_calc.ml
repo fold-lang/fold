@@ -11,16 +11,17 @@ let default_prefix _g l =
   | L.Int x ->
     L.move l;
     Ok x
-  | t -> Fmt.failwith "not an atom: %a" L.pp_token t
+  | t -> Fmt.failwith "calc: not constant: %a" L.pp_token t
 
 let grammar =
-  G.make ~default_prefix ~name:"clac"
+  G.make ~default_prefix ~name:"calc"
     [ P.prefix (L.Sym "+") (fun x -> x)
     ; P.prefix (L.Sym "-") (fun x -> -x)
     ; P.infix 30 (L.Sym "+") ( + )
     ; P.infix 30 (L.Sym "-") ( - )
     ; P.infix 40 (L.Sym "*") ( * )
     ; P.infix 40 (L.Sym "/") ( / )
+    ; P.infixr 50 L.Semi (fun _a b -> b)
     ; P.postfix 70 (L.Sym "!") fac
     ; P.between L.Lparen L.Rparen (fun x -> x)
     ]

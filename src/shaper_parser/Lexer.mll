@@ -107,7 +107,7 @@ rule read lexer = parse
   let drop expected lexer =
     let actual = pick lexer in
     begin if actual <> expected then
-      Fmt.failwith "invalid token: %a, expected %a" pp_token actual
+      Fmt.failwith "drop: invalid token: %a, expected %a" pp_token actual
         pp_token expected
     end;
     move lexer

@@ -24,72 +24,54 @@ module Token_map = struct
   let get tbl x = try Some (find tbl x) with Not_found -> None
 end
 
-type error =
+type reason =
   | Unexpected of { expected : token option; actual : token option }
   | Invalid_infix of token
   | Invalid_prefix of token
+  | Unbalanced of token
   | Zero
   | More
 
-let unexpected_token ?expected actual =
-  Unexpected { expected; actual = Some actual }
+type error = { reason : reason; ctx : string }
 
-let unexpected_end ?expected () = Unexpected { expected; actual = None }
-let invalid_prefix t = Invalid_prefix t
-let invalid_infix t = Invalid_infix t
+let unexpected_token ~ctx ?expected actual =
+  Error { reason = Unexpected { expected; actual = Some actual }; ctx }
 
-let error_to_string = function
+let unexpected_end ~ctx ?expected () =
+  Error { reason = Unexpected { expected; actual = None }; ctx }
+
+let invalid_prefix ~ctx t = Error { reason = Invalid_prefix t; ctx }
+let invalid_infix ~ctx t = Error { reason = Invalid_infix t; ctx }
+let unconsumed_input ~ctx () = Error { reason = More; ctx }
+let unbalanced ~ctx t = Error { reason = Unbalanced t; ctx }
+
+let error_to_string err =
+  match err.reason with
   | Unexpected { expected = Some t1; actual = Some t2 } ->
-    Fmt.str "invalid syntax: expected '%a' but got '%a'" pp_token t1 pp_token t2
+    Fmt.str "%s: invalid syntax: expected '%a' but got '%a'" err.ctx pp_token t1
+      pp_token t2
   | Unexpected { expected = Some t; actual = None } ->
-    Fmt.str "invalid syntax: end of file while expecting '%a'" pp_token t
+    Fmt.str "%s: invalid syntax: end of file while expecting '%a'" err.ctx
+      pp_token t
   | Unexpected { expected = None; actual = None } ->
-    Fmt.str "invalid syntax: unexpected end of file"
+    Fmt.str "%s: invalid syntax: unexpected end of file" err.ctx
   | Unexpected { expected = None; actual = Some t } ->
-    Fmt.str "invalid syntax: unexpected token '%a'" pp_token t
+    Fmt.str "%s: invalid syntax: unexpected token '%a'" err.ctx pp_token t
   | Invalid_infix token ->
-    Fmt.str "invalid syntax: '%a' cannot be used in infix postion" pp_token
-      token
+    Fmt.str "%s: invalid syntax: '%a' cannot be used in infix postion" err.ctx
+      pp_token token
   | Invalid_prefix token ->
-    Fmt.str "invalid syntax: '%a' cannot be used in prefix position" pp_token
-      token
-  | Zero -> Fmt.str "invalid syntax: empty parser result"
-  | More -> Fmt.str "invalid syntax: parser did not consume all input"
-
-let pp_error ppf = function
-  | Unexpected { expected; actual } ->
-    Fmt.pf ppf "@[<2>Unexpected@ {@ expected =@ @[%a@];@ actual =@ @[%a@] }@]"
-      (Fmt.Dump.option pp_token) expected (Fmt.Dump.option pp_token) actual
-  | Invalid_infix token ->
-    Fmt.pf ppf "@[<2>Invalid_infix@ @[%a@] @]" pp_token token
-  | Invalid_prefix token ->
-    Fmt.pf ppf "@[<2>Invalid_prefix@ @[%a@] @]" pp_token token
-  | Zero -> Fmt.pf ppf "Empty"
-  | More -> Fmt.pf ppf "More"
+    Fmt.str "%s: invalid syntax: '%a' cannot be used in prefix position" err.ctx
+      pp_token token
+  | Unbalanced token ->
+    Fmt.str "%s: invalid syntax: unbalanced '%a'" err.ctx pp_token token
+  | Zero -> Fmt.str "%s: invalid syntax: empty parser result" err.ctx
+  | More ->
+    Fmt.str "%s: invalid syntax: parser did not consume all input" err.ctx
 
 (* Parser type *)
 
 type 'a parser = Lexer.t -> ('a, error) result
-
-(* Parser combinators *)
-
-let consume expected : 'a parser =
- fun l ->
-  match Lexer.pick l with
-  | Eof -> Error (unexpected_end ~expected ())
-  | actual when actual = expected ->
-    Lexer.move l;
-    Ok ()
-  | actual -> Error (unexpected_token ~expected actual)
-
-let rec until pred (p : 'a parser) : 'a list parser =
- fun l ->
-  let t = Lexer.pick l in
-  if pred t then
-    let* x = p l in
-    let* xs = until pred p l in
-    Ok (x :: xs)
-  else Ok []
 
 (* Grammar *)
 
@@ -106,18 +88,34 @@ and 'a infix = ('a -> 'a grammar -> 'a parser) * int
 
 type 'a denotation = Prefix of token * 'a prefix | Infix of token * 'a infix
 
+(* Parser combinators *)
+
+let consume expected g : 'a parser =
+ fun l ->
+  match Lexer.pick l with
+  | Eof -> unexpected_end ~ctx:g.name ~expected ()
+  | actual when actual = expected ->
+    Lexer.move l;
+    Ok ()
+  | actual -> unexpected_token ~ctx:g.name ~expected actual
+
+let rec until pred (p : 'a parser) : 'a list parser =
+ fun l ->
+  let t = Lexer.pick l in
+  if pred t then
+    let* x = p l in
+    let* xs = until pred p l in
+    Ok (x :: xs)
+  else Ok []
+
 module Grammar = struct
   type 'a t = 'a grammar
 
   let empty_scope = { infix = Token_map.empty; prefix = Token_map.empty }
 
-  let invalid_atom _g l =
+  let invalid_default_infix _left g l =
     let tok = Lexer.pick l in
-    Error (Invalid_prefix tok)
-
-  let invalid_infix _left _g l =
-    let tok = Lexer.pick l in
-    Error (Invalid_infix tok)
+    invalid_infix ~ctx:(g.name ^ " (default infix)") tok
 
   let def_infix token pareselet self =
     let first, rest =
@@ -189,14 +187,15 @@ module Grammar = struct
       )
       empty_scope rules
 
-  let make ~default_prefix ?(default_infix = invalid_infix) ~name rules =
+  let make ~default_prefix ?(default_infix = invalid_default_infix) ~name rules
+      =
     let scope = scope_of_list rules in
     { data = [ scope ]; default_prefix; default_infix; name }
 end
 
 let parse_prefix g l =
   let tok = Lexer.pick l in
-  if Lexer.is_eof tok then Error (unexpected_end ())
+  if Lexer.is_eof tok then unexpected_end ~ctx:g.name ()
   else
     match Grammar.get_prefix tok g with
     | None -> g.default_prefix g l
@@ -206,16 +205,13 @@ let rec parse_infix rbp left g l =
   let tok = Lexer.pick l in
   if Lexer.is_eof tok then Ok left
   else
-    match Option.(Grammar.get_infix tok g) with
+    match Grammar.get_infix tok g with
     | Some (rule, lbp) ->
       if lbp > rbp then
         let* left' = rule left g l in
         parse_infix rbp left' g l
       else Ok left
     | None ->
-      (* Give the opportunity to the user to continue parsing.
-         By default [default_infix] fails. This can be used to implement
-         juxtaposition. *)
       let* left' = g.default_infix left g l in
       parse_infix rbp left' g l
 
@@ -226,7 +222,8 @@ let parse ?precedence:(rbp = 0) g l =
 let run g l =
   match parse g l with
   | Ok x ->
-    if Lexer.is_eof (Lexer.pick l) then x else failwith (error_to_string More)
+    if Lexer.is_eof (Lexer.pick l) then x
+    else failwith (error_to_string { reason = More; ctx = g.name })
   | Error err -> failwith (error_to_string err)
 
 let juxt f left g l =
@@ -238,12 +235,16 @@ let juxt f left g l =
   Ok (f (left :: xs))
 
 let delimiter tok =
-  let rule _left _g _ = Error (Invalid_infix tok) in
+  let rule _left g _ = invalid_infix ~ctx:g.name tok in
+  Infix (tok, (rule, 0))
+
+let unbalanced_rule tok =
+  let rule _left g _ = unbalanced ~ctx:g.name tok in
   Infix (tok, (rule, 0))
 
 let infix precedence tok f =
   let rule x1 g l =
-    Lexer.move l;
+    Lexer.drop tok l;
     let* x2 = parse ~precedence g l in
     Ok (f x1 x2)
   in
@@ -251,7 +252,7 @@ let infix precedence tok f =
 
 let infixr precedence tok f =
   let rule x1 g l =
-    Lexer.move l;
+    Lexer.drop tok l;
     let* x2 = parse ~precedence:(precedence - 1) g l in
     Ok (f x1 x2)
   in
@@ -259,51 +260,51 @@ let infixr precedence tok f =
 
 let prefix tok f =
   let rule g l =
-    Lexer.move l;
+    Lexer.drop tok l;
     let* x = parse g l in
     Ok (f x)
   in
   Prefix (tok, rule)
 
 let postfix precedence tok f =
-  let rule x g l =
-    Lexer.move l;
+  let rule x _g l =
+    Lexer.drop tok l;
     Ok (f x)
   in
   Infix (tok, (rule, precedence))
 
-let invalid_prefix_token tok =
-  let rule _g _l = Error (invalid_prefix tok) in
+let invalid_prefix_rule tok =
+  let rule g _l = invalid_prefix ~ctx:g.name tok in
   Prefix (tok, rule)
 
 let between tok1 tok2 f =
   let rule g l =
-    Lexer.move l;
+    Lexer.drop tok1 l;
     let* x = parse g l in
     Lexer.drop tok2 l;
     Ok (f x)
   in
   let rule' g l =
-    let g' = Grammar.def (delimiter tok2) g in
+    let g' = Grammar.def (unbalanced_rule tok2) g in
     rule g' l
   in
   Prefix (tok1, rule')
 
 let scope tok1 tok2 f =
   let rule g l =
-    Lexer.move l;
+    Lexer.drop tok1 l;
     if Lexer.pick l = tok2 then begin
-      Lexer.move l;
+      Lexer.drop tok2 l;
       Ok (f None)
     end
     else begin
       let* x = parse g l in
-      let* () = consume tok2 l in
+      let* () = consume tok2 g l in
       Ok (f (Some x))
     end
   in
   let rule' g l =
-    let g' = Grammar.def (delimiter tok2) g in
+    let g' = Grammar.def (unbalanced_rule tok2) g in
     rule g' l
   in
   Prefix (tok1, rule')
@@ -315,7 +316,7 @@ let seq ~sep:(sep, precedence) f =
       until
         (fun tok -> sep = tok)
         (fun l ->
-          let* () = consume sep l in
+          let* () = consume sep g l in
           parse ~precedence g l
         )
         l

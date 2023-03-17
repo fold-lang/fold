@@ -45,10 +45,10 @@
 {1}
 
 [err_unbalanced]
-err: invalid syntax: unexpected end of file
-err: invalid syntax: '}' cannot be used in prefix position
-err: invalid syntax: end of file while expecting '}'
-err: invalid syntax: '}' cannot be used in prefix position
+err: shaper: invalid syntax: unexpected end of file
+err: shaper: not a constant: }
+err: shaper: invalid syntax: end of file while expecting '}'
+err: shaper: not a constant: }
 
 [ident]
 a

@@ -60,6 +60,15 @@ sql! (SELECT * FROM users WHERE age > $age)
 fmt! "Hello, $(name)!"
 ```
 
+## Issue: where does a macro end?
+
+```
+calc! (2 + 1) - 1
+            ^   ^ 
+            |   |
+            |   or here?
+            here?
+```
 
 ## Issue: scope delimiting with punctuation
 

@@ -17,7 +17,7 @@ let const _g l =
   | Lexer.Sym x ->
     Lexer.move l;
     Ok (S.sym x)
-  | t -> Fmt.failwith "not an atom: %a" Lexer.pp_token t
+  | t -> Fmt.failwith "shaper: not a constant: %a" Lexer.pp_token t
 
 let grammar =
   Grammar.make ~default_prefix:const ~default_infix:(Parser.juxt S.seq)
@@ -26,7 +26,10 @@ let grammar =
         | Some x -> S.braces x
         | None -> S.braces (S.seq [])
         )
-    ; Parser.invalid_prefix_token Lexer.Rbrace
+    ; Parser.scope Lexer.Lparen Lexer.Rparen (function
+        | Some x -> S.parens x
+        | None -> S.parens (S.seq [])
+        )
     ; Parser.seq ~sep:(Lexer.Comma, 70) (S.seq ~sep:",")
     ; Parser.seq ~sep:(Lexer.Semi, 1) (S.seq ~sep:";")
     ]
