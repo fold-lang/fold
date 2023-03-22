@@ -27,6 +27,7 @@ depends: [
   "sedlex"
   "ocaml-migrate-parsetree"
   "fmt"
+  "cmdliner"
   "pprint"
   "odoc" {with-doc}
   "ocaml-lsp-server" {with-dev-setup}

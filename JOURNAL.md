@@ -104,6 +104,13 @@ In combination with antiquotation sytnax this is further reinforced.
 > Note: this is somewhat similar to "reducer" wrapping. Specially considering that nested grammars might produce arbitrary types.
 
 
+### What next?
+
+- Implement rules for `syntax!` to parse PEG.
+- Implement the fold syntax using `syntax!`.
+  - The `syntax!` form targets the core shaper ast.
+
+
 ## 2023-03-16
 
 How can the base shaper grammar rules be precisely overimposed over embedded grammars?

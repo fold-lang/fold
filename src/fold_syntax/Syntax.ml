@@ -113,7 +113,7 @@ type t =
   | List of t list * t option  (** [\[x1, x2, xn & xs\]] *)
   | Array of t list  (** [{x1, x2, xn}] *)
   | Tuple of t list  (** [(x1, x2, xn)] *)
-  | Record of t option * t list
+  | Record of t list * t option
       (** - [{ l1=x1, l2=x2, ln=xn }]
           - [{ l1=x1, l2=x2, ln=xn, ..x0 }]
           - [{ l1=x1, l2=x2, ln=xn, _ }] *)
@@ -183,7 +183,7 @@ let rec pp_syn fmt t =
     Fmt.pf fmt "@[{@[<hv2>%a@]}@]" (Fmt.list ~sep:Fmt.comma pp_syn) items
   | Tuple items ->
     Fmt.pf fmt "@[(@[<hv2>%a@])@]" (Fmt.list ~sep:Fmt.comma pp_syn) items
-  | Record (r0, fields) -> (
+  | Record (fields, r0) -> (
     match r0 with
     | None ->
       Fmt.pf fmt "@[{@[<hov2>%a@]}@]" (Fmt.list ~sep:Fmt.comma pp_syn) fields

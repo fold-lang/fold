@@ -3,6 +3,7 @@ type token =
   | Lower of string
   | Upper of string
   | Sym of string
+  | String of string
   | Lbrace
   | Rbrace
   | Lparen

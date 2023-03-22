@@ -91,3 +91,13 @@ let a = 1, b = 2, c = 3; d
 
 ((`let` `a` `=` `1`), (`b` `=` `2`), (`c` `=` `3`)); `d`
 ```
+
+
+## Quoting and unquoting
+
+
+```
+quote {
+  2 + unquote x
+}
+```

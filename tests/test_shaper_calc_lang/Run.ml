@@ -27,7 +27,7 @@ let rp input =
   try
     let l = L.for_string input in
     let x = P.run g l in
-    Fmt.pr "%a@." Shaper.V03.pp_verbose x
+    Fmt.pr "%a@." Shaper.V03.pp x
   with Failure err -> Fmt.pr "err: %s@." err
 
 let () =

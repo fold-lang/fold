@@ -17,22 +17,27 @@ let const _g l =
   | Lexer.Sym x ->
     Lexer.move l;
     Ok (S.sym x)
+  | Lexer.String x ->
+    Lexer.move l;
+    Ok (S.string x)
   | t -> Fmt.failwith "shaper: not a constant: %a" Lexer.pp_token t
+
+let rules =
+  [ Parser.scope Lexer.Lbrace Lexer.Rbrace (function
+      | Some x -> S.braces x
+      | None -> S.braces (S.seq [])
+      )
+  ; Parser.scope Lexer.Lparen Lexer.Rparen (function
+      | Some x -> S.parens x
+      | None -> S.parens (S.seq [])
+      )
+  ; Parser.seq ~sep:(Lexer.Semi, 1) (S.seq ~sep:";")
+  ; Parser.seq ~sep:(Lexer.Comma, 5) (S.seq ~sep:",")
+  ]
 
 let grammar =
   Grammar.make ~default_prefix:const ~default_infix:(Parser.juxt S.seq)
-    ~name:"shaper"
-    [ Parser.scope Lexer.Lbrace Lexer.Rbrace (function
-        | Some x -> S.braces x
-        | None -> S.braces (S.seq [])
-        )
-    ; Parser.scope Lexer.Lparen Lexer.Rparen (function
-        | Some x -> S.parens x
-        | None -> S.parens (S.seq [])
-        )
-    ; Parser.seq ~sep:(Lexer.Comma, 70) (S.seq ~sep:",")
-    ; Parser.seq ~sep:(Lexer.Semi, 1) (S.seq ~sep:";")
-    ]
+    ~name:"shaper" rules
 
 let parse_string input =
   let lexer = Lexer.for_string input in

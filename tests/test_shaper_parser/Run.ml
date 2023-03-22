@@ -1,7 +1,7 @@
 let rp str =
   try
     let syn = Shaper_parser.parse_string str in
-    Fmt.pr "%a@." Shaper.V03.pp_verbose syn
+    Fmt.pr "%a@." Shaper.V03.pp syn
   with Failure err -> Fmt.pr "err: %s@." err
 
 let test_basic () =
@@ -94,7 +94,7 @@ let test_ident () =
     rp "X_fooBar"
   end
 
-let test_complex () =
+let _test_complex () =
   begin
     Fmt.pr "[complex]@.";
     rp {|

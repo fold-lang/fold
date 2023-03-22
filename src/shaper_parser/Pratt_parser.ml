@@ -258,10 +258,10 @@ let infixr precedence tok f =
   in
   Infix (tok, (rule, precedence))
 
-let prefix tok f =
+let prefix ?precedence tok f =
   let rule g l =
     Lexer.drop tok l;
-    let* x = parse g l in
+    let* x = parse ?precedence g l in
     Ok (f x)
   in
   Prefix (tok, rule)
@@ -276,6 +276,10 @@ let postfix precedence tok f =
 let invalid_prefix_rule tok =
   let rule g _l = invalid_prefix ~ctx:g.name tok in
   Prefix (tok, rule)
+
+let invalid_infix_rule tok =
+  let rule _left g _l = invalid_infix ~ctx:g.name tok in
+  Infix (tok, (rule, 0))
 
 let between tok1 tok2 f =
   let rule g l =

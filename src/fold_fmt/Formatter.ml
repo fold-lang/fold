@@ -44,7 +44,7 @@ let rec fmt ?(enclose = true) ?(inline = false) (syn : Syntax.t) =
   | Form [ Syntax.Id (Lident "."); a; b ] -> fmt_field a b
   | Form items -> fmt_form ~enclose items
   | Block items -> fmt_block items
-  | Record (r0, fields) -> fmt_record r0 fields
+  | Record (fields, r0) -> fmt_record r0 fields
   | Tuple items -> fmt_seq P.parens items
   | Array items -> fmt_seq P.braces items
   | List (items, tl) -> fmt_list items tl
@@ -257,7 +257,7 @@ and fmt_form ~enclose items =
              (function
                | x ->
                  ( if Fold_syntax.Syntax_builder.is_binding x then P.space
-                 else P.break 1
+                   else P.break 1
                  )
                  ^^ fmt x
                )
@@ -271,7 +271,7 @@ and fmt_form ~enclose items =
              (function
                | x ->
                  ( if Fold_syntax.Syntax_builder.is_binding x then P.space
-                 else P.break 1
+                   else P.break 1
                  )
                  ^^ fmt x
                )
@@ -291,7 +291,7 @@ and fmt_form ~enclose items =
              (function
                | x ->
                  ( if Fold_syntax.Syntax_builder.is_binding x then P.space
-                 else P.twice P.hardline
+                   else P.twice P.hardline
                  )
                  ^^ fmt x
                )
@@ -308,7 +308,7 @@ and fmt_form ~enclose items =
              (function
                | x ->
                  ( if Fold_syntax.Syntax_builder.is_binding x then P.space
-                 else P.twice P.hardline
+                   else P.twice P.hardline
                  )
                  ^^ fmt x
                )

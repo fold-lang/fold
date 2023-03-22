@@ -4,6 +4,7 @@
       | Lower of string
       | Upper of string
       | Sym of string
+      | String of string
       | Lbrace
       | Rbrace
       | Lparen
@@ -17,6 +18,7 @@
     | Upper x -> Fmt.pf ppf "(Upper %s)" x
     | Lower x -> Fmt.pf ppf "(Lower %s)" x
     | Sym x -> Fmt.pf ppf "(Sym %s)" x
+    | String x -> Fmt.pf ppf "(String %s)" x
     | Int x -> Fmt.pf ppf "(Int %d)" x
     | Lbrace -> Fmt.pf ppf "{"
     | Rbrace -> Fmt.pf ppf "}"
@@ -32,6 +34,7 @@
 
   type t = {
     lexbuf : Lexing.lexbuf;
+    strbuf : Buffer.t;
     mutable token : token;
     mutable line_start : int;
     mutable line_count : int;
@@ -70,15 +73,29 @@ rule read lexer = parse
   | ')' { Rparen }
   | ',' { Comma }
   | ';' { Semi }
+  | '"' {
+    Buffer.clear lexer.strbuf;
+    String (finish_string lexer lexbuf)
+  }
   | "\n" { incr_line lexer; read lexer lexbuf }
   | space { read lexer lexbuf }
   | eof { Eof }
   | _ { Fmt.failwith "Invalid token: `%s`" (Lexing.lexeme lexbuf) }
 
+and finish_string lexer = parse
+  | '"'  { Buffer.contents lexer.strbuf }
+  | [^ '"' '\\']+ {
+    let len = lexbuf.lex_curr_pos - lexbuf.lex_start_pos in
+    Buffer.add_subbytes lexer.strbuf lexbuf.lex_buffer lexbuf.lex_start_pos len;
+    finish_string lexer lexbuf
+  }
+    | eof { failwith "Unexpected end of input when reading a string" }
+
 {
   let for_lexbuf lexbuf =
     let lexer = {
       lexbuf;
+      strbuf = Buffer.create 64;
       token = Eof;
       line_count = 1;
       line_start = 0;

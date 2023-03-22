@@ -175,8 +175,8 @@ end = struct
         bindings
     in
     match r0 with
-    | Some r0 -> Syntax_builder.record (Some (conv r0)) bindings'
-    | None -> Syntax_builder.record None bindings'
+    | Some r0 -> Syntax_builder.record bindings' (Some (conv r0))
+    | None -> Syntax_builder.record bindings' None
 
   and field ?loc:_ ?attrs:_ exp lid = Syntax_builder.field (conv exp) lid
 
@@ -443,8 +443,8 @@ end = struct
         fields
     in
     match closed_flag with
-    | Closed -> Syntax_builder.record None fields_syn
-    | Open -> Syntax_builder.record (Some (Syntax_builder.id "_")) fields_syn
+    | Closed -> Syntax_builder.record fields_syn None
+    | Open -> Syntax_builder.record fields_syn (Some (Syntax_builder.id "_"))
 
   (* IMPORTANT: Keep in sync with Exp.construct *)
   and construct ?loc:_ ~attrs id args_opt =

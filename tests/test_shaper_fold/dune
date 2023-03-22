@@ -1,0 +1,30 @@
+(executable
+ (name run)
+ (libraries
+  fmt
+  shaper
+  shaper_parser
+  shaper_fold
+  fold_syntax
+  compiler-libs.common
+  shaper_calc))
+
+(rule
+ (with-stdout-to
+  actual-ml.txt
+  (run ./run.exe)))
+
+(rule
+ (with-stderr-to
+  actual-fl.txt
+  (run ./run.exe)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff expected-ml.txt actual-ml.txt)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff expected-fl.txt actual-fl.txt)))

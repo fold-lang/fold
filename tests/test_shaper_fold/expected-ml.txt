@@ -1,0 +1,7 @@
+exp: ml: let a = 1 in a
+exp: ml: let a = 1
+         and b = 2 in b
+exp: ml: let a = 1 in let b = 2 in a + b
+item: ml: let x = 1
+item: ml: let a = 1
+          let b = 2

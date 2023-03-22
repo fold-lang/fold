@@ -1,0 +1,12 @@
+(executable
+ (name run))
+
+(rule
+ (with-stdout-to
+  actual.txt
+  (run ./run.exe)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff expected.txt actual.txt)))
