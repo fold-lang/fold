@@ -1,0 +1,51 @@
+val a = (42 + 10 - 2) / 2;
+val b = calc! (1000 + 1);
+val c = xml! <p> "hello" </p> + 1;
+print_newline ();
+print_endline (string_of_int (a + b));
+
+
+// Unit pattern, implicit let unit
+val () = ();
+val () = {
+  let a = 1;
+  a
+};
+val () = {
+  let a = 1
+};
+val () = {
+  let a = 1;
+  let b = 2
+};
+
+// Lists
+val xs = [];
+val xs = [1];
+val xs = [1, 2];
+val xs = [1, 2, 3];
+val xs = [0, ..xs];
+
+// Lambda
+val f = fn a -> a + 1;
+val sum = fn a b -> a + b;
+
+// This matches on an singleton array
+// val f = fn {a} -> a + 1;
+
+// This matches on a record
+//val f = fn {~a} -> a + 1;
+
+// This wraps a single case.
+val f = fn { a -> a + 1 };
+
+// Lambda with cases
+val x = fn { a -> 1 | b -> 2 };
+
+// Module bindings
+module M1 = X;
+module M2 = {};
+module M3 = {
+  val a = 1;
+  val b = 2
+}

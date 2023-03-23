@@ -97,6 +97,20 @@ module V03 = struct
     | Form (kwd, items) ->
       Fmt.pf f "(@[<hv1>Form (%S,@ %a)@])" kwd (Fmt.Dump.list dump) items
 
+  let rec pp_sexp f t =
+    match t with
+    | Ident ident -> Fmt.pf f "%a" pp_ident ident
+    | Sym x -> Fmt.pf f "%s" x
+    | Const const -> Fmt.pf f "%a" pp_const const
+    | Seq (None, items) ->
+      Fmt.pf f "(@[<hv1>%a@])" (Fmt.list ~sep:Fmt.sp pp_sexp) items
+    | Seq (Some sep, items) ->
+      Fmt.pf f "(@[<hv1>%s@ %a@])" sep (Fmt.list ~sep:Fmt.sp pp_sexp) items
+    | Scope (left, Seq (None, []), right) -> Fmt.pf f "%s%s" left right
+    | Scope (left, x, right) -> Fmt.pf f "%s@[<hv1>%a@]%s" left pp_sexp x right
+    | Form (kwd, items) ->
+      Fmt.pf f "!(@[<hv1>%s@ %a@])" kwd (Fmt.list ~sep:Fmt.sp pp_sexp) items
+
   let rec pp f t =
     match t with
     | Ident ident -> pp_ident f ident

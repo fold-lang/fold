@@ -1,0 +1,7 @@
+
+[basic]
+"hello"
+<p>"hello"</p>
+<p><b>"hello"</b></p>
+<p><b>"hello"</b>"world"</p>
+<p />

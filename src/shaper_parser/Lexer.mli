@@ -8,6 +8,8 @@ type token =
   | Rbrace
   | Lparen
   | Rparen
+  | Lbracket
+  | Rbracket
   | Comma
   | Semi
   | Eof

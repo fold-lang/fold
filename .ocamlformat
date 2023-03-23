@@ -12,6 +12,7 @@ break-infix = fit-or-vertical
 
 break-collection-expressions = fit-or-vertical
 break-separators = before
+sequence-style = terminator
 space-around-lists = true
 dock-collection-brackets = false
 wrap-fun-args = true

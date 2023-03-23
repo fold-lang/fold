@@ -1,5 +1,4 @@
 open Prelude
-module Syntax = Fold_syntax.Syntax
 
 module P = struct
   include PPrint
@@ -221,20 +220,19 @@ and fmt_apply ~enclose ~inline f args =
       (P.group (doc_1 ^^ P.hardline ^^ P.string op ^^ P.space ^^ doc_2))
     (* Infix blockish: [a <*> {...}] *)
   | Syntax.Id (Longident.Lident op), [ arg_1; arg_2 ]
-    when Fold_syntax.Operators.is_infix op && check_is_blockish arg_2 ->
+    when Operators.is_infix op && check_is_blockish arg_2 ->
     let doc_1 = fmt ~enclose:false arg_1 in
     let doc_2 = fmt ~enclose:false arg_2 in
     P.parens_on enclose
       (P.group (doc_1 ^^ P.space ^^ P.string op ^^ P.space ^^ doc_2))
   (* Infix op *)
-  | Syntax.Id (Longident.Lident op), [ arg_1; arg_2 ]
-    when Fold_syntax.Operators.is_infix op ->
+  | Syntax.Id (Longident.Lident op), [ arg_1; arg_2 ] when Operators.is_infix op
+    ->
     let doc_1 = fmt ~enclose:false arg_1 in
     let doc_2 = fmt ~enclose:false arg_2 in
     P.parens_on enclose (P.group (doc_1 ^/^ P.string op ^^ P.space ^^ doc_2))
   (* Prefix *)
-  | Syntax.Id (Longident.Lident op), [ arg ]
-    when Fold_syntax.Operators.is_prefix op ->
+  | Syntax.Id (Longident.Lident op), [ arg ] when Operators.is_prefix op ->
     P.string op ^^ fmt ~enclose:false arg
   (* Single block-ish arg. *)
   | _, [ arg ] when check_is_blockish arg ->
@@ -256,9 +254,7 @@ and fmt_form ~enclose items =
         ^^ P.concat_map
              (function
                | x ->
-                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
-                   else P.break 1
-                 )
+                 (if Syntax_builder.is_binding x then P.space else P.break 1)
                  ^^ fmt x
                )
              bindings
@@ -270,9 +266,7 @@ and fmt_form ~enclose items =
         ^^ P.concat_map
              (function
                | x ->
-                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
-                   else P.break 1
-                 )
+                 (if Syntax_builder.is_binding x then P.space else P.break 1)
                  ^^ fmt x
                )
              bindings
@@ -282,7 +276,7 @@ and fmt_form ~enclose items =
         Id (Lident (("val" | "module") as kwd))
         :: Id (Lident "rec")
         :: (form :: _ as bindings))
-      when Fold_syntax.Syntax_builder.is_binding form ->
+      when Syntax_builder.is_binding form ->
       (* :: (Syntax.Form (Id (Lident "=") :: _) :: _ as bindings)) -> *)
       (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
       P.group
@@ -290,7 +284,7 @@ and fmt_form ~enclose items =
         ^^ P.concat_map
              (function
                | x ->
-                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
+                 ( if Syntax_builder.is_binding x then P.space
                    else P.twice P.hardline
                  )
                  ^^ fmt x
@@ -300,14 +294,14 @@ and fmt_form ~enclose items =
     (* val|module *)
     | Syntax.(
         Id (Lident (("val" | "module") as kwd)) :: (form :: _ as bindings))
-      when Fold_syntax.Syntax_builder.is_binding form ->
+      when Syntax_builder.is_binding form ->
       (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
       P.group
         (!^kwd
         ^^ P.concat_map
              (function
                | x ->
-                 ( if Fold_syntax.Syntax_builder.is_binding x then P.space
+                 ( if Syntax_builder.is_binding x then P.space
                    else P.twice P.hardline
                  )
                  ^^ fmt x
@@ -392,7 +386,7 @@ and fmt_labeled l optional value =
         ]
     | _ -> syn
   in
-  let enclose = Fold_syntax.Syntax_builder.is_binding value in
+  let enclose = Syntax_builder.is_binding value in
   match value with
   | Id (Lident id) when String.equal id l ->
     if optional then P.string "~" ^^ P.string l ^^ P.string "?"

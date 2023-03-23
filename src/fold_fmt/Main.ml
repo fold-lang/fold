@@ -1,23 +1,21 @@
-type format = Fl | Ml | Bin
+type format = Fl | Ml | Bin | Sexp
 
 let run in_fmt out_fmt out_chan =
   match (in_fmt, out_fmt) with
   | Fl, Bin ->
-    let fl = Shaper_fold.parse out_chan in
-    let ml = Fold_syntax.Conv_fl_to_ml.structure fl in
+    let fl = Fold_syntax.Parser.parse out_chan in
+    let ml = Fold_syntax.To_ocaml.structure fl in
     Marshal.to_channel stdout ml []
   | Fl, Ml ->
-    let fl = Shaper_fold.parse out_chan in
-    let ml = Fold_syntax.Conv_fl_to_ml.structure fl in
+    let fl = Fold_syntax.Parser.parse out_chan in
+    let ml = Fold_syntax.To_ocaml.structure fl in
     let out = Format.formatter_of_out_channel stdout in
-    Format.fprintf out "%a@." Pprintast.structure ml
+    Format.fprintf out "%a@." Fold_syntax.To_ocaml.Pp.structure ml
+  | Fl, Sexp ->
+    let fl = Fold_syntax.Parser.parse out_chan in
+    let out = Format.formatter_of_out_channel stdout in
+    Format.fprintf out "%a@." Fold_syntax.pp_sexp fl
   | _ -> invalid_arg "invalid conv"
-
-let parse_structure input =
-  let lexbuf = Lexing.from_channel input in
-  let next_token = Lexer.token in
-  let structure = Parser.implementation next_token lexbuf in
-  structure
 
 let main in_fmt out_fmt in_file =
   let out_chan = open_in in_file in
@@ -31,14 +29,18 @@ open Cmdliner
 
 let in_fmt_arg =
   let doc = "Read the input as one of the following formats: ml, fl or bin." in
-  let opts = Arg.enum [ ("ml", Ml); ("fl", Fl); ("bin", Bin) ] in
+  let opts =
+    Arg.enum [ ("ml", Ml); ("fl", Fl); ("bin", Bin); ("sexp", Sexp) ]
+  in
   Arg.(info [ "i"; "input" ] ~doc |> opt (some opts) None |> required)
 
 let out_fmt_arg =
   let doc =
     "Write the output in one of the following formats: ml, fl or bin."
   in
-  let opts = Arg.enum [ ("ml", Ml); ("fl", Fl); ("bin", Bin) ] in
+  let opts =
+    Arg.enum [ ("ml", Ml); ("fl", Fl); ("bin", Bin); ("sexp", Sexp) ]
+  in
   Arg.(info [ "o"; "output" ] ~doc |> opt (some opts) None |> required)
 
 let in_file_arg =

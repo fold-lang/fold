@@ -1,3 +1,11 @@
 (library
  (name fold_syntax)
- (libraries shaper fmt compiler-libs.common ocaml-migrate-parsetree))
+ (libraries
+  shaper
+  shaper_parser
+  shaper_calc
+  shaper_xml
+  fmt
+  pprint
+  compiler-libs.common
+  ocaml-migrate-parsetree))

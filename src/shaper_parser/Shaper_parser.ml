@@ -31,12 +31,16 @@ let rules =
       | Some x -> S.parens x
       | None -> S.parens (S.seq [])
       )
+  ; Parser.scope Lexer.Lbracket Lexer.Rbracket (function
+      | Some x -> S.brackets x
+      | None -> S.brackets (S.seq [])
+      )
   ; Parser.seq ~sep:(Lexer.Semi, 1) (S.seq ~sep:";")
   ; Parser.seq ~sep:(Lexer.Comma, 5) (S.seq ~sep:",")
   ]
 
 let grammar =
-  Grammar.make ~default_prefix:const ~default_infix:(Parser.juxt S.seq)
+  Grammar.make ~default_prefix:const ~default_infix:(Parser.infix_juxt S.seq)
     ~name:"shaper" rules
 
 let parse_string input =

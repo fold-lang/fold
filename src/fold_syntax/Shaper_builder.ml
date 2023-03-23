@@ -56,6 +56,8 @@ end
 module V03 = struct
   module Syn = Shaper.V03
 
+  let apply f args = Syn.seq (f :: args)
+
   (* (), (a, b, c) *)
   let tuple items = Syn.parens (Syn.seq_comma items)
 
@@ -80,11 +82,11 @@ module V03 = struct
   (* ..a *)
   let spread x = Syn.Form ("..", [ x ])
 
-  (* a | b *)
-  let alt a b = Syn.Form ("|", [ a; b ])
+  (* a | b | ... *)
+  let alt items = Syn.Form ("|", items)
 
   (* a.b *)
-  let field a b = Syn.Form (".", [ a; b ])
+  let dot a b = Syn.Form (".", [ a; b ])
 
   (* a = b *)
   let binding a b = Syn.Form ("=", [ a; b ])
@@ -92,12 +94,28 @@ module V03 = struct
   (* a -> b *)
   let arrow a b = Syn.Form ("->", [ a; b ])
 
-  (* (-> (fn arg_1 arg_2) body) *)
-  let fn args body = arrow (Syn.Form ("fn", args)) body
+  (* fn ... -> ... *)
+  (* fn { ... } *)
+  let fn form = Syn.form "fn" [ form ]
 
   (* a : b *)
   let constraint_ a b = Syn.Form (":", [ a; b ])
 
   (* f a b *)
   let apply f args = Syn.seq (f :: args)
+
+  (* open M *)
+  (* open { ... } *)
+  let open_ mexp = Syn.form "open" [ mexp ]
+
+  (* let a = 1; ... *)
+  (* let a = 1, b = 2; ... *)
+  let let_ vbl = Syn.form "let" [ vbl ]
+
+  (* val a = 1 *)
+  (* val a = 1, b = 2 *)
+  let val_ vbl = Syn.form "val" [ vbl ]
+
+  (* module M = ... *)
+  let module_ mb = Syn.form "module" [ mb ]
 end

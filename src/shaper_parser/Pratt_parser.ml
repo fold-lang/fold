@@ -30,7 +30,7 @@ type reason =
   | Invalid_prefix of token
   | Unbalanced of token
   | Zero
-  | More
+  | Halted of token
 
 type error = { reason : reason; ctx : string }
 
@@ -42,7 +42,6 @@ let unexpected_end ~ctx ?expected () =
 
 let invalid_prefix ~ctx t = Error { reason = Invalid_prefix t; ctx }
 let invalid_infix ~ctx t = Error { reason = Invalid_infix t; ctx }
-let unconsumed_input ~ctx () = Error { reason = More; ctx }
 let unbalanced ~ctx t = Error { reason = Unbalanced t; ctx }
 
 let error_to_string err =
@@ -66,8 +65,8 @@ let error_to_string err =
   | Unbalanced token ->
     Fmt.str "%s: invalid syntax: unbalanced '%a'" err.ctx pp_token token
   | Zero -> Fmt.str "%s: invalid syntax: empty parser result" err.ctx
-  | More ->
-    Fmt.str "%s: invalid syntax: parser did not consume all input" err.ctx
+  | Halted tok ->
+    Fmt.str "%s: invalid syntax: parser halted at %a" err.ctx pp_token tok
 
 (* Parser type *)
 
@@ -222,17 +221,23 @@ let parse ?precedence:(rbp = 0) g l =
 let run g l =
   match parse g l with
   | Ok x ->
-    if Lexer.is_eof (Lexer.pick l) then x
-    else failwith (error_to_string { reason = More; ctx = g.name })
+    let tok = Lexer.pick l in
+    if Lexer.is_eof tok then x
+    else failwith (error_to_string { reason = Halted tok; ctx = g.name })
   | Error err -> failwith (error_to_string err)
 
-let juxt f left g l =
+let infix_juxt f left g l =
   let* xs =
     until
       (fun tok -> not (Grammar.has_infix g tok || Lexer.is_eof tok))
       (parse_prefix g) l
   in
   Ok (f (left :: xs))
+
+let prefix_juxt g l =
+  until
+    (fun tok -> not (Grammar.has_infix g tok || Lexer.is_eof tok))
+    (parse_prefix g) l
 
 let delimiter tok =
   let rule _left g _ = invalid_infix ~ctx:g.name tok in
@@ -312,6 +317,19 @@ let scope tok1 tok2 f =
     rule g' l
   in
   Prefix (tok1, rule')
+
+let parse_infix_seq ~sep:(sep, precedence) left g : 'a parser =
+ fun l ->
+  let* xs =
+    until
+      (fun tok -> sep = tok)
+      (fun l ->
+        let* () = consume sep g l in
+        parse ~precedence g l
+      )
+      l
+  in
+  Ok (left :: xs)
 
 let seq ~sep:(sep, precedence) f =
   let rule left g : 'a parser =

@@ -1,0 +1,30 @@
+;; Run cases
+
+(executable
+ (name run)
+ (modules Run)
+ (libraries fmt shaper fold_syntax compiler-libs.common shaper_calc))
+
+(rule
+ (with-stdout-to
+  actual-ml.txt
+  (run ./run.exe)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff expected-ml.txt actual-ml.txt)))
+
+;; Basic.fl
+
+(rule
+ (deps Basic.fl)
+ (action
+  (with-stdout-to
+   Basic.fl-actual
+   (run fold-fmt -i fl -o ml %{deps}))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Basic.fl-expected Basic.fl-actual)))

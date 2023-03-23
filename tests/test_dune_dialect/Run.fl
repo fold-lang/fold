@@ -1,2 +1,5 @@
-val x = (42 + 10000 - 2) / 2;
-print_endline (string_of_int x)
+val x = (42 + 10 - 2) / 2;
+val y = calc! (1000 + 1);
+val z = "xml! <p> hello </p>";
+print_newline ();
+print_endline (string_of_int (x + y))

@@ -9,6 +9,8 @@
       | Rbrace
       | Lparen
       | Rparen
+      | Lbracket
+      | Rbracket
       | Comma
       | Semi
       | Eof
@@ -24,6 +26,8 @@
     | Rbrace -> Fmt.pf ppf "}"
     | Lparen -> Fmt.pf ppf "("
     | Rparen -> Fmt.pf ppf ")"
+    | Lbracket -> Fmt.pf ppf "["
+    | Rbracket -> Fmt.pf ppf "]"
     | Comma -> Fmt.pf ppf ","
     | Semi -> Fmt.pf ppf ";"
     | Eof -> Fmt.pf ppf "EOF"
@@ -71,12 +75,15 @@ rule read lexer = parse
   | '}' { Rbrace }
   | '(' { Lparen }
   | ')' { Rparen }
+  | '[' { Lbracket }
+  | ']' { Rbracket }
   | ',' { Comma }
   | ';' { Semi }
   | '"' {
     Buffer.clear lexer.strbuf;
     String (finish_string lexer lexbuf)
   }
+  | "//"[^'\n']* { read lexer lexbuf }
   | "\n" { incr_line lexer; read lexer lexbuf }
   | space { read lexer lexbuf }
   | eof { Eof }

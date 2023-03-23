@@ -1,12 +1,5 @@
 (executable
  (name Main)
+ (modules Main)
  (public_name fold-fmt)
- (libraries
-  fold_syntax
-  shaper_fold
-  shaper_parser
-  compiler-libs.common
-  ocaml-migrate-parsetree
-  fmt
-  cmdliner
-  pprint))
+ (libraries fold_syntax fmt cmdliner))

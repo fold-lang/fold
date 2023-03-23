@@ -1,0 +1,22 @@
+let a = (42 + (10 - 2)) / 2
+let b = 1001
+let c = (elem "p" [(text "hello") ]) + 1
+;;print_newline ()
+;;print_endline (string_of_int (a + b))
+let () = ()
+let () = let a = 1 in a
+let () = let a = 1 in ()
+let () = let a = 1 in let b = 2 in ()
+let xs = []
+let xs = [1]
+let xs = [1; 2]
+let xs = [1; 2; 3]
+let xs = 0 :: xs
+let f a = a + 1
+let sum b a = a + b
+let f a = a + 1
+let x = function | a -> 1 | b -> 2
+module M1 = X
+module M2 = struct  end
+module M3 = struct let a = 1
+                   let b = 2 end
