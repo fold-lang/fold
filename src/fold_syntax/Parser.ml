@@ -29,20 +29,75 @@ let form left _g l =
   (* TODO: classify left in error *)
   | _ -> failwith "invalid macro call form, must be kwd!"
 
+let if_then_else =
+  let precedence = Some 2 in
+  let if_tok = L.Lower "if" in
+  let then_tok = L.Lower "then" in
+  let else_tok = L.Lower "else" in
+  let rule g l =
+    let* () = P.consume if_tok g l in
+    let* cond = P.parse ?precedence g l in
+    let* () = P.consume then_tok g l in
+    let* then_expr = P.parse ?precedence g l in
+    let* () = P.consume else_tok g l in
+    let* else_expr = P.parse ?precedence g l in
+    Ok (Builder.if_then_else cond then_expr else_expr)
+  in
+  P.Prefix (if_tok, rule)
+
+let antiquote =
+  let tok = L.Sym "$" in
+  let rule g l =
+    L.drop tok l;
+    let* x = P.parse_prefix g l in
+    Ok (Builder.antiquote x)
+  in
+  P.Prefix (tok, rule)
+
+let alt_precendence = 30
+
+(* [TODO] generalize *)
+let prefix_alt =
+  let alt_tok = L.Sym "|" in
+  let rule g l =
+    let* () = P.consume alt_tok g l in
+    let* left = P.parse ~precedence:alt_precendence g l in
+    let* items = P.parse_infix_seq ~sep:(alt_tok, alt_precendence) left g l in
+    Ok (Builder.alt items)
+  in
+  P.Prefix (alt_tok, rule)
+
 let rules =
   [ P.prefix (L.Sym "..") Builder.spread
+  ; P.scope (L.Sym "`") (L.Sym "`") (function
+      | None -> failwith "empty code quote"
+      | Some code -> Builder.quote code
+      )
+  ; P.scope (L.Sym "<<") (L.Sym ">>") (function
+      | None -> failwith "empty code quote"
+      | Some code ->
+        Fmt.epr ">>> %a@." S.dump code;
+        Builder.quote code
+      )
+    (* ; P.prefix (L.Sym "$") Builder.antiquote *)
+  ; antiquote
+  ; if_then_else
+  ; P.prefix ~precedence:2 (L.Lower "match") Builder.match_
   ; P.prefix ~precedence:2 (L.Lower "let") Builder.let_
   ; P.prefix ~precedence:2 (L.Lower "fn") Builder.fn
   ; P.prefix ~precedence:2 (L.Lower "module") Builder.module_
   ; P.prefix ~precedence:2 (L.Lower "open") Builder.open_
   ; P.prefix ~precedence:2 (L.Lower "val") Builder.val_
+  ; P.invalid_infix_rule (L.Lower "then")
+  ; P.invalid_infix_rule (L.Lower "else")
   ; P.invalid_infix_rule (L.Lower "let")
   ; P.invalid_infix_rule (L.Lower "fn")
   ; P.invalid_infix_rule (L.Lower "module")
   ; P.invalid_infix_rule (L.Lower "open")
   ; P.invalid_infix_rule (L.Lower "val")
   ; P.infix 10 (L.Sym "=") Builder.binding
-  ; P.seq ~sep:(L.Sym "|", 30) Builder.alt
+  ; P.seq ~sep:(L.Sym "|", alt_precendence) Builder.alt
+  ; prefix_alt
   ; P.infix 40 (L.Sym "->") Builder.arrow
   ; P.infix 80 (L.Sym ".") Builder.dot
   ; P.Infix (L.Sym "!", (form, 80))

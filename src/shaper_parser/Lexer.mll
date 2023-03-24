@@ -67,6 +67,7 @@ let nonzero = ['1'-'9']
 let int = (digit | nonzero digit+)
 
 rule read lexer = parse
+  | "//"[^'\n']* { read lexer lexbuf }
   | ident_lower { Lower (Lexing.lexeme lexbuf) }
   | ident_upper { Upper (Lexing.lexeme lexbuf) }
   | sym { Sym (Lexing.lexeme lexbuf) }
@@ -79,15 +80,15 @@ rule read lexer = parse
   | ']' { Rbracket }
   | ',' { Comma }
   | ';' { Semi }
+  | '`' { Sym "`" }
   | '"' {
     Buffer.clear lexer.strbuf;
     String (finish_string lexer lexbuf)
   }
-  | "//"[^'\n']* { read lexer lexbuf }
   | "\n" { incr_line lexer; read lexer lexbuf }
   | space { read lexer lexbuf }
   | eof { Eof }
-  | _ { Fmt.failwith "Invalid token: `%s`" (Lexing.lexeme lexbuf) }
+  | _ { Fmt.failwith "Invalid token: %s" (Lexing.lexeme lexbuf) }
 
 and finish_string lexer = parse
   | '"'  { Buffer.contents lexer.strbuf }

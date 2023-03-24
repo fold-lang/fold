@@ -16,10 +16,10 @@ let exp input =
 
 let test_item () =
   begin
-    item {|val x = 1|};
+    item {|let x = 1|};
     item {|
-         val a = 1;
-         val b = 2
+         let a = 1;
+         let b = 2
        |}
   end
 

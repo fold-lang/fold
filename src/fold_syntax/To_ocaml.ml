@@ -1,5 +1,6 @@
 module Fl = Shaper.V03
 
+type fl = Fl.syntax
 type loc = Location.t
 type docs = Docstrings.docs
 type text = Docstrings.text
@@ -14,8 +15,15 @@ module Ml = struct
   let cons_lid = Longident.Lident "::"
 end
 
+let conv_const (const : Fl.const) =
+  match const with
+  | Int x -> Ml.Const.int x
+  | Float x -> Ml.Const.float (string_of_float x)
+  | String x -> Ml.Const.string x
+  | Char x -> Ml.Const.char x
+
 module rec Exp : sig
-  val conv : Fl.syntax -> Parsetree.expression
+  val conv : fl -> Parsetree.expression
 end = struct
   let todo what =
     Ml.Exp.ident (Location.mknoloc (Longident.Lident ("__exp_" ^ what)))
@@ -28,7 +36,7 @@ end = struct
       (Location.mknoloc Ml.cons_lid)
       (Some (Ml.Exp.tuple [ x; xs ]))
 
-  let rec conv (fl : Fl.syntax) : Parsetree.expression =
+  let rec conv (fl : fl) : Parsetree.expression =
     match fl with
     (* `let $vbl_fl $(; rest)*` *)
     (* Sequence and let bindings *)
@@ -41,10 +49,7 @@ end = struct
     (* Ident *)
     | Ident (Lower x) -> Ml.Exp.ident (Location.mknoloc (Longident.Lident x))
     | Ident (Upper x) -> Ml.Exp.ident (Location.mknoloc (Longident.Lident x))
-    | Const (Int x) -> Ml.Exp.constant (Ml.Const.int x)
-    | Const (Float x) -> Ml.Exp.constant (Ml.Const.float (string_of_float x))
-    | Const (String x) -> Ml.Exp.constant (Ml.Const.string x)
-    | Const (Char x) -> Ml.Exp.constant (Ml.Const.char x)
+    | Const const -> Ml.Exp.constant (conv_const const)
     | Sym x -> Ml.Exp.ident (Location.mknoloc (Longident.Lident x))
     (* fn _ _ _ -> _ *)
     | Form ("fn", [ Form ("->", [ Seq (None, args); body ]) ]) -> fun_ args body
@@ -55,11 +60,26 @@ end = struct
       fun_ [ arg ] body
     (* fn { _ -> _ | _ -> _ } *)
     | Form ("fn", [ Scope ("{", Form ("|", cases), "}") ]) -> function_ cases
+    (* if _ then _ else _ *)
+    | Form ("if", [ cond_fl; then_fl; else_fl ]) ->
+      ifthenelse cond_fl then_fl else_fl
+    (* match exp cases *)
+    | Form
+        ( "match"
+        , [ Seq (None, [ exp_fl; Scope ("{", Form ("|", cases_fl), "}") ]) ]
+        ) -> match_ exp_fl cases_fl
+    (* Err: other forms *)
     | Form (kwd, _xs) -> todo ("form_" ^ kwd)
+    (* Construct *)
+    | Seq (None, Ident (Upper id) :: args) -> construct id args
+    (* Apply *)
     | Seq (None, f :: args) -> apply f args
     | Seq (None, items) ->
       Fmt.epr "ctx: %a@." (Fmt.Dump.list Fl.dump) items;
       failwith "invalid seq/aply"
+    (* a; b; b *)
+    | Seq (Some ";", items) -> sequence items
+    (* Err: a, b *)
     | Seq (Some sep, _) -> todo ("seq_" ^ sep)
     (* Unit *)
     | Scope ("(", Seq (None, []), ")") -> unit
@@ -70,16 +90,20 @@ end = struct
     | Scope ("[", Seq (None, []), "]") -> nil
     | Scope ("[", Seq (Some ",", items), "]") -> construct_list items
     | Scope ("[", item, "]") -> construct_list [ item ]
+    (* { } *)
+    | Scope ("{", Seq (None, []), "}") -> unit
     (* { x }
        [TODO] handle arrays, empty {}, singleton, etc. *)
     | Scope ("{", x, "}") -> conv x
+    (* `a` *)
+    | Scope ("`", x, "`") -> quote x
     | Scope _ -> todo "scope"
 
-  and fun_ (args_fl : Fl.syntax list) (body_fl : Fl.syntax) =
+  and fun_ (args_fl : fl list) (body_fl : fl) =
     let body_ml = conv body_fl in
     List.fold_left
       (fun acc arg_fl ->
-        match (arg_fl : Fl.syntax) with
+        match (arg_fl : fl) with
         | Ident (Lower id) ->
           let pat = Pat.conv arg_fl in
           let label = Asttypes.Nolabel in
@@ -92,7 +116,7 @@ end = struct
       )
       body_ml args_fl
 
-  and case (fl : Fl.syntax) =
+  and case (fl : fl) =
     match fl with
     | Form ("->", [ pat_fl; exp_fl ]) ->
       let pat_ml = Pat.conv pat_fl in
@@ -100,7 +124,7 @@ end = struct
       Ml.Exp.case ?guard:None pat_ml exp_ml
     | _ -> assert false
 
-  and function_ (cases_fl : Fl.syntax list) =
+  and function_ (cases_fl : fl list) =
     let cases_ml = List.map case cases_fl in
     Ml.Exp.function_ cases_ml
 
@@ -111,6 +135,11 @@ end = struct
     in
     Ml.Exp.apply f_ml args_ml
 
+  and match_ ?loc:_ ?attrs:_ exp_fl cases_fl =
+    let exp_ml = conv exp_fl in
+    let cases_ml = List.map case cases_fl in
+    Ml.Exp.match_ exp_ml cases_ml
+
   and let_ vbl_fl body_fl =
     let rec unflatten items =
       match items with
@@ -120,14 +149,25 @@ end = struct
         let vbl_ml = List.map Vb.conv vbl_fl in
         let body_ml = unflatten items' in
         Ml.Exp.let_ Asttypes.Nonrecursive vbl_ml body_ml
-      | Fl.Form ("open", _mod_exp) :: _items' -> assert false
-      | item :: items' -> Ml.Exp.sequence (conv item) (unflatten items')
+      | Fl.Form ("open", [ mexp ]) :: items ->
+        let odcl = Odcl.conv mexp in
+        Ml.Exp.open_ odcl (unflatten items)
+      | item :: items -> Ml.Exp.sequence (conv item) (unflatten items)
     in
     let vbl_ml = List.map Vb.conv vbl_fl in
     let body_ml = unflatten body_fl in
     Ml.Exp.let_ Asttypes.Nonrecursive vbl_ml body_ml
 
-  and construct ?loc:_ ?attrs:_ id arg = ()
+  and construct ?loc:_ ?attrs:_ id args_fl =
+    match args_fl with
+    | [] -> Ml.Exp.construct (Location.mknoloc (Longident.Lident id)) None
+    | [ arg_fl ] ->
+      let arg_ml = conv arg_fl in
+      Ml.Exp.construct (Location.mknoloc (Longident.Lident id)) (Some arg_ml)
+    | _ ->
+      (* [TODO] Add explicity arity ext like Reason. *)
+      let arg_ml = Ml.Exp.tuple (List.map conv args_fl) in
+      Ml.Exp.construct (Location.mknoloc (Longident.Lident id)) (Some arg_ml)
 
   and construct_list ?loc:_ ?attrs:_ items =
     match items with
@@ -137,30 +177,59 @@ end = struct
       let x_ml = conv x_fl in
       let xs_ml = construct_list xs_fl in
       cons x_ml xs_ml
+
+  and ifthenelse ?loc:_ ?attrs:_ cond_fl then_fl else_fl =
+    let cond_ml = conv cond_fl in
+    let then_ml = conv then_fl in
+    let else_ml = conv else_fl in
+    Ml.Exp.ifthenelse cond_ml then_ml (Some else_ml)
+
+  and sequence ?loc:_ ?attrs:_ items_fl =
+    match items_fl with
+    | [] -> unit
+    | [ single ] -> conv single
+    | first_fl :: items_fl ->
+      let first_ml = conv first_fl in
+      Ml.Exp.sequence first_ml (sequence items_fl)
+
+  and quote (fl : fl) : Parsetree.expression = conv (Shaper_builder.V03.meta fl)
+end
+
+and Odcl : sig
+  val conv : fl -> Parsetree.open_declaration
+end = struct
+  let conv (fl : fl) =
+    let popen_expr = Mod.conv fl in
+    Parsetree.
+      { popen_expr
+      ; popen_override = Asttypes.Fresh
+      ; popen_loc = Location.none
+      ; popen_attributes = []
+      }
 end
 
 and Pat : sig
-  val conv : Fl.syntax -> Parsetree.pattern
+  val conv : fl -> Parsetree.pattern
 end = struct
   let todo what = Ml.Pat.var (Location.mknoloc ("__pat_" ^ what))
 
-  type t = Fl.syntax
+  type t = fl
 
-  let conv (fl : Fl.syntax) =
+  let conv (fl : fl) =
     match fl with
     | Ident (Lower id) -> Ml.Pat.var (Location.mknoloc id)
     (* Unit *)
     | Scope ("(", Seq (None, []), ")") ->
       Ml.Pat.construct (Location.mknoloc Ml.unit_lid) None
-    | Const _ -> todo "const"
+    | Const const -> Ml.Pat.constant (conv_const const)
     | Sym _ -> todo "sym"
     | _ -> todo "other"
 end
 
 and Vb : sig
-  val conv : Fl.syntax -> Parsetree.value_binding
+  val conv : fl -> Parsetree.value_binding
 end = struct
-  let conv (fl : Fl.syntax) =
+  let conv (fl : fl) =
     match fl with
     (* `a = b` *)
     | Fl.Form ("=", [ pat_fl; exp_fl ]) ->
@@ -175,9 +244,9 @@ end
 
 (* Module bindings *)
 and Mb : sig
-  val conv : Fl.syntax -> Parsetree.module_binding
+  val conv : fl -> Parsetree.module_binding
 end = struct
-  let conv (fl : Fl.syntax) =
+  let conv (fl : fl) =
     match fl with
     (* `a = b` *)
     | Form ("=", [ Ident (Upper m_name); mexp_fl ]) ->
@@ -191,9 +260,9 @@ end = struct
 end
 
 and Mod : sig
-  val conv : Fl.syntax -> Parsetree.module_expr
+  val conv : fl -> Parsetree.module_expr
 end = struct
-  let conv (fl : Fl.syntax) =
+  let conv (fl : fl) =
     match fl with
     | Ident (Upper id) -> Ml.Mod.ident (Location.mknoloc (Longident.Lident id))
     | Scope ("{", Seq (None, []), "}") -> Ml.Mod.structure []
@@ -206,22 +275,22 @@ end = struct
 end
 
 and Str : sig
-  val conv : Fl.syntax -> Ml.structure_item
+  val conv : fl -> Ml.structure_item
 end = struct
   let todo what =
     Ml.Str.type_ Asttypes.Nonrecursive
       [ Ml.Type.mk (Location.mknoloc ("__str_" ^ what)) ]
 
-  let rec conv (fl : Fl.syntax) =
+  let rec conv (fl : fl) =
     match fl with
-    | Form ("val", [ Seq (Some ",", vbl) ]) -> value vbl
-    | Form ("val", [ vb ]) -> value [ vb ]
+    | Form ("let", [ Seq (Some ",", vbl) ]) -> value vbl
+    | Form ("let", [ vb ]) -> value [ vb ]
     | Form ("module", [ mb ]) -> module_ mb
-    | Ident _ | Const _ | Sym _ | Seq (None, _ :: _) -> eval fl
+    | Form ("open", [ mexp ]) -> Ml.Str.open_ (Odcl.conv mexp)
+    | Ident _ | Const _ | Sym _ | Seq (None, _ :: _) | Scope _ -> eval fl
     | Form (kwd, _xs) -> todo ("form_" ^ kwd)
     | Seq (None, _) -> failwith "invalid seq/aply"
     | Seq (Some sep, _) -> todo ("seq_" ^ sep)
-    | Scope _ -> todo "scope"
 
   and eval fl = Ml.Str.eval (Exp.conv fl)
 
@@ -234,7 +303,7 @@ end = struct
     Ml.Str.module_ mb_ml
 end
 
-let structure (fl : Fl.syntax) : Parsetree.structure =
+let structure (fl : fl) : Parsetree.structure =
   match fl with
   | Seq (Some ";", items) -> List.map Str.conv items
   | _ -> [ Str.conv fl ]

@@ -1,0 +1,37 @@
+open Strymonas;
+
+let iota n = unfold (fn n -> `Some ($n, $n + 1) ` ) n;
+
+// Example from the paper
+let example arr1 =
+ zip_with (fn e1 e2 -> `($e1, $e2)` )
+ // First stream to zip
+ (of_arr arr1
+   |> map (fn x -> `$x * $x` )
+   |> take `12`
+   |> filter (fn x -> `$x mod 2 = 0` )
+   |> map (fn x -> `$x * $x` ))
+ //Second stream to zip
+ (iota `1`
+   |> flat_map (fn x -> iota `$x + 1` |> take `3` )
+   |> filter (fn x -> `$x mod 2 = 0` ))
+ |> fold (fn z a -> `[$a, ..$z]` ) `[]`;
+
+// Parsing bug
+//let () =
+//  Format.printf
+//    "@[%a@]@."
+//    Ppx_stage.print `fn arr1 -> $(example `arr1` ) `;
+
+let cart = fn (arr1, arr2) ->
+  of_arr arr1
+  |> flat_map (fn x -> 
+       of_arr arr2 |> map (fn y -> `$x * $y` ))
+  |> fold (fn z a -> `$z + $a` ) `0`;
+
+let () = {
+  let c = `fn arr1 arr2 -> $(cart (`arr1`, `arr2` ))`;
+  Format.printf "@[%a@]@." Ppx_stage.print c
+}
+
+
