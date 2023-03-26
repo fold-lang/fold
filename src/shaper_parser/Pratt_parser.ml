@@ -72,31 +72,56 @@ let error_to_string err =
 
 type 'a parser = Lexer.t -> ('a, error) result
 
-(* Grammar *)
-
 type 'a grammar =
   { name : string
-  ; data : 'a scope list
-  ; default_prefix : 'a prefix
+  ; prefix : token -> ('a grammar -> 'a parser) option
+  ; infix : token -> (('a -> 'a grammar -> 'a parser) * int) option
+  ; default_prefix : 'a grammar -> 'a parser
   ; default_infix : 'a -> 'a grammar -> 'a parser
   }
 
-and 'a scope = { prefix : 'a prefix Token_map.t; infix : 'a infix Token_map.t }
-and 'a prefix = 'a grammar -> 'a parser
-and 'a infix = ('a -> 'a grammar -> 'a parser) * int
+module Grammar = struct
+  let default_prefix_err g l =
+    let tok = Lexer.pick l in
+    invalid_prefix ~ctx:g.name tok
 
-type 'a denotation = Prefix of token * 'a prefix | Infix of token * 'a infix
+  let default_infix_err _left g l =
+    let tok = Lexer.pick l in
+    invalid_infix ~ctx:g.name tok
+
+  let make ?(default_prefix = default_prefix_err)
+      ?(default_infix = default_infix_err) ~prefix ~infix name =
+    { name; prefix; infix; default_prefix; default_infix }
+
+  let extend ~prefix ~infix g =
+    let prefix tok =
+      match g.prefix tok with
+      | None -> prefix tok
+      | some -> some
+    in
+    let infix tok =
+      match g.infix tok with
+      | None -> infix tok
+      | some -> some
+    in
+    { g with prefix; infix }
+
+  let get_prefix tok g = g.prefix tok
+  let get_infix tok g = g.infix tok
+  let has_prefix tok g = Option.is_some (get_prefix tok g)
+  let has_infix tok g = Option.is_some (get_infix tok g)
+end
 
 (* Parser combinators *)
 
-let consume expected g : 'a parser =
+let consume expected : 'a parser =
  fun l ->
   match Lexer.pick l with
-  | Eof -> unexpected_end ~ctx:g.name ~expected ()
+  | Eof -> unexpected_end ~ctx:"consume" ~expected ()
   | actual when actual = expected ->
     Lexer.move l;
     Ok ()
-  | actual -> unexpected_token ~ctx:g.name ~expected actual
+  | actual -> unexpected_token ~ctx:"consume" ~expected actual
 
 let rec until pred (p : 'a parser) : 'a list parser =
  fun l ->
@@ -107,100 +132,17 @@ let rec until pred (p : 'a parser) : 'a list parser =
     Ok (x :: xs)
   else Ok []
 
-module Grammar = struct
-  type 'a t = 'a grammar
-
-  let empty_scope = { infix = Token_map.empty; prefix = Token_map.empty }
-
-  let invalid_default_infix _left g l =
-    let tok = Lexer.pick l in
-    invalid_infix ~ctx:(g.name ^ " (default infix)") tok
-
-  let def_infix token pareselet self =
-    let first, rest =
-      match self.data with
-      | [] -> (empty_scope, [])
-      | first :: rest -> (first, rest)
-    in
-    let first' =
-      { first with infix = Token_map.add token pareselet first.infix }
-    in
-    { self with data = first' :: rest }
-
-  let def_prefix token pareselet self =
-    let first, rest =
-      match self.data with
-      | [] -> (empty_scope, [])
-      | first :: rest -> (first, rest)
-    in
-    let first' =
-      { first with prefix = Token_map.add token pareselet first.prefix }
-    in
-    { self with data = first' :: rest }
-
-  let def rule self =
-    match rule with
-    | Prefix (token, parselet) -> def_prefix token parselet self
-    | Infix (token, parselet) -> def_infix token parselet self
-
-  let get_prefix token self =
-    let rec loop data =
-      match data with
-      | s :: rest -> (
-        match Token_map.find_opt token s.prefix with
-        | None -> loop rest
-        | some -> some
-      )
-      | [] -> None
-    in
-    loop self.data
-
-  let get_infix token self =
-    let rec loop data =
-      match data with
-      | s :: rest -> (
-        match Token_map.find_opt token s.infix with
-        | None -> loop rest
-        | some -> some
-      )
-      | [] -> None
-    in
-    loop self.data
-
-  let has_infix grammar token = Option.is_some (get_infix token grammar)
-  let push_scope scope self = { self with data = scope :: self.data }
-  let new_scope self = push_scope empty_scope self
-
-  let pop_scope self =
-    match self.data with
-    | [] -> self
-    | _ :: rest -> { self with data = rest }
-
-  let scope_of_list rules =
-    List.fold_left
-      (fun scope -> function
-        | Prefix (token, parselet) ->
-          { scope with prefix = Token_map.add token parselet scope.prefix }
-        | Infix (token, parselet) ->
-          { scope with infix = Token_map.add token parselet scope.infix }
-      )
-      empty_scope rules
-
-  let make ~default_prefix ?(default_infix = invalid_default_infix) ~name rules
-      =
-    let scope = scope_of_list rules in
-    { data = [ scope ]; default_prefix; default_infix; name }
-end
-
-let parse_prefix g l =
+let parse_prefix g : 'a parser =
+ fun l ->
   let tok = Lexer.pick l in
-  if Lexer.is_eof tok then unexpected_end ~ctx:g.name ()
+  if Lexer.is_eof tok then unexpected_end ~ctx:"prefix" ()
   else
     match Grammar.get_prefix tok g with
     | None -> g.default_prefix g l
     | Some rule -> rule g l
 
-let rec parse_infix rbp left g l =
+let rec parse_infix rbp left g : 'a parser =
+ fun l ->
   let tok = Lexer.pick l in
   if Lexer.is_eof tok then Ok left
   else
@@ -214,7 +156,8 @@ let rec parse_infix rbp left g l =
       let* left' = g.default_infix left g l in
       parse_infix rbp left' g l
 
-let parse ?precedence:(rbp = 0) g l =
+let parse ?precedence:(rbp = 0) g : 'a parser =
+ fun l ->
   let* left = parse_prefix g l in
   parse_infix rbp left g l
 
@@ -223,126 +166,126 @@ let run g l =
   | Ok x ->
     let tok = Lexer.pick l in
     if Lexer.is_eof tok then x
-    else failwith (error_to_string { reason = Halted tok; ctx = g.name })
+    else failwith (error_to_string { reason = Halted tok; ctx = "run" })
   | Error err -> failwith (error_to_string err)
 
-let infix_juxt f left g l =
+(* Rules *)
+
+let parse_infix_juxt f left g l =
   let* xs =
     until
-      (fun tok -> not (Grammar.has_infix g tok || Lexer.is_eof tok))
+      (fun tok -> not (Grammar.has_infix tok g || Lexer.is_eof tok))
       (parse_prefix g) l
   in
   Ok (f (left :: xs))
 
-let prefix_juxt g l =
-  until
-    (fun tok -> not (Grammar.has_infix g tok || Lexer.is_eof tok))
-    (parse_prefix g) l
-
-let delimiter tok =
-  let rule _left g _ = invalid_infix ~ctx:g.name tok in
-  Infix (tok, (rule, 0))
-
-let unbalanced_rule tok =
-  let rule _left g _ = unbalanced ~ctx:g.name tok in
-  Infix (tok, (rule, 0))
-
-let infix precedence tok f =
-  let rule x1 g l =
-    Lexer.drop tok l;
-    let* x2 = parse ~precedence g l in
-    Ok (f x1 x2)
+let parse_prefix_juxt =
+  let rule g l =
+    until
+      (fun tok -> not (Grammar.has_infix tok g || Lexer.is_eof tok))
+      (parse_prefix g) l
   in
-  Infix (tok, (rule, precedence))
+  rule
 
-let infixr precedence tok f =
-  let rule x1 g l =
-    Lexer.drop tok l;
-    let* x2 = parse ~precedence:(precedence - 1) g l in
-    Ok (f x1 x2)
+let infix_delimiter =
+  let rule _left _g l =
+    let tok = Lexer.pick l in
+    invalid_infix ~ctx:"infix_delimiter" tok
   in
-  Infix (tok, (rule, precedence))
+  (rule, 0)
 
-let prefix ?precedence tok f =
+let infix_binary precedence tok f =
+  let rule left g l =
+    Lexer.drop tok l;
+    let* right = parse ~precedence g l in
+    Ok (f left right)
+  in
+  (rule, precedence)
+
+let infix_right_binary precedence tok f =
+  let rule left g l =
+    Lexer.drop tok l;
+    let* right = parse ~precedence:(precedence - 1) g l in
+    Ok (f left right)
+  in
+  (rule, precedence)
+
+let prefix_unary ?precedence tok f =
   let rule g l =
     Lexer.drop tok l;
     let* x = parse ?precedence g l in
     Ok (f x)
   in
-  Prefix (tok, rule)
+  rule
 
-let postfix precedence tok f =
-  let rule x _g l =
+let prefix_token tok f =
+  let rule _g l =
     Lexer.drop tok l;
-    Ok (f x)
+    let* () = consume tok l in
+    Ok (f tok)
   in
-  Infix (tok, (rule, precedence))
+  rule
 
-let invalid_prefix_rule tok =
-  let rule g _l = invalid_prefix ~ctx:g.name tok in
-  Prefix (tok, rule)
+let const x =
+  let rule _g l =
+    let tok = Lexer.pick l in
+    let* () = consume tok l in
+    Ok x
+  in
+  rule
 
-let invalid_infix_rule tok =
-  let rule _left g _l = invalid_infix ~ctx:g.name tok in
-  Infix (tok, (rule, 0))
+let postfix_unary precedence tok f =
+  let rule left _g l =
+    Lexer.drop tok l;
+    Ok (f left)
+  in
+  (rule, precedence)
+
+let prefix_invalid =
+  let rule tok _g _l = invalid_prefix ~ctx:"prefix_invalid" tok in
+  rule
+
+let infix_invalid tok =
+  let rule _left _g _l = invalid_infix ~ctx:"infix_invalid" tok in
+  (rule, 0)
 
 let between tok1 tok2 f =
-  let rule g l =
+  let prefix g l =
     Lexer.drop tok1 l;
     let* x = parse g l in
     Lexer.drop tok2 l;
     Ok (f x)
   in
-  let rule' g l =
-    let g' = Grammar.def (unbalanced_rule tok2) g in
-    rule g' l
-  in
-  Prefix (tok1, rule')
+  prefix
 
-let scope tok1 tok2 f =
+let prefix_scope tok1 tok2 f =
   let rule g l =
-    Lexer.drop tok1 l;
-    if Lexer.pick l = tok2 then begin
-      Lexer.drop tok2 l;
+    (* let tok2_infix cur = *)
+    (*   if cur = tok2 then Some infix_delimiter else g.infix cur *)
+    (* in *)
+    (* let g' = { g with infix = tok2_infix } in *)
+    let* () = consume tok1 l in
+    if Lexer.pick l = tok2 then
+      let* () = consume tok2 l in
       Ok (f None)
-    end
-    else begin
+    else
       let* x = parse g l in
-      let* () = consume tok2 g l in
+      let* () = consume tok2 l in
       Ok (f (Some x))
-    end
   in
-  let rule' g l =
-    let g' = Grammar.def (unbalanced_rule tok2) g in
-    rule g' l
-  in
-  Prefix (tok1, rule')
+  rule
 
-let parse_infix_seq ~sep:(sep, precedence) left g : 'a parser =
- fun l ->
-  let* xs =
-    until
-      (fun tok -> sep = tok)
-      (fun l ->
-        let* () = consume sep g l in
-        parse ~precedence g l
-      )
-      l
-  in
-  Ok (left :: xs)
-
-let seq ~sep:(sep, precedence) f =
-  let rule left g : 'a parser =
-   fun l ->
+let infix_seq ~sep:(sep, precedence) f =
+  let rule left g l =
     let* xs =
       until
         (fun tok -> sep = tok)
         (fun l ->
-          let* () = consume sep g l in
+          let* () = consume sep l in
           parse ~precedence g l
         )
         l
     in
     Ok (f (left :: xs))
   in
-  Infix (sep, (rule, precedence))
+  (rule, precedence)

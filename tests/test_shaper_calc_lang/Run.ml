@@ -19,9 +19,17 @@ let form left _g l =
   | _ -> failwith "invalid macro call form, must be kwd!"
 
 let g =
-  base_g
-  |> G.def (P.Infix (L.Sym "!", (form, 80)))
-  |> G.def (P.invalid_prefix_rule (L.Sym "!"))
+  let prefix (tok : L.token) =
+    match tok with
+    | Sym "!" -> Some (P.prefix_invalid tok)
+    | _ -> None
+  in
+  let infix (tok : L.token) =
+    match tok with
+    | Sym "!" -> Some (form, 80)
+    | _ -> None
+  in
+  G.extend base_g ~prefix ~infix
 
 let rp input =
   try

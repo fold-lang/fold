@@ -1,6 +1,6 @@
-module G = Shaper_parser.Grammar
 module L = Shaper_parser.Lexer
 module P = Shaper_parser.Parser
+module G = Shaper_parser.Parser.Grammar
 
 let ( let* ) = P.( let* )
 
@@ -26,39 +26,37 @@ let rec pp f xml =
   | Elem { tag; attrs = _; children } ->
     Fmt.pf f "@[<hov2><%s>%a</%s>@]" tag (Fmt.list ~sep:Fmt.cut pp) children tag
 
-let parse_data ~eval _g l =
-  match L.pick l with
-  | L.Int x ->
-    L.move l;
-    Ok (eval.data (string_of_int x))
-  | L.String x ->
-    L.move l;
-    Ok (eval.data x)
-  | t -> Fmt.failwith "xml: not constant: %a" L.pp_token t
-
 let parse_tag ~eval g l =
-  L.drop (L.Sym "<") l;
+  let* () = P.consume (L.Sym "<") l in
   match L.pick l with
   | L.Lower tag ->
     L.move l;
-    let* () = P.consume (L.Sym ">") g l in
+    let* () = P.consume (L.Sym ">") l in
     let* children =
       P.until
-        (fun tok -> not (G.has_infix g tok || L.is_eof tok))
+        (fun tok -> not (G.has_infix tok g || L.is_eof tok))
         (P.parse_prefix g) l
     in
-    let* () = P.consume (L.Sym "</") g l in
-    let* () = P.consume (L.Lower tag) g l in
-    let* () = P.consume (L.Sym ">") g l in
+    let* () = P.consume (L.Sym "</") l in
+    let* () = P.consume (L.Lower tag) l in
+    let* () = P.consume (L.Sym ">") l in
     Ok (eval.elem ~tag ~attrs:[] children)
   | tok -> P.unexpected_token ~ctx:"tag" tok
 
-let make_rules ~eval =
-  [ P.Prefix (L.Sym "<", parse_tag ~eval); P.delimiter (L.Sym "</") ]
+let make_prefix ~eval (tok : L.token) =
+  match tok with
+  | Sym "<" -> Some (parse_tag ~eval)
+  | L.Int x -> Some (P.const (eval.data (string_of_int x)))
+  | L.String x -> Some (P.const (eval.data x))
+  | _ -> None
+
+let infix (tok : L.token) =
+  match tok with
+  | Sym "</" -> Some P.infix_delimiter
+  | _ -> None
 
 let make_grammar ~eval =
-  let default_prefix = parse_data ~eval in
-  let rules = make_rules ~eval in
-  G.make ~default_prefix ~name:"xml" rules
+  let prefix = make_prefix ~eval in
+  G.make ~prefix ~infix "xml"
 
 let grammar = make_grammar ~eval:concrete_eval

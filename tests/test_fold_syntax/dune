@@ -28,3 +28,17 @@
  (alias runtest)
  (action
   (diff Basic.fl-expected Basic.fl-actual)))
+
+;; Bugs.fl
+
+(rule
+ (deps Bugs.fl)
+ (action
+  (with-stdout-to
+   Bugs.fl-actual
+   (run fold-fmt -i fl -o ml %{deps}))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Bugs.fl-expected Bugs.fl-actual)))

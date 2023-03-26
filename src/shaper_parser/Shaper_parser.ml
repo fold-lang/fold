@@ -1,48 +1,52 @@
-module S = Shaper.V03
+module Syntax = Shaper.V03
 module Lexer = Lexer
 module Parser = Pratt_parser
 module Grammar = Pratt_parser.Grammar
 
-let const _g l =
-  match Lexer.pick l with
-  | Lexer.Int x ->
-    Lexer.move l;
-    Ok (S.int x)
-  | Lexer.Lower x ->
-    Lexer.move l;
-    Ok (S.lower x)
-  | Lexer.Upper x ->
-    Lexer.move l;
-    Ok (S.upper x)
-  | Lexer.Sym x ->
-    Lexer.move l;
-    Ok (S.sym x)
-  | Lexer.String x ->
-    Lexer.move l;
-    Ok (S.string x)
-  | t -> Fmt.failwith "shaper: not a constant: %a" Lexer.pp_token t
+let ( let* ) = Parser.( let* )
 
-let rules =
-  [ Parser.scope Lexer.Lbrace Lexer.Rbrace (function
-      | Some x -> S.braces x
-      | None -> S.braces (S.seq [])
-      )
-  ; Parser.scope Lexer.Lparen Lexer.Rparen (function
-      | Some x -> S.parens x
+let prefix (tok : Lexer.token) =
+  let module P = Parser in
+  let module S = Syntax in
+  match tok with
+  | Lparen ->
+    P.prefix_scope Lparen Rparen (function
       | None -> S.parens (S.seq [])
+      | Some items -> S.parens items
       )
-  ; Parser.scope Lexer.Lbracket Lexer.Rbracket (function
-      | Some x -> S.brackets x
+    |> Option.some
+  | Lbrace ->
+    P.prefix_scope Lbrace Rbrace (function
+      | None -> S.braces (S.seq [])
+      | Some items -> S.braces items
+      )
+    |> Option.some
+  | Lbracket ->
+    P.prefix_scope Lbracket Rbracket (function
       | None -> S.brackets (S.seq [])
+      | Some items -> S.brackets items
       )
-  ; Parser.seq ~sep:(Lexer.Semi, 1) (S.seq ~sep:";")
-  ; Parser.seq ~sep:(Lexer.Comma, 5) (S.seq ~sep:",")
-  ]
+    |> Option.some
+  | Int x -> P.const (S.int x) |> Option.some
+  | Lower x -> P.const (S.lower x) |> Option.some
+  | Upper x -> P.const (S.upper x) |> Option.some
+  | Sym x -> P.const (S.sym x) |> Option.some
+  | String x -> P.const (S.string x) |> Option.some
+  | _ -> None
+
+let infix (tok : Lexer.token) =
+  let module P = Parser in
+  let module S = Syntax in
+  match tok with
+  | Semi -> P.infix_seq ~sep:(Semi, 1) (S.seq ~sep:";") |> Option.some
+  | Comma -> P.infix_seq ~sep:(Semi, 5) (S.seq ~sep:",") |> Option.some
+  | _ -> None
 
 let grammar =
-  Grammar.make ~default_prefix:const ~default_infix:(Parser.infix_juxt S.seq)
-    ~name:"shaper" rules
+  Parser.Grammar.make
+    ~default_infix:(Parser.parse_infix_juxt Syntax.seq)
+    ~prefix ~infix "shaper"
 
 let parse_string input =
-  let lexer = Lexer.for_string input in
-  Parser.run grammar lexer
+  let l = Lexer.for_string input in
+  Parser.run grammar l

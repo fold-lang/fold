@@ -6,6 +6,21 @@ module Builder = Shaper_builder.V03
 
 let ( let* ) = P.( let* )
 
+let get_precedence str =
+  match str.[0] with
+  | '*' | '/' -> 40
+  | '+' | '-' -> 30
+  | '|' -> 21
+  | '#' | '&' -> 20
+  | '<' | '>' -> 20
+  | '=' -> 10
+  | _ -> 0
+
+let check_is_operator_char x =
+  match x with
+  | '*' | '/' | '+' | '-' | '|' | '#' | '&' | '<' | '>' | '=' -> true
+  | _ -> false
+
 let eval_xml_to_fold : S.syntax Shaper_xml.eval =
   { elem =
       (fun ~tag ~attrs:_ children ->
@@ -35,15 +50,15 @@ let if_then_else =
   let then_tok = L.Lower "then" in
   let else_tok = L.Lower "else" in
   let rule g l =
-    let* () = P.consume if_tok g l in
+    let* () = P.consume if_tok l in
     let* cond = P.parse ?precedence g l in
-    let* () = P.consume then_tok g l in
+    let* () = P.consume then_tok l in
     let* then_expr = P.parse ?precedence g l in
-    let* () = P.consume else_tok g l in
+    let* () = P.consume else_tok l in
     let* else_expr = P.parse ?precedence g l in
     Ok (Builder.if_then_else cond then_expr else_expr)
   in
-  P.Prefix (if_tok, rule)
+  rule
 
 let antiquote =
   let tok = L.Sym "$" in
@@ -52,86 +67,118 @@ let antiquote =
     let* x = P.parse_prefix g l in
     Ok (Builder.antiquote x)
   in
-  P.Prefix (tok, rule)
+  rule
 
 let alt_precendence = 30
 
 (* [TODO] generalize *)
-let prefix_alt =
-  let alt_tok = L.Sym "|" in
-  let rule g l =
-    let* () = P.consume alt_tok g l in
-    let* left = P.parse ~precedence:alt_precendence g l in
-    let* items = P.parse_infix_seq ~sep:(alt_tok, alt_precendence) left g l in
-    Ok (Builder.alt items)
+(* let prefix_alt = *)
+(*   let alt_tok = L.Sym "|" in *)
+(*   let rule g l = *)
+(*     let* () = P.consume alt_tok l in *)
+(*     let* left = P.parse ~precedence:alt_precendence g l in *)
+(*     P.infix_seq ~sep:(alt_tok, alt_precendence) Builder.alt left g l *)
+(*   in *)
+(*   rule *)
+
+let prefix_quote =
+  let tok = L.Sym "`" in
+  let rule (g : 'a P.grammar) l =
+    let g' =
+      { g with
+        infix =
+          (function
+          | Sym "`" -> Some P.infix_delimiter
+          | t -> g.infix t
+          )
+      }
+    in
+    let* () = P.consume tok l in
+    Fmt.epr "Consumed first `@.";
+    if L.pick l = tok then
+      let* () = P.consume tok l in
+      failwith "Empty code quote"
+    else
+      let* x = P.parse g' l in
+      let* () = P.consume tok l in
+      Ok (Builder.quote x)
   in
-  P.Prefix (alt_tok, rule)
+  rule
 
-let rules =
-  [ P.prefix (L.Sym "..") Builder.spread
-  ; P.scope (L.Sym "`") (L.Sym "`") (function
-      | None -> failwith "empty code quote"
-      | Some code -> Builder.quote code
-      )
-  ; P.scope (L.Sym "<<") (L.Sym ">>") (function
-      | None -> failwith "empty code quote"
-      | Some code ->
-        Fmt.epr ">>> %a@." S.dump code;
-        Builder.quote code
-      )
-    (* ; P.prefix (L.Sym "$") Builder.antiquote *)
-  ; antiquote
-  ; if_then_else
-  ; P.prefix ~precedence:2 (L.Lower "match") Builder.match_
-  ; P.prefix ~precedence:2 (L.Lower "let") Builder.let_
-  ; P.prefix ~precedence:2 (L.Lower "fn") Builder.fn
-  ; P.prefix ~precedence:2 (L.Lower "module") Builder.module_
-  ; P.prefix ~precedence:2 (L.Lower "open") Builder.open_
-  ; P.prefix ~precedence:2 (L.Lower "val") Builder.val_
-  ; P.invalid_infix_rule (L.Lower "then")
-  ; P.invalid_infix_rule (L.Lower "else")
-  ; P.invalid_infix_rule (L.Lower "let")
-  ; P.invalid_infix_rule (L.Lower "fn")
-  ; P.invalid_infix_rule (L.Lower "module")
-  ; P.invalid_infix_rule (L.Lower "open")
-  ; P.invalid_infix_rule (L.Lower "val")
-  ; P.infix 10 (L.Sym "=") Builder.binding
-  ; P.seq ~sep:(L.Sym "|", alt_precendence) Builder.alt
-  ; prefix_alt
-  ; P.infix 40 (L.Sym "->") Builder.arrow
-  ; P.infix 80 (L.Sym ".") Builder.dot
-  ; P.Infix (L.Sym "!", (form, 80))
-  ]
-
-let get_precedence str =
-  match str.[0] with
-  | '*' | '/' -> 40
-  | '+' | '-' -> 30
-  | '|' -> 21
-  | '#' | '&' -> 20
-  | '<' | '>' -> 20
-  | '=' -> 10
-  | _ -> 0
-
-let check_is_operator_char x =
-  match x with
-  | '*' | '/' | '+' | '-' | '|' | '#' | '&' | '<' | '>' | '=' -> true
-  | _ -> false
-
-let default_infix x1 g l =
-  let tok = L.pick l in
+let prefix (tok : L.token) =
   match tok with
-  | Sym "" -> invalid_arg "[BUG] Empty symbol string"
-  | Sym s when check_is_operator_char s.[0] ->
-    L.move l;
-    let precedence = get_precedence s in
-    let* x2 = P.parse ~precedence g l in
-    Ok (Builder.apply (S.sym s) [ x1; x2 ])
-  | _ -> P.infix_juxt S.seq x1 g l
+  | Sym ".." -> Some (P.prefix_unary tok Builder.spread)
+  | Sym "<<" ->
+    P.prefix_scope (Sym "<<") (Sym ">>") (function
+      | None -> failwith "empty code block"
+      | Some x -> Builder.quote x
+      )
+    |> Option.some
+  | Sym "`" -> Some prefix_quote
+  | Sym "$" -> Some antiquote
+  | Lower "if" -> Some if_then_else
+  | Lower "match" -> Some (P.prefix_unary ~precedence:2 tok Builder.match_)
+  | Lower "let" -> Some (P.prefix_unary ~precedence:2 tok Builder.let_)
+  | Lower "fn" -> Some (P.prefix_unary ~precedence:2 tok Builder.fn)
+  | Lower "module" -> Some (P.prefix_unary ~precedence:2 tok Builder.module_)
+  | Lower "open" -> Some (P.prefix_unary ~precedence:2 tok Builder.open_)
+  | Lower "val" -> Some (P.prefix_unary ~precedence:2 tok Builder.val_)
+  | Lparen ->
+    P.prefix_scope Lparen Rparen (function
+      | None -> S.parens (S.seq [])
+      | Some items -> S.parens items
+      )
+    |> Option.some
+  | Lbrace ->
+    P.prefix_scope Lbrace Rbrace (function
+      | None -> S.braces (S.seq [])
+      | Some items -> S.braces items
+      )
+    |> Option.some
+  | Lbracket ->
+    P.prefix_scope Lbracket Rbracket (function
+      | None -> S.brackets (S.seq [])
+      | Some items -> S.brackets items
+      )
+    |> Option.some
+  | Int x -> P.const (S.int x) |> Option.some
+  | Lower x -> P.const (S.lower x) |> Option.some
+  | Upper x -> P.const (S.upper x) |> Option.some
+  | Sym x -> P.const (S.sym x) |> Option.some
+  | String x -> P.const (S.string x) |> Option.some
+  | _ -> None
 
-let g =
-  G.make ~default_prefix:Shaper_parser.const ~default_infix ~name:"fold" rules
-  |> G.push_scope (G.scope_of_list Shaper_parser.rules)
+let infix (tok : L.token) =
+  match tok with
+  | Sym "<<" -> None
+  | Sym ">>" -> Some P.infix_delimiter
+  | Sym "`" -> None
+  | Rparen | Rbrace | Rbracket
+  | Lower "if"
+  | Lower "then"
+  | Lower "else"
+  | Lower "match"
+  | Lower "let"
+  | Lower "fn"
+  | Lower "module"
+  | Lower "open"
+  | Lower "val" -> Some P.infix_delimiter
+  | Sym "=" -> Some (P.infix_binary 10 (L.Sym "=") Builder.binding)
+  | Sym "->" -> Some (P.infix_binary 40 (L.Sym "->") Builder.binding)
+  | Sym "." -> Some (P.infix_binary 80 (L.Sym ".") Builder.binding)
+  | Sym "!" -> Some (form, 80)
+  | Sym "|" -> Some (P.infix_seq ~sep:(tok, alt_precendence) Builder.alt)
+  | Sym s when check_is_operator_char s.[0] ->
+    let precedence = get_precedence s in
+    let rule =
+      P.infix_binary precedence tok (fun a b -> Builder.apply (S.sym s) [ a; b ])
+    in
+    Some rule
+  | Semi -> Some (P.infix_seq ~sep:(Semi, 1) (S.seq ~sep:";"))
+  | Comma -> Some (P.infix_seq ~sep:(Semi, 5) (S.seq ~sep:","))
+  | _ -> None
+
+let g = G.make ~default_infix:(P.parse_infix_juxt S.seq) ~prefix ~infix "fold"
 
 let parse chan : S.syntax =
   let l = L.for_channel chan in

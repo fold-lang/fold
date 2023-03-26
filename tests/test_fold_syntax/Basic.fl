@@ -121,10 +121,6 @@ let x = `((42))`;
 let x = `let x = 1`;
 let x = `let a = 42; a + 1`;
 
-// Syntax bug
-// let x = << $(f <<x>> ) >>;
-// let x = << $ (f <<x>> ) >>;
-
 // Code antiquoting
 let int_code = `42`;
 let x = `1000 + $int_code`;
