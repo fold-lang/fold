@@ -31,12 +31,12 @@
 [errors]
 err: invalid macro call form, must be kwd!
 <2 a>
-err: shaper: not a constant: )
-err: shaper: not a constant: }
+err: run: invalid syntax: parser halted at )
+err: run: invalid syntax: parser halted at }
 err: shaper: invalid syntax: unexpected end of file
-err: calc: not constant: )
-err: calc: not constant: )
-err: calc (default infix): invalid syntax: '(' cannot be used in infix postion
-err: calc (default infix): invalid syntax: '}' cannot be used in infix postion
-err: calc (default infix): invalid syntax: '}' cannot be used in infix postion
+err: calc: invalid syntax: ')' cannot be used in prefix position
+err: calc: invalid syntax: ')' cannot be used in prefix position
+err: calc: invalid syntax: '(' cannot be used in infix postion
+err: calc: invalid syntax: '}' cannot be used in infix postion
+err: calc: invalid syntax: '}' cannot be used in infix postion
 err: no such macro: math

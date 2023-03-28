@@ -34,8 +34,6 @@
 
   let compare_token = Stdlib.compare
 
-  module Syn = Shaper.V03
-
   type t = {
     lexbuf : Lexing.lexbuf;
     strbuf : Buffer.t;
@@ -58,7 +56,7 @@ let ident_upper = (ident_upper_char) ident_inner_char*
 let ident_lower = (ident_lower_char) ident_inner_char*
 
 let sym_char =
-  ['!' '$' '%' '&' '*' '+' '-' '.' '/' ':' '<' '=' '>' '?' '@' '^' '|' '~']
+  ['!' '$' '%' '#' '&' '*' '+' '-' '.' '/' ':' '<' '=' '>' '?' '@' '^' '|' '~']
 let sym = sym_char+
 
 let space = [' ' '\t' '\r']+
@@ -128,6 +126,9 @@ and finish_string lexer = parse
 
   let pick lexer =
     lexer.token
+
+  let line_number lexer =
+    lexer.line_count
   
   let drop expected lexer =
     let actual = pick lexer in

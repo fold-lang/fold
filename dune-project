@@ -13,7 +13,7 @@
  (implementation
   (extension fl)
   (preprocess
-   (run fold-fmt -i fl -o ml %{input-file})))
+   (run fold-fmt -i fl -o bin %{input-file})))
  (interface
   (extension fli)
   (preprocess

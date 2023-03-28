@@ -1,4 +1,3 @@
-module Syntax = Shaper.V03
 module Lexer = Lexer
 module Parser = Pratt_parser
 module Grammar = Pratt_parser.Grammar
@@ -7,7 +6,7 @@ let ( let* ) = Parser.( let* )
 
 let prefix (tok : Lexer.token) =
   let module P = Parser in
-  let module S = Syntax in
+  let module S = Shaper in
   match tok with
   | Lparen ->
     P.prefix_scope Lparen Rparen (function
@@ -36,15 +35,16 @@ let prefix (tok : Lexer.token) =
 
 let infix (tok : Lexer.token) =
   let module P = Parser in
-  let module S = Syntax in
+  let module S = Shaper in
   match tok with
-  | Semi -> P.infix_seq ~sep:(Semi, 1) (S.seq ~sep:";") |> Option.some
-  | Comma -> P.infix_seq ~sep:(Semi, 5) (S.seq ~sep:",") |> Option.some
+  | Rparen | Rbrace | Rbracket -> Some P.infix_unbalanced
+  | Semi -> Some (P.infix_seq ~sep:(Semi, 1) (S.seq ~sep:";"))
+  | Comma -> Some (P.infix_seq ~sep:(Comma, 5) (S.seq ~sep:","))
   | _ -> None
 
 let grammar =
   Parser.Grammar.make
-    ~default_infix:(Parser.parse_infix_juxt Syntax.seq)
+    ~default_infix:(Parser.parse_infix_juxt Shaper.seq)
     ~prefix ~infix "shaper"
 
 let parse_string input =

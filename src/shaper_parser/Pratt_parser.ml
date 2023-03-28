@@ -95,13 +95,13 @@ module Grammar = struct
 
   let extend ~prefix ~infix g =
     let prefix tok =
-      match g.prefix tok with
-      | None -> prefix tok
+      match prefix tok with
+      | None -> g.prefix tok
       | some -> some
     in
     let infix tok =
-      match g.infix tok with
-      | None -> infix tok
+      match infix tok with
+      | None -> g.infix tok
       | some -> some
     in
     { g with prefix; infix }
@@ -135,7 +135,7 @@ let rec until pred (p : 'a parser) : 'a list parser =
 let parse_prefix g : 'a parser =
  fun l ->
   let tok = Lexer.pick l in
-  if Lexer.is_eof tok then unexpected_end ~ctx:"prefix" ()
+  if Lexer.is_eof tok then unexpected_end ~ctx:g.name ()
   else
     match Grammar.get_prefix tok g with
     | None -> g.default_prefix g l
@@ -188,15 +188,22 @@ let parse_prefix_juxt =
   rule
 
 let infix_delimiter =
-  let rule _left _g l =
+  let rule _left g l =
     let tok = Lexer.pick l in
-    invalid_infix ~ctx:"infix_delimiter" tok
+    invalid_infix ~ctx:g.name tok
+  in
+  (rule, 0)
+
+let infix_unbalanced =
+  let rule _left g l =
+    let tok = Lexer.pick l in
+    unbalanced ~ctx:g.name tok
   in
   (rule, 0)
 
 let infix_binary precedence tok f =
   let rule left g l =
-    Lexer.drop tok l;
+    let* () = consume tok l in
     let* right = parse ~precedence g l in
     Ok (f left right)
   in
@@ -204,7 +211,7 @@ let infix_binary precedence tok f =
 
 let infix_right_binary precedence tok f =
   let rule left g l =
-    Lexer.drop tok l;
+    let* () = consume tok l in
     let* right = parse ~precedence:(precedence - 1) g l in
     Ok (f left right)
   in
@@ -212,17 +219,9 @@ let infix_right_binary precedence tok f =
 
 let prefix_unary ?precedence tok f =
   let rule g l =
-    Lexer.drop tok l;
+    let* () = consume tok l in
     let* x = parse ?precedence g l in
     Ok (f x)
-  in
-  rule
-
-let prefix_token tok f =
-  let rule _g l =
-    Lexer.drop tok l;
-    let* () = consume tok l in
-    Ok (f tok)
   in
   rule
 
@@ -236,34 +235,30 @@ let const x =
 
 let postfix_unary precedence tok f =
   let rule left _g l =
-    Lexer.drop tok l;
+    let* () = consume tok l in
     Ok (f left)
   in
   (rule, precedence)
 
 let prefix_invalid =
-  let rule tok _g _l = invalid_prefix ~ctx:"prefix_invalid" tok in
+  let rule tok g _l = invalid_prefix ~ctx:g.name tok in
   rule
 
 let infix_invalid tok =
-  let rule _left _g _l = invalid_infix ~ctx:"infix_invalid" tok in
+  let rule _left g _l = invalid_infix ~ctx:g.name tok in
   (rule, 0)
 
 let between tok1 tok2 f =
   let prefix g l =
-    Lexer.drop tok1 l;
+    let* () = consume tok1 l in
     let* x = parse g l in
-    Lexer.drop tok2 l;
+    let* () = consume tok2 l in
     Ok (f x)
   in
   prefix
 
 let prefix_scope tok1 tok2 f =
   let rule g l =
-    (* let tok2_infix cur = *)
-    (*   if cur = tok2 then Some infix_delimiter else g.infix cur *)
-    (* in *)
-    (* let g' = { g with infix = tok2_infix } in *)
     let* () = consume tok1 l in
     if Lexer.pick l = tok2 then
       let* () = consume tok2 l in
@@ -274,6 +269,18 @@ let prefix_scope tok1 tok2 f =
       Ok (f (Some x))
   in
   rule
+
+let parse_infix_seq ~sep:(sep, precedence) f left g l =
+  let* xs =
+    until
+      (fun tok -> sep = tok)
+      (fun l ->
+        let* () = consume sep l in
+        parse ~precedence g l
+      )
+      l
+  in
+  Ok (f (left :: xs))
 
 let infix_seq ~sep:(sep, precedence) f =
   let rule left g l =
@@ -289,3 +296,8 @@ let infix_seq ~sep:(sep, precedence) f =
     Ok (f (left :: xs))
   in
   (rule, precedence)
+
+let prefix_seq ~sep:(sep, precedence) f g l =
+  let* () = consume sep l in
+  let* left = parse ~precedence g l in
+  parse_infix_seq ~sep:(sep, precedence) f left g l

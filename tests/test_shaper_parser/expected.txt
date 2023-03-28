@@ -18,6 +18,9 @@
 <1 2>
 <1 2 3>
 <1 2 3 4 5 6 7>
+<f (a) b>
+<f (<a x b>) c>
+<f {<a,b>} c>
 
 [comma]
 1
@@ -46,9 +49,9 @@
 
 [err_unbalanced]
 err: shaper: invalid syntax: unexpected end of file
-err: shaper: not a constant: }
-err: shaper: invalid syntax: end of file while expecting '}'
-err: shaper: not a constant: }
+err: shaper: invalid syntax: '}' cannot be used in prefix position
+err: consume: invalid syntax: end of file while expecting '}'
+err: run: invalid syntax: parser halted at }
 
 [ident]
 a

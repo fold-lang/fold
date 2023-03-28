@@ -3,7 +3,7 @@
 (executable
  (name run)
  (modules Run)
- (libraries fmt shaper fold_syntax compiler-libs.common shaper_calc))
+ (libraries fmt shaper fold compiler-libs.common shaper_calc))
 
 (rule
  (with-stdout-to
@@ -21,13 +21,41 @@
  (deps Basic.fl)
  (action
   (with-stdout-to
-   Basic.fl-actual
+   Basic.fl.ml.actual
    (run fold-fmt -i fl -o ml %{deps}))))
 
 (rule
  (alias runtest)
  (action
-  (diff Basic.fl-expected Basic.fl-actual)))
+  (diff Basic.fl.ml.expected Basic.fl.ml.actual)))
+
+;; Shapes.fl
+
+(rule
+ (deps Shapes.fl)
+ (action
+  (with-stdout-to
+   Shapes.fl.sexp.actual
+   (run fold-fmt -i fl -o sexp %{deps}))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Shapes.fl.sexp.expected Shapes.fl.sexp.actual)))
+
+;; Meta.fl
+
+(rule
+ (deps Meta.fl)
+ (action
+  (with-stdout-to
+   Meta.fl.ml.actual
+   (run fold-fmt -i fl -o ml %{deps}))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Meta.fl.ml.expected Meta.fl.ml.actual)))
 
 ;; Bugs.fl
 
@@ -35,10 +63,10 @@
  (deps Bugs.fl)
  (action
   (with-stdout-to
-   Bugs.fl-actual
+   Bugs.fl.ml.actual
    (run fold-fmt -i fl -o ml %{deps}))))
 
 (rule
  (alias runtest)
  (action
-  (diff Bugs.fl-expected Bugs.fl-actual)))
+  (diff Bugs.fl.ml.expected Bugs.fl.ml.actual)))

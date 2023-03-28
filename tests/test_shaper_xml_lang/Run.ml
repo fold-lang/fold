@@ -1,6 +1,4 @@
-module S = Shaper.V03
 module P = Shaper_parser.Parser
-module G = Shaper_parser.Grammar
 module L = Shaper_parser.Lexer
 
 let g = Shaper_xml.grammar

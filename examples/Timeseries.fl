@@ -1,4 +1,4 @@
-val device_series_to_json series = {
+let device_series_to_json series = {
   let series =
     Device_series.mapi (fn {
         Device_series_key.metric_name = metric_name,
@@ -18,7 +18,7 @@ val device_series_to_json series = {
     |> Seq.map snd);
 };
 
-val generate_time_series_map ~start_time ~end_time ~resolution default = {
+let generate_time_series_map ~start_time ~end_time ~resolution default = {
   let end_time_int = int_of_float (Ptime.to_float_s end_time);
   let rec loop time acc =
     if time >= end_time_int then

@@ -1,59 +1,59 @@
-val f01 a = a;
+let f01 a = a;
 
-val f02 a b = a + b;
+let f02 a b = a + b;
 
-val f03 a b c = a + b + c;
+let f03 a b c = a + b + c;
 
-val f04 a b c = a + b + c;
+let f04 a b c = a + b + c;
 
-val f041 aaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb ccccccc =
+let f041 aaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb ccccccc =
   a + b + c;
 
-val f042 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+let f042 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     c =
   a + b + c;
 
-val f042 (aaaaaaaaaaaaaaaaaaaaaaa : aaaaaaaaaaaaaaaaa)
+let f042 (aaaaaaaaaaaaaaaaaaaaaaa : aaaaaaaaaaaaaaaaa)
     bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     c : float -> unit =
   a + b + c;
 
-val f0422 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+let f0422 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     cccccccccccccccccccccccccccccccccccccccccccccccccccccc =
   a + b + c;
 
-val f043 x : int = x;
+let f043 x : int = x;
 
-val f05 =
+let f05 =
   fn {
   | 0 -> 100
   | n -> n
   };
 
-val f06 t1 t2 =
+let f06 t1 t2 =
   match String.compare t1.metric_name t2.metric_name with {
   | 0 -> Vendor_device_id.compare t1.device_id t2.device_id
   | ordering -> ordering
   };
 
-val f07 : int -> int -> int = fn t1 t2 -> 0;
+let f07 : int -> int -> int = fn t1 t2 -> 0;
 
-val f08 t1 t2 : int = 0;
+let f08 t1 t2 : int = 0;
 
-val f09 : int -> option int =
+let f09 : int -> option int =
   fn {
   | 0 -> None
   | x -> Some x
   };
 
-val f10 =
+let f10 =
   (fn {
   | 0 -> None
   | x -> Some x
   } : int -> option int);
 
-val main () = {
+let main () = {
   let x = 1;
   let y = {
     let z = 2;
@@ -62,7 +62,7 @@ val main () = {
   x + y;
 };
 
-val mk ~loc?:_ ~attrs?:_ ~docs?:_ ~text?:_ (str_opt : Ast_helper.str_opt)
+let mk ~loc?:_ ~attrs?:_ ~docs?:_ ~text?:_ (str_opt : Ast_helper.str_opt)
     mexp = {
   let mod_name =
     Syntax.id (match str_opt.txt with {

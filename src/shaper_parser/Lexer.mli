@@ -20,6 +20,7 @@ val is_eof : token -> bool
 
 type t
 
+val line_number : t -> int
 val for_string : string -> t
 val for_channel : in_channel -> t
 val pick : t -> token

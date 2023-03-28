@@ -1,7 +1,6 @@
-// fold: invalid syntax: expected ')' but got '(Sym >>)'
-//let x = ` $ (f `x` ) `
-//let x = f `x`
-let x = ` (f `x`) `
+// Nested quoting
+let x = `{ $ (f `x ) };
 
-// Better handling of arbitrary infix ops.
-//let x = f a |> g
+// Handling of arbitrary infix ops in juxt.
+let x = f a |> g
+

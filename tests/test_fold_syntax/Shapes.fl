@@ -1,0 +1,29 @@
+2 + 2 * 2;
+
+f a |> g;
+
+a = b | c -> d, e;
+f;
+
+let a = 1;
+let b = 2 + 2;
+
+{
+  a,
+  b,
+  c
+};
+
+
+// -> and | shapes
+{
+  a -> 1,
+  b -> {
+    x;
+    2
+  }
+};
+
+let f = fn a -> a + 1;
+
+end

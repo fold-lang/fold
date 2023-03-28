@@ -4,26 +4,27 @@ open Helix;
 
 open Stdweb.Dom;
 
-val bool a b c = if c then a else b;
+let bool a b c = if c then a else b;
 
-val a => b = (a, b);
+let a => b = (a, b);
 
-val view_mouse () = {
+let view_mouse () = {
   let mouse =
     Mouse.position
     |> Signal.sample ~on:(Time.tick ~ms:(1000 / 60))
     |> Signal.map (fn (x, y) ->
         "x = " ^ string_of_float x ^ ", y = " ^ string_of_float y);
-  open Html;
-  fragment [
-    h2 [style ["font-family" => "monospace"]]
-      [text "Mouse.position"],
-    div [style ["margin-bottom" => "20px"]]
-      [text "Render mouse position."], View.show text mouse
-  ];
+  <>
+    <h2 style=["font-family" => "monospace"]>
+      "Mouse.position"
+      <div style["margin-bottom" => "20px"]>
+        "Render mouse position."
+      </div>
+      <show text mouse />
+  </>
 };
 
-val view_timer () = {
+let view_timer () = {
   let timer =
     Time.tick ~ms:333
     |> Signal.const 1
@@ -36,7 +37,7 @@ val view_timer () = {
   ];
 };
 
-val view_input_bind () = {
+let view_input_bind () = {
   let input_signal = Signal.make "--";
   open Html;
   fragment [
@@ -46,7 +47,7 @@ val view_input_bind () = {
     input [
       placeholder "Type something amazing...",
       on_input (fn ev ->
-          Signal.emit (Event.target_value ev) input_signal)
+          Signal.emit (Event.target_letue ev) input_signal)
     ],
     ul []
       [
@@ -61,7 +62,7 @@ val view_input_bind () = {
   ];
 };
 
-val view_counter () = {
+let view_counter () = {
   let incr = Signal.make 0;
   let count =
     incr
@@ -81,17 +82,17 @@ val view_counter () = {
   ];
 };
 
-val view_show () = {
+let view_show () = {
   open Html;
   fragment [
     h2 [style ["font-family" => "monospace"]] [text "Html.show"],
     div [style ["margin-bottom" => "20px"]]
-      [text "Render signal value with function."],
+      [text "Render signal letue with function."],
     div [] [View.show int (Signal.make 5)]
   ];
 };
 
-val view_toggle () = {
+let view_toggle () = {
   let stylish = Signal.make true;
   open Html;
   fragment [
@@ -107,13 +108,13 @@ val view_toggle () = {
   ];
 };
 
-val view_visibility () = {
+let view_visibility () = {
   let editing_state = Signal.make (false, "Edit me!");
   open Html;
   fragment [
     h2 [style ["font-family" => "monospace"]] [text "Html.visible"],
     div [style ["margin-bottom" => "20px"]]
-      [text "Set visibility based on signal value."],
+      [text "Set visibility based on signal letue."],
     button [
         on_click (fn _ ->
             Signal.update (fn (editing, x) -> (not editing, x))
@@ -130,13 +131,13 @@ val view_visibility () = {
       style ["margin-left" => "5px"],
       on_input (fn ev ->
           Signal.update (fn (editing, _) -> (editing,
-              Event.target_value ev))
+              Event.target_letue ev))
             editing_state)
     ]
   ];
 };
 
-val view_visibility_simple () = {
+let view_visibility_simple () = {
   let is_visible = Signal.make false;
   open Html;
   fragment [
@@ -147,7 +148,7 @@ val view_visibility_simple () = {
   ];
 };
 
-val view_each () = {
+let view_each () = {
   let items =
     Time.tick ~ms:1000
     |> Signal.map (fn () ->
@@ -172,7 +173,7 @@ val view_each () = {
   ];
 };
 
-val main () = {
+let main () = {
   open Html;
   div [class_list ["w-full"]]
     [
@@ -183,7 +184,7 @@ val main () = {
     ];
 };
 
-val () =
+let () =
   match Document.get_element_by_id "root" with {
   | Some root -> Html.render root (main ())
   | None -> failwith "No #root element found"

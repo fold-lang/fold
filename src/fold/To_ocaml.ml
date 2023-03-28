@@ -1,6 +1,6 @@
-module Fl = Shaper.V03
+module Fl = Shaper
 
-type fl = Fl.syntax
+type fl = Fl.shape
 type loc = Location.t
 type docs = Docstrings.docs
 type text = Docstrings.text
@@ -61,13 +61,22 @@ end = struct
     (* fn { _ -> _ | _ -> _ } *)
     | Form ("fn", [ Scope ("{", Form ("|", cases), "}") ]) -> function_ cases
     (* if _ then _ else _ *)
-    | Form ("if", [ cond_fl; then_fl; else_fl ]) ->
-      ifthenelse cond_fl then_fl else_fl
+    | Form
+        ( "if"
+        , [ cond_fl; Scope ("{", if_true, "}"); Scope ("{", if_false, "}") ]
+        ) -> ifthenelse cond_fl if_true (Some if_false)
+    | Form ("if", [ cond_fl; Scope ("{", if_true, "}") ]) ->
+      ifthenelse cond_fl if_true None
+    | Form ("if", _) ->
+      Fmt.epr "ctx: %a@." Fl.dump fl;
+      failwith "invalid if syntax"
     (* match exp cases *)
     | Form
         ( "match"
-        , [ Seq (None, [ exp_fl; Scope ("{", Form ("|", cases_fl), "}") ]) ]
+        , [ Seq (None, [ exp_fl; Scope ("{", Seq (Some ",", cases_fl), "}") ]) ]
         ) -> match_ exp_fl cases_fl
+    (* `a *)
+    | Form ("quote", [ x ]) -> quote x
     (* Err: other forms *)
     | Form (kwd, _xs) -> todo ("form_" ^ kwd)
     (* Construct *)
@@ -95,8 +104,6 @@ end = struct
     (* { x }
        [TODO] handle arrays, empty {}, singleton, etc. *)
     | Scope ("{", x, "}") -> conv x
-    (* `a` *)
-    | Scope ("`", x, "`") -> quote x
     | Scope _ -> todo "scope"
 
   and fun_ (args_fl : fl list) (body_fl : fl) =
@@ -181,8 +188,8 @@ end = struct
   and ifthenelse ?loc:_ ?attrs:_ cond_fl then_fl else_fl =
     let cond_ml = conv cond_fl in
     let then_ml = conv then_fl in
-    let else_ml = conv else_fl in
-    Ml.Exp.ifthenelse cond_ml then_ml (Some else_ml)
+    let else_ml = Option.map conv else_fl in
+    Ml.Exp.ifthenelse cond_ml then_ml else_ml
 
   and sequence ?loc:_ ?attrs:_ items_fl =
     match items_fl with
@@ -192,7 +199,7 @@ end = struct
       let first_ml = conv first_fl in
       Ml.Exp.sequence first_ml (sequence items_fl)
 
-  and quote (fl : fl) : Parsetree.expression = conv (Shaper_builder.V03.meta fl)
+  and quote (fl : fl) : Parsetree.expression = conv (Shaper_builder.meta fl)
 end
 
 and Odcl : sig

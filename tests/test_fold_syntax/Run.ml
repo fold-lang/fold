@@ -1,16 +1,16 @@
-module S = Shaper.V03
+module S = Shaper
 
 let item input =
   try
-    let fl = Fold_syntax.Parser.parse_string input in
-    let ml = Fold_syntax.To_ocaml.structure fl in
+    let fl = Fold.Parser.parse_string input in
+    let ml = Fold.To_ocaml.structure fl in
     Fmt.pr "item: ml: @[%a@." Pprintast.structure ml
   with Failure err -> Fmt.pr "item: err: %s@." err
 
 let exp input =
   try
-    let fl = Fold_syntax.Parser.parse_string input in
-    let ml = Fold_syntax.To_ocaml.Exp.conv fl in
+    let fl = Fold.Parser.parse_string input in
+    let ml = Fold.To_ocaml.Exp.conv fl in
     Fmt.pr "exp: ml: @[%a@]@." Pprintast.expression ml
   with Failure err -> Fmt.pr "exp: err: %s@." err
 

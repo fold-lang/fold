@@ -2,4 +2,4 @@
  (name Main)
  (modules Main)
  (public_name fold-fmt)
- (libraries fold_syntax fmt cmdliner))
+ (libraries fold fmt cmdliner))

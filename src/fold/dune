@@ -1,5 +1,5 @@
 (library
- (name fold_syntax)
+ (name fold)
  (libraries
   shaper
   shaper_parser

@@ -7,5 +7,6 @@
 - [ ] Report the location of unclosed brackets.
 - [ ] Add spacing context to tokens.
   - When parsing `<x></x>` we need to break up the tokens.
+  - Use a token_group for "glued" tokens.
 - [ ] `a |> f` is ok, but `f a |> g` is not: undeclared infix operators use
   fallback infix rule wich is not triggered on juxt parsing.  

@@ -1,7 +1,7 @@
 let rp str =
   try
     let syn = Shaper_parser.parse_string str in
-    Fmt.pr "%a@." Shaper.V03.pp syn
+    Fmt.pr "%a@." Shaper.pp syn
   with Failure err -> Fmt.pr "err: %s@." err
 
 let test_basic () =
@@ -28,7 +28,10 @@ let test_juxt () =
     rp "1";
     rp "1 2";
     rp "1 2 3";
-    rp "1 2 3 4 5 6 7"
+    rp "1 2 3 4 5 6 7";
+    rp "f (a) b";
+    rp "f (a x b) c";
+    rp "f {a, b} c"
   end
 
 let test_comma () =

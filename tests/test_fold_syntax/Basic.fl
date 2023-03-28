@@ -15,9 +15,7 @@ let x = None;
 let x = Some 1;
 let x = Some [1, 2, 3];
 let x = Two 1 2;
-// BUG #1
-// let x = Two 1 2 |> f;
-
+let x = Two 1 2 |> f;
 
 // Unit pattern, implicit let unit
 let () = ();
@@ -61,37 +59,51 @@ let sum = fn a b -> a + b;
 
 // This wraps a single case.
 let f = fn { a -> a + 1 };
-let f = fn {
-  | a -> a + 1
-  };
+//let f = fn {
+//  | a -> a + 1
+//  };
+// [BUG] + should beat fn.
+//let f = fn { a -> a + 1 } + 1;
 
 // Lambda with cases
 let x = fn { a -> 1 | b -> 2 };
 
 // if_then_else
-let x = if a then b else c;
-let x = if a then { x; b } else c;
-let x = if a then { x; b } else { y; c };
-let x = (if a then b else c; x);
+let x = if a { b } else { c };
+let x = if a { x; b } else { c };
+let x = if a { x; b } else { y; c };
+let x = { if a { b } else { c }; x };
+
+// when
+let x = if a { b };
+let x = if a { print_newline (); b };
+let x = if a { b + 1 };
+let x = if a { b } + 1;
+
 // Syntax errors
 //let x = if a; x then b else c;
-///let x = if a then b; x else c;
+//let x = if a then b; x else c;
+// let + 1;
 
 // match
 let x =
   match a {
-    1 -> 0
-  | 2 -> b
-  };
-let x =
-  match a {
-  | 1 -> 0
-  | 2 -> b
+    1 -> 0,
+    2 -> b
   };
 let x =
   match (a + b) {
-  | 1 -> 0
-  | 2 -> b
+    1 -> 0,
+    2 -> b
+  };
+let x = match a { 1 -> b, 2 -> c } + 100;
+let x =
+  match a {
+    1 -> {
+      print_endline "1";
+      a
+    },
+    2 -> b
   };
 
 // Module bindings
@@ -108,20 +120,5 @@ let x = {
   let a = 1;
   open M;
   a
-};
+}
 
-// Code quoting
-let x = `a`;
-let x = `1`;
-let x = `"abc"`;
-let x = `f x`;
-let x = `1 + 2`;
-let x = `[1, 2, 3]`;
-let x = `((42))`;
-let x = `let x = 1`;
-let x = `let a = 42; a + 1`;
-
-// Code antiquoting
-let int_code = `42`;
-let x = `1000 + $int_code`;
-let x = `1000 + $(`42`)`

@@ -1,7 +1,0 @@
-
-## Semicolons instead of `in`
-
-Pro:
-- Moving bindings between local and global scope is easy.
-
-

@@ -2,7 +2,7 @@
 ;;f a b
 ;;42
 ;;()
-let a = (42 + (10 - 2)) / 2
+let a = ((42 + 10) - 2) / 2
 let b = 1001
 let c = (elem "p" [text "hello"]) + 1
 ;;print_newline ()
@@ -11,6 +11,7 @@ let x = None
 let x = Some 1
 let x = Some [1; 2; 3]
 let x = Two (1, 2)
+let x = (Two (1, 2)) |> f
 let () = ()
 let () = let a = 1 in a
 let () = let a = 1 in ()
@@ -25,37 +26,22 @@ let xs = 0 :: xs
 let f a = a + 1
 let sum b a = a + b
 let f a = a + 1
-let f = function | a -> a + 1
 let x = function | a -> 1 | b -> 2
 let x = if a then b else c
 let x = if a then (x; b) else c
 let x = if a then (x; b) else (y; c)
 let x = if a then b else c; x
-let x = match a with | 1 -> 0 | 2 -> b
+let x = if a then b
+let x = if a then (print_newline (); b)
+let x = if a then b + 1
+let x = (if a then b) + 1
 let x = match a with | 1 -> 0 | 2 -> b
 let x = match a + b with | 1 -> 0 | 2 -> b
+let x = (match a with | 1 -> b | 2 -> c) + 100
+let x = match a with | 1 -> (print_endline "1"; a) | 2 -> b
 module M1 = X
 module M2 = struct  end
 module M3 = struct let a = 1
                    let b = 2 end
 open M
 let x = let a = 1 in let open M in a
-let x = Ident (Lower "a")
-let x = Const (Int 1)
-let x = Const (String "abc")
-let x = Seq (None, [Ident (Lower "f"); Ident (Lower "x")])
-let x = Seq (None, [Sym "+"; Const (Int 1); Const (Int 2)])
-let x =
-  Scope
-    ("[", (Seq ((Some ","), [Const (Int 1); Const (Int 2); Const (Int 3)])),
-      "]")
-let x = Scope ("(", (Scope ("(", (Const (Int 42)), ")")), ")")
-let x = Form ("let", [Form ("=", [Ident (Lower "x"); Const (Int 1)])])
-let x =
-  Seq
-    ((Some ";"),
-      [Form ("let", [Form ("=", [Ident (Lower "a"); Const (Int 42)])]);
-      Seq (None, [Sym "+"; Ident (Lower "a"); Const (Int 1)])])
-let int_code = Const (Int 42)
-let x = Seq (None, [Sym "+"; Const (Int 1000); int_code])
-let x = Seq (None, [Sym "+"; Const (Int 1000); Const (Int 42)])
