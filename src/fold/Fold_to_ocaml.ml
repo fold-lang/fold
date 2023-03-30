@@ -1,13 +1,13 @@
-module Fl = Shaper
+open Prelude
+module Fl = Fold_ast.Cons
 
-type fl = Fl.shape
+type fl = Shaper.syntax
 type loc = Location.t
 type docs = Docstrings.docs
 type text = Docstrings.text
 type attrs = Parsetree.attribute list
 
 module Ml = struct
-  include Migrate_parsetree.Migrate_414_500.To.Parsetree
   include Ast_helper
 
   let unit_lid = Longident.Lident "()"
@@ -15,7 +15,7 @@ module Ml = struct
   let cons_lid = Longident.Lident "::"
 end
 
-let conv_const (const : Fl.const) =
+let conv_const (const : Shaper.const) =
   match const with
   | Int x -> Ml.Const.int x
   | Float x -> Ml.Const.float (string_of_float x)
@@ -38,53 +38,52 @@ end = struct
 
   let rec conv (fl : fl) : Parsetree.expression =
     match fl with
-    (* `let $vbl_fl $(; rest)*` *)
-    (* Sequence and let bindings *)
-    | Seq (Some ";", Form ("let", [ Seq (Some ",", vbl) ]) :: rest) ->
-      let_ vbl rest
-    | Seq (Some ";", Form ("let", [ vb ]) :: rest) -> let_ [ vb ] rest
+    (* let a = 1 ... ; rest *)
+    | Seq (Some ";", Shape ("let", vbl) :: rest) -> let_ vbl rest
     (* let a = 1 in () *)
-    | Form ("let", [ Seq (Some ",", vbl) ]) -> let_ vbl []
-    | Form ("let", [ vb ]) -> let_ [ vb ] []
+    | Shape ("let", [ vb ]) -> let_ [ vb ] []
     (* Ident *)
     | Ident (Lower x) -> Ml.Exp.ident (Location.mknoloc (Longident.Lident x))
     | Ident (Upper x) -> Ml.Exp.ident (Location.mknoloc (Longident.Lident x))
     | Const const -> Ml.Exp.constant (conv_const const)
     | Sym x -> Ml.Exp.ident (Location.mknoloc (Longident.Lident x))
     (* fn _ _ _ -> _ *)
-    | Form ("fn", [ Form ("->", [ Seq (None, args); body ]) ]) -> fun_ args body
+    | Shape ("fn", [ Shape ("->", [ Seq (None, args); body ]) ]) ->
+      fun_ args body
     (* fn _ -> _ *)
-    | Form ("fn", [ Form ("->", [ arg; body ]) ]) -> fun_ [ arg ] body
+    | Shape ("fn", [ Shape ("->", [ arg; body ]) ]) -> fun_ [ arg ] body
     (* fn { _ -> _ } *)
-    | Form ("fn", [ Scope ("{", Form ("->", [ arg; body ]), "}") ]) ->
+    | Shape ("fn", [ Scope ("{", Shape ("->", [ arg; body ]), "}") ]) ->
       fun_ [ arg ] body
     (* fn { _ -> _ | _ -> _ } *)
-    | Form ("fn", [ Scope ("{", Form ("|", cases), "}") ]) -> function_ cases
+    | Shape ("fn", [ Scope ("{", Shape ("|", cases), "}") ]) -> function_ cases
     (* if _ then _ else _ *)
-    | Form
+    | Shape
         ( "if"
         , [ cond_fl; Scope ("{", if_true, "}"); Scope ("{", if_false, "}") ]
         ) -> ifthenelse cond_fl if_true (Some if_false)
-    | Form ("if", [ cond_fl; Scope ("{", if_true, "}") ]) ->
+    | Shape ("if", [ cond_fl; Scope ("{", if_true, "}") ]) ->
       ifthenelse cond_fl if_true None
-    | Form ("if", _) ->
-      Fmt.epr "ctx: %a@." Fl.dump fl;
+    | Shape ("if", _) ->
+      Fmt.epr "ctx: %a@." Shaper.dump fl;
       failwith "invalid if syntax"
     (* match exp cases *)
-    | Form
+    | Shape
         ( "match"
         , [ Seq (None, [ exp_fl; Scope ("{", Seq (Some ",", cases_fl), "}") ]) ]
         ) -> match_ exp_fl cases_fl
     (* `a *)
-    | Form ("quote", [ x ]) -> quote x
+    | Shape ("quote", [ x ]) -> quote x
     (* Err: other forms *)
-    | Form (kwd, _xs) -> todo ("form_" ^ kwd)
+    | Shape (kwd, _xs) ->
+      Fmt.epr "ctx: %a@." Shaper.dump fl;
+      todo ("shape_" ^ kwd)
     (* Construct *)
     | Seq (None, Ident (Upper id) :: args) -> construct id args
     (* Apply *)
     | Seq (None, f :: args) -> apply f args
     | Seq (None, items) ->
-      Fmt.epr "ctx: %a@." (Fmt.Dump.list Fl.dump) items;
+      Fmt.epr "ctx: %a@." (Fmt.Dump.list Shaper.dump) items;
       failwith "invalid seq/aply"
     (* a; b; b *)
     | Seq (Some ";", items) -> sequence items
@@ -117,15 +116,16 @@ end = struct
           let default = None in
           Ml.Exp.fun_ label default pat acc
         | _ ->
-          Fmt.epr "@.args=%a@.body=%a@.@." (Fmt.Dump.list Fl.dump) args_fl
-            Fl.dump body_fl;
+          Fmt.epr "@.args=%a@.body=%a@.@."
+            (Fmt.Dump.list Shaper.dump)
+            args_fl Shaper.dump body_fl;
           assert false
       )
       body_ml args_fl
 
   and case (fl : fl) =
     match fl with
-    | Form ("->", [ pat_fl; exp_fl ]) ->
+    | Shape ("->", [ pat_fl; exp_fl ]) ->
       let pat_ml = Pat.conv pat_fl in
       let exp_ml = Exp.conv exp_fl in
       Ml.Exp.case ?guard:None pat_ml exp_ml
@@ -148,15 +148,15 @@ end = struct
     Ml.Exp.match_ exp_ml cases_ml
 
   and let_ vbl_fl body_fl =
-    let rec unflatten items =
+    let rec unflatten (items : fl list) =
       match items with
       | [] -> unit
       | [ item ] -> conv item
-      | Fl.Form ("let", vbl_fl) :: items' ->
+      | Shape ("let", vbl_fl) :: items' ->
         let vbl_ml = List.map Vb.conv vbl_fl in
         let body_ml = unflatten items' in
         Ml.Exp.let_ Asttypes.Nonrecursive vbl_ml body_ml
-      | Fl.Form ("open", [ mexp ]) :: items ->
+      | Shape ("open", [ mexp ]) :: items ->
         let odcl = Odcl.conv mexp in
         Ml.Exp.open_ odcl (unflatten items)
       | item :: items -> Ml.Exp.sequence (conv item) (unflatten items)
@@ -179,7 +179,7 @@ end = struct
   and construct_list ?loc:_ ?attrs:_ items =
     match items with
     | [] -> nil
-    | [ Form ("..", [ tl ]) ] -> conv tl
+    | [ Shape ("..", [ tl ]) ] -> conv tl
     | x_fl :: xs_fl ->
       let x_ml = conv x_fl in
       let xs_ml = construct_list xs_fl in
@@ -199,7 +199,7 @@ end = struct
       let first_ml = conv first_fl in
       Ml.Exp.sequence first_ml (sequence items_fl)
 
-  and quote (fl : fl) : Parsetree.expression = conv (Shaper_builder.meta fl)
+  and quote (fl : fl) : Parsetree.expression = conv (Fold_meta.quote fl)
 end
 
 and Odcl : sig
@@ -220,8 +220,6 @@ and Pat : sig
 end = struct
   let todo what = Ml.Pat.var (Location.mknoloc ("__pat_" ^ what))
 
-  type t = fl
-
   let conv (fl : fl) =
     match fl with
     | Ident (Lower id) -> Ml.Pat.var (Location.mknoloc id)
@@ -239,12 +237,12 @@ end = struct
   let conv (fl : fl) =
     match fl with
     (* `a = b` *)
-    | Fl.Form ("=", [ pat_fl; exp_fl ]) ->
+    | Shape ("=", [ pat_fl; exp_fl ]) ->
       let pat_ml = Pat.conv pat_fl in
       let exp_ml = Exp.conv exp_fl in
       Ml.Vb.mk pat_ml exp_ml
     | _ ->
-      Fmt.epr "not a vb: %a@." Fl.dump fl;
+      Fmt.epr "not a vb: %a@." Shaper.dump fl;
       Ml.Vb.mk (Ml.Pat.any ())
         (Ml.Exp.ident (Location.mknoloc (Longident.Lident "vb")))
 end
@@ -256,13 +254,13 @@ end = struct
   let conv (fl : fl) =
     match fl with
     (* `a = b` *)
-    | Form ("=", [ Ident (Upper m_name); mexp_fl ]) ->
+    | Shape ("=", [ Ident (Upper m_name); mexp_fl ]) ->
       let m_name = if String.equal m_name "_" then None else Some m_name in
       let m_name = Location.mknoloc m_name in
       let mexp_ml = Mod.conv mexp_fl in
       Ml.Mb.mk m_name mexp_ml
     | _ ->
-      Fmt.epr "not a vb: %a@." Fl.dump fl;
+      Fmt.epr "not a vb: %a@." Shaper.dump fl;
       assert false
 end
 
@@ -277,12 +275,12 @@ end = struct
       let items_ml = List.map Str.conv items_fl in
       Ml.Mod.structure items_ml
     | _ ->
-      Fmt.epr "todo: Mod:@.%a@." Fl.dump fl;
+      Fmt.epr "todo: Mod:@.%a@." Shaper.dump fl;
       assert false
 end
 
 and Str : sig
-  val conv : fl -> Ml.structure_item
+  val conv : fl -> Parsetree.structure_item
 end = struct
   let todo what =
     Ml.Str.type_ Asttypes.Nonrecursive
@@ -290,12 +288,12 @@ end = struct
 
   let rec conv (fl : fl) =
     match fl with
-    | Form ("let", [ Seq (Some ",", vbl) ]) -> value vbl
-    | Form ("let", [ vb ]) -> value [ vb ]
-    | Form ("module", [ mb ]) -> module_ mb
-    | Form ("open", [ mexp ]) -> Ml.Str.open_ (Odcl.conv mexp)
+    | Shape ("let", [ Seq (Some ",", vbl) ]) -> value vbl
+    | Shape ("let", [ vb ]) -> value [ vb ]
+    | Shape ("module", [ mb ]) -> module_ mb
+    | Shape ("open", [ mexp ]) -> Ml.Str.open_ (Odcl.conv mexp)
     | Ident _ | Const _ | Sym _ | Seq (None, _ :: _) | Scope _ -> eval fl
-    | Form (kwd, _xs) -> todo ("form_" ^ kwd)
+    | Shape (kwd, _xs) -> todo ("form_" ^ kwd)
     | Seq (None, _) -> failwith "invalid seq/aply"
     | Seq (Some sep, _) -> todo ("seq_" ^ sep)
 

@@ -11,6 +11,15 @@ let run ~input_file_name ~input_fmt ~output_fmt ic oc =
     let ml = Fold.To_ocaml.structure fl in
     let out = Format.formatter_of_out_channel oc in
     Format.fprintf out "%a@." Fold.To_ocaml.Pp.structure ml
+  | Ml, Fl ->
+    let ml = Fold.Utils.parse_structure ic in
+    let fl = Fold.fl_of_ml ml in
+    Fold.fmt oc fl
+  | Ml, Sexp ->
+    let ml = Fold.Utils.parse_structure ic in
+    let fl = Fold.fl_of_ml ml in
+    let out = Format.formatter_of_out_channel oc in
+    Format.fprintf out "%a@." Fold.pp_sexp fl
   | Fl, Sexp ->
     let fl = Fold.Parser.parse ic in
     let out = Format.formatter_of_out_channel oc in
@@ -18,7 +27,14 @@ let run ~input_file_name ~input_fmt ~output_fmt ic oc =
   | Fl, Fl ->
     let fl = Fold.Parser.parse ic in
     Fold.fmt oc fl
-  | _ -> invalid_arg "invalid conv"
+  | Ml, Ml ->
+    let ml = Fold.Utils.parse_structure ic in
+    let out = Format.formatter_of_out_channel oc in
+    Format.fprintf out "%a@." Fold.To_ocaml.Pp.structure ml
+  | Ml, Bin ->
+    let ml = Fold.Utils.parse_structure ic in
+    Fold.Utils.output_binary_structure ~input_file_name oc ml
+  | _ -> failwith "unsupported conversion format"
 
 let main input_fmt output_fmt input_file_name =
   let ic =

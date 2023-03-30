@@ -32,6 +32,9 @@
     | Semi -> Fmt.pf ppf ";"
     | Eof -> Fmt.pf ppf "EOF"
 
+  let equal_token t1 t2 =
+    Stdlib.(=) t1 t2
+
   let compare_token = Stdlib.compare
 
   type t = {

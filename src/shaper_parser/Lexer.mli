@@ -16,6 +16,7 @@ type token =
 
 val pp_token : Format.formatter -> token -> unit
 val compare_token : token -> token -> int
+val equal_token : token -> token -> bool
 val is_eof : token -> bool
 
 type t

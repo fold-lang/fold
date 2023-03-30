@@ -68,13 +68,16 @@ let f = fn { a -> a + 1 };
 // Lambda with cases
 let x = fn { a -> 1 | b -> 2 };
 
-// if_then_else
+// if else
 let x = if a { b } else { c };
 let x = if a { x; b } else { c };
 let x = if a { x; b } else { y; c };
 let x = { if a { b } else { c }; x };
+let x = if a { b } else { c } + 1;
+// err
+//let x = if a { b } else c + 1;
 
-// when
+// if
 let x = if a { b };
 let x = if a { print_newline (); b };
 let x = if a { b + 1 };

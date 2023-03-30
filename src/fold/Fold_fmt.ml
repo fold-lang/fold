@@ -1,8 +1,6 @@
-module Ast = Shaper
-
-type ast = Shaper.shape
-
 open Prelude
+module Fl = Fold_ast
+module C = Fold_ast.Cons
 
 module P = struct
   include PPrint
@@ -25,37 +23,25 @@ module P = struct
     group (loop items PPrint.empty)
 end
 
-let check_is_scope = function
-  | Ast.Scope _ -> true
-  | _ -> false
-
-let check_is_binding = function
-  | Ast.Form ("=", _) -> true
-  | _ -> false
-
-let check_is_apply = function
-  | Ast.Seq (None, _) -> true
-  | _ -> false
-
 let ( ^^ ) = PPrint.( ^^ )
 let ( !^ ) = PPrint.( !^ )
 let ( ^/^ ) = PPrint.( ^/^ )
 
-module Ast_fold = struct
-  let fold ~ident ~const ~apply ~seq_semi ~seq_comma ~arrow ~constraint_
-      ~binding ~cases ~field ~form ~block ~parens ~braces ctx (ast : ast) =
-    match ast with
+module Ast_eval = struct
+  let eval ~ident ~const ~apply ~seq_semi ~seq_comma ~arrow ~constraint_
+      ~binding ~cases ~field ~shape ~block ~parens ~braces ctx (fl : fl) =
+    match fl with
     | Ident x -> ident ctx x
     | Const x -> const ctx x
     | Seq (None, f :: args) -> apply ctx f args
     | Seq (Some ";", items) -> seq_semi ctx items
     | Seq (Some ",", items) -> seq_comma ctx items
-    | Form ("->", [ a; b ]) -> arrow ctx a b
-    | Form (":", [ v; t ]) -> constraint_ ctx v t
-    | Form ("=", [ lhs; rhs ]) -> binding ctx lhs rhs
-    | Form ("|", items) -> cases ctx items
-    | Form (".", [ a; b ]) -> field ctx a b
-    | Form (kwd, items) -> form ctx kwd items
+    | Shape ("->", [ a; b ]) -> arrow ctx a b
+    | Shape (":", [ v; t ]) -> constraint_ ctx v t
+    | Shape ("=", [ lhs; rhs ]) -> binding ctx lhs rhs
+    | Shape ("|", items) -> cases ctx items
+    | Shape (".", [ a; b ]) -> field ctx a b
+    | Shape (kwd, items) -> shape ctx kwd items
     | Scope ("{", Seq (Some ";", items), "}") -> block ctx items
     | Scope ("(", Seq (Some ",", items), ")") -> parens ctx items
     | Scope ("{", Seq (Some ",", items), "}") -> braces ctx items
@@ -64,27 +50,27 @@ end
 
 type ctx = { enclose : bool; inline : bool }
 
-let rec fmt ?(ctx = { enclose = true; inline = false }) (ast : ast) =
-  Ast_fold.fold ctx ast ~ident ~const ~apply ~seq_semi ~seq_comma ~arrow
-    ~constraint_ ~binding ~cases ~field ~form ~block ~parens ~braces
+let rec fmt ?(ctx = { enclose = true; inline = false }) (fl : fl) =
+  Ast_eval.eval ctx fl ~ident ~const ~apply ~seq_semi ~seq_comma ~arrow
+    ~constraint_ ~binding ~cases ~field ~shape ~block ~parens ~braces
 
-and ident _ctx id = P.string (Fmt.str "%a" Ast.pp_ident id)
-and const _ctx const = P.string (Fmt.str "%a" Ast.pp_const const)
+and ident _ctx id = P.string (Fmt.str "%a" C.pp_ident id)
+and const _ctx const = P.string (Fmt.str "%a" C.pp_const const)
 
-and binding ctx (lhs : ast) (rhs : ast) =
+and binding ctx (lhs : fl) (rhs : fl) =
   let lval_doc =
     match lhs with
-    | Seq (None, _) | Form (":", [ Seq (None, _); _ ]) ->
+    | Seq (None, _) | Shape (":", [ Seq (None, _); _ ]) ->
       P.nest 2 (fmt ~ctx:{ enclose = false; inline = true } lhs)
     | _ -> fmt ~ctx:{ ctx with enclose = false } lhs
   in
   match (lhs, rhs) with
-  | _, _ when check_is_scope rhs ->
+  | _, _ when C.is_scope rhs ->
     P.group (lval_doc ^^ P.space ^^ P.string "=" ^^ P.space ^^ fmt rhs)
   | Ident (Upper lid | Lower lid), Ident (Upper rid | Lower rid)
     when String.equal lid rid -> P.string "~" ^^ P.string lid
   (* [a = (b : t)] *)
-  | _, Form (":", _ :: _) ->
+  | _, Shape (":", _ :: _) ->
     P.group
       (lval_doc
       ^^ P.blank 1
@@ -101,15 +87,19 @@ and binding ctx (lhs : ast) (rhs : ast) =
 
 and arrow ctx a b =
   match (a, b) with
-  | Form ("fn", args), body -> arrow_fn ctx args body
+  | Shape ("fn", args), body -> arrow_fn ctx args body
   | _, Scope ("{", _, "}") ->
     (* No indent *)
-    (* P.group (fmt ~ctx:{ ctx with enclose = false } a ^^ P.string " -> " ^^ (fmt ~ctx:{ ctx with enclose = false }) b) *)
     P.group
       (fmt ~ctx:{ ctx with enclose = false } a
       ^^ P.string " -> "
-      ^^ P.nest 2 ((fmt ~ctx:{ ctx with enclose = false }) b)
+      ^^ (fmt ~ctx:{ ctx with enclose = false }) b
       )
+    (* P.group *)
+    (*   (fmt ~ctx:{ ctx with enclose = false } a *)
+    (*   ^^ P.string " -> " *)
+    (*   ^^ P.nest 2 ((fmt ~ctx:{ ctx with enclose = false }) b) *)
+    (*   ) *)
   | _ ->
     P.group
       (fmt ~ctx:{ ctx with enclose = false } a
@@ -118,7 +108,7 @@ and arrow ctx a b =
       )
 
 and arrow_fn ({ enclose; _ } as ctx) args body =
-  if check_is_scope body then
+  if C.is_scope body then
     P.group
       (P.parens_on enclose
          (P.string "fn "
@@ -130,7 +120,7 @@ and arrow_fn ({ enclose; _ } as ctx) args body =
   else
     let body_doc, ret_typ_doc =
       match body with
-      | Form (":", [ body; t ]) ->
+      | Shape (":", [ body; t ]) ->
         (fmt ~ctx:{ ctx with enclose = false } body, !^" : " ^^ fmt t)
       | _ -> (fmt ~ctx:{ ctx with enclose = false } body, P.empty)
     in
@@ -148,7 +138,7 @@ and arrow_fn ({ enclose; _ } as ctx) args body =
         )
 
 and constraint_ ctx v t =
-  if check_is_scope t then
+  if C.is_scope t then
     P.group
       (P.parens_on ctx.enclose
          (fmt ~ctx:{ ctx with enclose = false } v
@@ -166,7 +156,7 @@ and constraint_ ctx v t =
       )
 
 and block ctx items =
-  if items = [] then P.braces P.empty
+  if List_ext.is_empty items then P.braces P.empty
   else
     P.group
       (P.braces
@@ -200,7 +190,7 @@ and seq_comma ctx items =
     )
 
 and seq ctx brackets items =
-  if items = [] then brackets P.empty
+  if List_ext.is_empty items then brackets P.empty
   else
     P.group
       (brackets
@@ -217,7 +207,7 @@ and parens ctx xs = seq ctx P.parens xs
 and braces ctx xs = seq ctx P.braces xs
 
 and list ctx items tl =
-  if items = [] then
+  if List_ext.is_empty items then
     match tl with
     | Some tl -> fmt ~ctx:{ ctx with enclose = false } tl
     | None -> P.brackets P.empty
@@ -245,7 +235,7 @@ and juxt ~inline items =
   (* let juxt_sep = P.comma in *)
   let juxt_sep = P.empty in
   let sep_after = function
-    | Ast.Form ("fn", _) -> juxt_sep ^^ P.hardline
+    | Shaper.Shape ("fn", _) -> juxt_sep ^^ P.hardline
     | _ -> juxt_sep ^^ P.break 1
   in
   P.flow_map_sep ~inline ~sep_after fmt items
@@ -260,7 +250,7 @@ and apply ({ enclose; inline } as ctx) f args =
     P.parens_on enclose
       (P.group (doc_1 ^^ P.hardline ^^ P.string op ^^ P.space ^^ doc_2))
     (* Infix blockish: [a <*> {...}] *)
-  | Sym op, [ arg_1; arg_2 ] when check_is_scope arg_2 ->
+  | Sym op, [ arg_1; arg_2 ] when C.is_scope arg_2 ->
     let doc_1 = fmt ~ctx:{ ctx with enclose = false } arg_1 in
     let doc_2 = fmt ~ctx:{ ctx with enclose = false } arg_2 in
     P.parens_on enclose
@@ -273,90 +263,92 @@ and apply ({ enclose; inline } as ctx) f args =
   (* Prefix *)
   | Sym op, [ arg ] -> P.string op ^^ fmt ~ctx:{ ctx with enclose = false } arg
   (* Single block-ish arg. *)
-  | _, [ arg ] when check_is_scope arg ->
+  | _, [ arg ] when C.is_scope arg ->
     P.parens_on enclose <| P.group (fmt f ^^ P.space ^^ juxt ~inline args)
   | _ ->
     P.parens_on enclose
     <| P.group (fmt f ^^ P.nest 2 (P.space ^^ juxt ~inline args))
 
-and form_ ctx items =
+and shape_ ctx items =
   P.group (P.flow_map (P.break 1) (fmt ~ctx:{ ctx with enclose = false }) items)
 
-and form ctx kwd items =
-  let out =
-    match (kwd, items) with
-    | _, [] -> P.string kwd
-    (* let *)
-    | "let", bindings ->
-      P.group
-        (!^"let"
-        ^^ P.concat_map
-             (function
-               | x ->
-                 (if check_is_binding x then P.space else P.break 1) ^^ fmt x
-               )
-             bindings
-        )
-    (* val|module *)
-    | (("let" | "module") as kwd), (form :: _ as bindings)
-      when check_is_binding form ->
-      (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
-      P.group
-        (!^kwd
-        ^^ P.concat_map
-             (function
-               | x ->
-                 (if check_is_binding x then P.space else P.twice P.hardline)
-                 ^^ fmt x
-               )
-             bindings
-        )
-    | "if", [ cond; Scope ("{", if_true, "}") ] ->
-      P.group
-        (!^"if"
-        ^^ P.space
-        ^^ fmt ~ctx:{ ctx with enclose = false } cond
-        ^^ P.space
-        ^^ !^"then"
-        ^^ begin
-             if check_is_scope if_true then
-               P.space ^^ fmt ~ctx:{ ctx with enclose = false } if_true
-             else
-               P.nest 2
-                 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } if_true)
-           end
-        )
-    | "if", [ cond; Scope ("{", if_true, "}"); Scope ("{", if_false, "}") ] ->
-      P.group
-        (!^"if"
-        ^^ P.space
-        ^^ fmt ~ctx:{ ctx with enclose = false } cond
-        ^^ P.space
-        ^^ !^"then"
-        ^^ begin
-             if check_is_scope if_true then
-               P.space ^^ fmt ~ctx:{ ctx with enclose = false } if_true
-             else
-               P.nest 2
-                 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } if_true)
-           end
-        ^^ P.break 1
-        ^^ !^"else"
-        ^^ begin
-             if check_is_scope if_false then
-               P.space ^^ fmt ~ctx:{ ctx with enclose = false } if_false
-             else
-               P.nest 2
-                 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } if_false)
-           end
-        )
-    | _ ->
-      P.group
-        (P.string kwd
-        ^/^ P.flow_map P.space (fmt ~ctx:{ ctx with enclose = false }) items
-        )
-  in
-  P.parens_on ctx.enclose out
+and shape ctx kwd items =
+  match (kwd, items) with
+  | _, [] -> P.string kwd
+  (* let *)
+  | "let", bindings ->
+    P.group
+      (!^"let"
+      ^^ P.concat_map
+           (function
+             | x -> (if Fl.is_binding x then P.space else P.break 1) ^^ fmt x
+             )
+           bindings
+      )
+    |> P.parens_on ctx.enclose
+  (* val|module *)
+  | (("let" | "module") as kwd), (shape :: _ as bindings)
+    when Fl.is_binding shape ->
+    (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
+    P.group
+      (!^kwd
+      ^^ P.concat_map
+           (function
+             | x ->
+               (if Fl.is_binding x then P.space else P.twice P.hardline)
+               ^^ fmt x
+             )
+           bindings
+      )
+    |> P.parens_on ctx.enclose
+  | "if", [ cond; Scope ("{", if_true, "}") ] ->
+    P.group
+      (!^"if"
+      ^^ P.space
+      ^^ fmt ~ctx:{ ctx with enclose = false } cond
+      ^^ P.space
+      ^^ !^"then"
+      ^^ begin
+           if C.is_scope if_true then
+             P.space ^^ fmt ~ctx:{ ctx with enclose = false } if_true
+           else
+             P.nest 2
+               (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } if_true)
+         end
+      )
+    |> P.parens_on ctx.enclose
+  | "if", [ a; b; c ] ->
+    P.group
+      (!^"if"
+      ^^ P.space
+      ^^ fmt ~ctx:{ ctx with enclose = false } a
+      ^^ P.space
+      ^^ !^"then"
+      ^^ begin
+           if C.is_scope b then
+             P.space ^^ fmt ~ctx:{ ctx with enclose = false } b
+           else P.nest 2 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } b)
+         end
+      ^^ P.break 1
+      ^^ !^"else"
+      ^^ begin
+           if C.is_scope b then
+             P.space ^^ fmt ~ctx:{ ctx with enclose = false } b
+           else P.nest 2 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } b)
+         end
+      )
+    |> P.parens_on ctx.enclose
+  | ".", items ->
+    P.flow_map (P.string kwd) (fmt ~ctx:{ ctx with enclose = false }) items
+  | "~", [ Ident (Lower l); value ] -> labeled ctx l false value
+  | "~?", [ Ident (Lower l); value ] -> labeled ctx l true value
+  | _ ->
+    P.group
+      (P.string kwd
+      ^^ P.space
+      ^^ P.flow_map P.space (fmt ~ctx:{ ctx with enclose = false }) items
+      )
+    |> P.parens_on ctx.enclose
 
 and record r0 fields =
   let fields_doc = P.flow_map (P.comma ^^ P.hardline) fmt fields in
@@ -373,27 +365,27 @@ and record r0 fields =
     )
 
 and labeled ctx l optional value =
-  let map_to_optional_id (ast : ast) : ast =
-    match ast with
+  let map_to_optional_id (fl : fl) : fl =
+    match fl with
     (* TODO Upper/lower *)
     (* id = rval *)
-    | Form ("=", [ Ident (Lower id); rval ]) ->
-      Form ("=", [ Ident (Lower (id ^ "?")); rval ])
+    | Shape ("=", [ Ident (Lower id); rval ]) ->
+      C.shape "=" [ C.lower (id ^ "?"); rval ]
     (* id : rval *)
-    | Form (":", [ Ident (Lower id); rval ]) ->
-      Form (":", [ Ident (Lower (id ^ "?")); rval ])
+    | Shape (":", [ Ident (Lower id); rval ]) ->
+      C.shape ":" [ C.lower (id ^ "?"); rval ]
     (* (id : typ) = rval *)
-    | Form ("=", [ Form ("{", [ Ident (Lower id); typ ]); rval ]) ->
-      Form ("=", [ Form (":", [ Ident (Lower (id ^ "?")); typ ]); rval ])
-    | _ -> ast
+    | Shape ("=", [ Shape ("{", [ Ident (Lower id); typ ]); rval ]) ->
+      C.shape "=" [ C.shape ":" [ C.lower (id ^ "?"); typ ]; rval ]
+    | _ -> fl
   in
-  let enclose = check_is_binding value in
+  let enclose = Fl.is_binding value in
   match value with
   | Ident (Lower id) when String.equal id l ->
     if optional then P.string "~" ^^ P.string l ^^ P.string "?"
     else P.string "~" ^^ P.string l
-  | Form ("=", [ (Ident (Lower id) | Form (":", [ Ident (Lower id); _ ])); _ ])
-  | Form (":", [ Ident (Lower id); _ ]) ->
+  | Shape ("=", [ (Ident (Lower id) | Shape (":", [ Ident (Lower id); _ ])); _ ])
+  | Shape (":", [ Ident (Lower id); _ ]) ->
     if String.equal id l then
       let constraint' = if optional then map_to_optional_id value else value in
       P.string "~"
@@ -412,7 +404,7 @@ and labeled ctx l optional value =
 and field _ctx a b = fmt a ^^ P.string "." ^^ fmt b
 
 and or_pipe_no_braces ctx items =
-  if items = [] then P.braces P.empty
+  if List_ext.is_empty items then P.braces P.empty
   else
     P.group
       (P.break 1
@@ -424,8 +416,8 @@ and or_pipe_no_braces ctx items =
       ^^ P.break 1
       )
 
-and cases ctx items =
-  if items = [] then P.braces P.empty
+and cases_ ctx items =
+  if List_ext.is_empty items then P.braces P.empty
   else
     P.group
       (P.braces
@@ -439,8 +431,8 @@ and cases ctx items =
          )
       )
 
-and or_indent ctx items =
-  if items = [] then P.braces P.empty
+and cases ctx items =
+  if List_ext.is_empty items then P.braces P.empty
   else
     P.group
       (P.braces

@@ -7,5 +7,5 @@
   shaper_xml
   fmt
   pprint
-  compiler-libs.common
-  ocaml-migrate-parsetree))
+  compiler-libs.bytecomp
+  compiler-libs.common))

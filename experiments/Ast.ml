@@ -10,49 +10,6 @@ type const = Parsetree.constant =
   | Pconst_float of string * char option
 
 (*
-  {Prefix interleave}
-  if _ then _ else _
-  match _ with _
-  while _ do _
-  for _ to _ do _
-  for _ downto _ do _
-  fn _ -> _
-  object self { _ }
-
-  {Multi prefix}
-  module type _
-  let rec _
-  module rec _
-  class type _
-  module type of _
-  type nonrec _
-  inherit _ as _
-
-  {Single prefix}
-  object _
-  let _
-  open _
-  include _
-  type _
-  exception _
-  external _
-  val _
-  initializer _
-  inherit _
-
-  {Multi suffix}
-  ... with type t := b
-  ... with module type M = X
-
-  {Enclose sep}
-  { _; ...; _ }
-  { _, ..., _ }
-  ( _, ..., _ )
-  [ _, ..., _ ]
-
-  {Sep}
-  _; ...; _
-
 
 Id id
 Const const
@@ -200,3 +157,43 @@ let pp fmt t =
   match t with
   | Block items -> Fmt.pf fmt "@[<v>%a@]" (Fmt.list ~sep:Fmt.semi pp_syn) items
   | _ -> pp_syn fmt t
+
+module V3 = struct
+  type t =
+    | Ident of Shaper.ident
+    | Const of Shaper.const
+    | Op of string
+    | Block of t list
+    | Record of t list * t option
+    | List of t list * t option
+    | Array of t list
+    | Tuple of t list
+    | Apply of t * t list
+    | Binding of t * t
+    | Let of (t * t) list * t
+    | Val of (t * t) list
+    | Fn of (t list * t) list
+    | Match of t * (t * t) list
+    | If_then_else of t * t * t option
+    | Quote of t
+    | Splice of t
+
+  let ident x = Ident x
+  let const x = Const x
+  let op x = Op x
+  let block xs = Block xs
+  let record ?spread:r fields = Record (fields, r)
+  let list ?spread:l xs = List (xs, l)
+  let array xs = Array xs
+  let tuple xs = Tuple xs
+  let unit = Tuple []
+  let apply f xs = Apply (f, xs)
+  let binding lhs rhs = Binding (lhs, rhs)
+  let let' bindings body = Let (bindings, body)
+  let val' bindings = Val bindings
+  let fn cases = Fn cases
+  let match_ exp cases = Match (exp, cases)
+  let if_then_else a b c = If_then_else (a, b, c)
+  let quote x = Quote x
+  let splice x = Splice x
+end

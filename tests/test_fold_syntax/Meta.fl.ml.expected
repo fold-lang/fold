@@ -12,14 +12,14 @@ let x =
 let x = Scope ("(", (Scope ("(", (Const (Int 42)), ")")), ")")
 let x =
   Scope
-    ("(", (Form ("let", [Form ("=", [Ident (Lower "x"); Const (Int 1)])])),
+    ("(", (Shape ("let", [Shape ("=", [Ident (Lower "x"); Const (Int 1)])])),
       ")")
 let x =
   Scope
     ("(",
       (Seq
          ((Some ";"),
-           [Form ("let", [Form ("=", [Ident (Lower "a"); Const (Int 42)])]);
+           [Shape ("let", [Shape ("=", [Ident (Lower "a"); Const (Int 42)])]);
            Seq (None, [Sym "+"; Ident (Lower "a"); Const (Int 1)])])), ")")
 let int_code = Const (Int 42)
 let x = Scope ("(", (Seq (None, [Sym "+"; Const (Int 1000); int_code])), ")")

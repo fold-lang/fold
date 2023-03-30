@@ -31,6 +31,7 @@ let x = if a then b else c
 let x = if a then (x; b) else c
 let x = if a then (x; b) else (y; c)
 let x = if a then b else c; x
+let x = (if a then b else c) + 1
 let x = if a then b
 let x = if a then (print_newline (); b)
 let x = if a then b + 1

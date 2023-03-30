@@ -4,16 +4,15 @@ let id = Ast.id
 let const x = Ast.Const x
 let longident x = Ast.Id x
 let comma = id ","
+let module_ mb = Ast.Form [ id "module"; mb ]
 
-let rec_module mbl =
+let module_rec mbl =
   let items =
     match mbl with
     | [] -> []
     | hd :: tl -> List.fold_left (fun acc vb -> vb :: id "and" :: acc) [ hd ] tl
   in
   Ast.Form (id "module" :: id "rec" :: List.rev items)
-
-let module_ mb = Ast.Form [ id "module"; mb ]
 
 let mk_let ~prefix vbl =
   let items =
@@ -35,7 +34,7 @@ let tuple items = Ast.Tuple items
 let apply f args = Ast.Apply (f, args)
 let label ~optional l v = Ast.Labeled (l, optional, v)
 let field exp lid = Ast.Form [ id "."; exp; Id lid ]
-let record r0 fields = Ast.Record (r0, fields)
+let record ?spread:r0 fields = Ast.Record (fields, r0)
 let open_ mexp = Ast.Form [ id "open"; mexp ]
 let binding exp_1 exp_2 = Ast.Form [ id "="; exp_1; exp_2 ]
 let while_ cond body = Ast.Form [ id "while"; cond; id "do"; body ]
@@ -63,7 +62,7 @@ let for_ ?(down = false) binding to_exp body =
 
 let fn args body = arrow (Ast.Form (id "fn" :: args)) body
 let array items = Ast.Array items
-let list items tl = Ast.List (items, tl)
+let list ?spread:tl items = Ast.List (items, tl)
 
 let is_binding = function
   | Ast.Form [ Ast.Id (Lident "="); _; _ ] -> true

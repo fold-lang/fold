@@ -1,26 +1,18 @@
-(*
- - Atom 'a
- - Call t * t list
- - Form string * t list
- - List t list
- *)
-
 type loc =
   { start_line : int; start_column : int; end_line : int; end_column : int }
 
 let noloc = { start_line = 0; start_column = 0; end_line = 0; end_column = 0 }
 
-(* [TODO] Add Symbol to ident *)
 type ident = Upper of string | Lower of string
 type const = Int of int | Char of char | String of string | Float of float
 
-type shape =
+type syntax =
   | Ident of ident
   | Const of const
   | Sym of string
-  | Scope of string * shape * string
-  | Seq of string option * shape list
-  | Form of string * shape list
+  | Scope of string * syntax * string
+  | Seq of string option * syntax list
+  | Shape of string * syntax list
 
 let lower x = Ident (Lower x)
 let upper x = Ident (Upper x)
@@ -35,7 +27,23 @@ let braces x = Scope ("{", x, "}")
 let seq ?sep items = Seq (sep, items)
 let seq_comma items = Seq (Some ",", items)
 let seq_semi items = Seq (Some ";", items)
-let form sym items = Form (sym, items)
+let shape kwd items = Shape (kwd, items)
+
+let is_scope = function
+  | Scope _ -> true
+  | _ -> false
+
+let is_seq = function
+  | Seq _ -> true
+  | _ -> false
+
+let is_seq_juxt = function
+  | Seq (None, _) -> true
+  | _ -> false
+
+let is_shape = function
+  | Shape _ -> true
+  | _ -> false
 
 let pp_ident f ident =
   let (Lower id | Upper id) = ident in
@@ -46,7 +54,7 @@ let pp_const f const =
   | Int x -> Fmt.int f x
   | Float x -> Fmt.float f x
   | Char x -> Fmt.char f x
-  | String x -> Fmt.string f x
+  | String x -> Fmt.Dump.string f x
 
 let pp_sep sep f () = Fmt.string f sep
 
@@ -61,8 +69,8 @@ let rec dump f t =
       sep_opt (Fmt.Dump.list dump) items
   | Scope (left, x, right) ->
     Fmt.pf f "(@[<hv1>Scope (%S,@,%a,@ %S)@])" left dump x right
-  | Form (kwd, items) ->
-    Fmt.pf f "(@[<hv1>Form (%S,@ %a)@])" kwd (Fmt.Dump.list dump) items
+  | Shape (kwd, items) ->
+    Fmt.pf f "(@[<hv1>Shape (%S,@ %a)@])" kwd (Fmt.Dump.list dump) items
 
 let rec pp_sexp f t =
   match t with
@@ -81,7 +89,7 @@ let rec pp_sexp f t =
       (Fmt.list ~sep:Fmt.sp pp_sexp)
       items right
   | Scope (left, x, right) -> Fmt.pf f "%s@[<hv1>%a@]%s" left pp_sexp x right
-  | Form (kwd, items) ->
+  | Shape (kwd, items) ->
     Fmt.pf f "!(@[<hv1>%s@ %a@])" kwd (Fmt.list ~sep:Fmt.sp pp_sexp) items
 
 let rec pp f t =
@@ -94,5 +102,5 @@ let rec pp f t =
   | Seq (Some sep, items) ->
     Fmt.pf f "<@[<hov1>%a@]>" (Fmt.list ~sep:(pp_sep sep) pp) items
   | Scope (left, x, right) -> Fmt.pf f "%s@[<hov1>%a@]%s" left pp x right
-  | Form (kwd, items) ->
+  | Shape (kwd, items) ->
     Fmt.pf f "<@@@[<hov1>%s %a@]>" kwd (Fmt.list ~sep:Fmt.sp pp) items
