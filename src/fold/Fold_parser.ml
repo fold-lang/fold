@@ -73,14 +73,8 @@ let splice =
   in
   rule
 
-let let' left =
-  match left with
-  | Shaper.Seq (Some ",", bindings) -> C.let' bindings
-  | _ -> C.let' [ left ]
-
 let prefix (tok : L.token) =
   match tok with
-  | Sym ".." -> Some (P.prefix_unary tok C.spread)
   (* `2 + 2` *)
   (* | Sym "`" -> Some prefix_quote *)
   | Sym "`" -> Some (P.prefix_unary ~precedence:juxt_precedence tok C.quote)
@@ -90,7 +84,7 @@ let prefix (tok : L.token) =
   | Lower "match" ->
     Some (P.prefix_unary ~precedence:juxt_precedence tok C.match_single)
   (* beats: `,` `=`; beaten by: `;` *)
-  | Lower "let" -> Some (P.prefix_unary ~precedence:item_precedence tok let')
+  | Lower "let" -> Some (P.prefix_unary ~precedence:item_precedence tok C.let')
   | Lower "fn" ->
     Some (P.prefix_unary ~precedence:item_precedence tok C.fn_single)
   | Lower "module" ->
@@ -137,10 +131,12 @@ let infix (tok : L.token) =
   | Lower "open"
   | Lower "val" -> Some P.infix_delimiter
   | Semi -> Some (P.infix_seq ~sep:(Semi, 10) (Shaper.seq ~sep:";"))
+  | Sym "&" ->
+    Some (P.infix_binary 19 tok (fun a b -> Shaper.shape "&" [ a; b ]))
   | Comma -> Some (P.infix_seq ~sep:(Comma, 20) (Shaper.seq ~sep:","))
   | Sym "=" -> Some (P.infix_binary 30 (L.Sym "=") C.binding)
-  | Sym "|" -> Some (P.infix_seq ~sep:(tok, 40) C.cases)
-  | Sym "->" -> Some (P.infix_binary 50 (L.Sym "->") C.arrow)
+  | Sym "|" -> Some (P.infix_seq ~sep:(tok, 40) C.alt)
+  | Sym "->" -> Some (P.infix_binary 50 tok C.arrow)
   (* | Sym "->" -> Some (arrow, 50) *)
   | Sym "!" -> Some (form, 210)
   | Sym "." -> Some (P.infix_binary 220 (L.Sym ".") C.dot)

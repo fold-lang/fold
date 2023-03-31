@@ -9,8 +9,8 @@ let const_ml_of_fl (const : Shaper.const) =
 
 let ident_ml_of_fl (ident : Shaper.ident) =
   match ident with
-  | Lower x -> Ml_cons.Exp.ident (Location.mknoloc (Longident.Lident x))
-  | Upper x -> Ml_cons.Exp.ident (Location.mknoloc (Longident.Lident x))
+  | Lower x -> Longident.Lident x
+  | Upper x -> Longident.Lident x
 
 let ident_of_str id =
   match id.[0] with
@@ -100,7 +100,7 @@ module Cons = struct
     | None -> brackets (seq_comma items)
 
   (* a | b | ... *)
-  let cases items = shape "|" items
+  let alt items = shape "|" items
 
   (* a = b *)
   let binding a b = shape "=" [ a; b ]
@@ -133,7 +133,7 @@ module Cons = struct
   (* while a do { ... } *)
   let while' cond body = shape "while" [ cond; body ]
 
-  let for' ?(down = false) binding to_exp body =
+  let for' ~down binding to_exp body =
     shape (if down then "for down" else "for") [ binding; to_exp; body ]
 
   (* a.b *)
@@ -142,24 +142,18 @@ module Cons = struct
   (* a.b *)
   (* TODO: remove *)
   let dot a b = shape "." [ a; b ]
-
-  (* let a = 1; ... *)
-  (* let a = 1, b = 2; ... *)
-  let let' vbl = shape "let" vbl
-  let let_rec vbl = shape "let rec" vbl
-  let val' = let'
-  let val_rec = let_rec
+  let let' x = shape "let" [ x ]
+  let let_rec x = shape "let rec" [ x ]
 
   (* if a then b else c *)
   let if_then_else cond if_true if_false =
     shape "if" [ cond; if_true; if_false ]
-  (* shape "if_then_else_" [ cond; if_true; if_false ] *)
 
   (* if a then b *)
   let if_then cond if_true = shape "if" [ cond; if_true ]
 
-  (* match a { ... } *)
-  let match' exp cases = shape "match" [ exp; cases ]
+  (* match a { (cases,)* } *)
+  let match' exp cases = shape "match" [ exp; braces (seq_comma cases) ]
   let match_single arg = shape "match" [ arg ]
 
   (* module M = ... *)
@@ -174,37 +168,4 @@ module Cons = struct
 
   (* for all 'a 'b, 'a -> 'b *)
   let for_all vars t = shape "for all" [ seq_comma [ seq vars; t ] ]
-end
-
-module Eval = struct
-  type t = Shaper.syntax
-
-  let eval ~const ~ident ~apply ~array ~arrow ~binding ~block ~case ~cases
-      ~constraint' ~field ~fn ~fn_match ~for' ~for_all ~if_then ~if_then_else
-      ~label ~let' ~let_rec ~list ~match' ~module' ~module_rec ~open' ~record
-      ~tuple ~val' ~val_rec ~while' (t : t) =
-    match t with
-    | Const c -> const const_ml_of_fl
-    | Ident id -> ident (ident_ml_of_fl id)
-    | Seq (None, f :: args) -> apply f args
-    | Scope ("[", Seq (Some ",", items), "]") -> list items
-    | Scope ("[", item, "]") -> list [ item ]
-    (* match exp cases *)
-    | Shape
-        ( "match"
-        , [ Seq (None, [ exp; Scope ("{", Seq (Some ",", cases), "}") ]) ]
-        ) -> match' exp cases
-    (* a; b; b *)
-    (* | Seq (Some ";", items) -> sequence items *)
-    (* Tuple *)
-    (* | Scope ("(", Seq (Some ",", []), ")") -> unit *)
-    (* fn _ _ _ -> _ *)
-    | Shape ("fn", [ Shape ("->", [ Seq (None, args); body ]) ]) -> fn args body
-    (* fn _ -> _ *)
-    | Shape ("fn", [ Shape ("->", [ arg; body ]) ]) -> fn [ arg ] body
-    (* fn { _ -> _ } *)
-    | Shape ("fn", [ Scope ("{", Shape ("->", [ arg; body ]), "}") ]) ->
-      fn [ arg ] body
-    (* fn { _ -> _ | _ -> _ } *)
-    | Shape ("fn", [ Scope ("{", Shape ("|", cases), "}") ]) -> fn_match cases
 end

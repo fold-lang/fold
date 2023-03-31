@@ -115,11 +115,11 @@ end = struct
     let rec flatten (exp : Ml.expression) acc =
       match exp.pexp_desc with
       | Pexp_let (rec_flag, vbl, body) ->
-        let vbl' = List.map Vb.conv vbl in
+        let vbl_fl = List.map Vb.conv vbl in
         let form =
           match rec_flag with
-          | Nonrecursive -> Fl.let' vbl'
-          | Recursive -> Fl.let_rec vbl'
+          | Nonrecursive -> Fl.let' (Fl.seq_comma vbl_fl)
+          | Recursive -> Fl.let_rec (Fl.seq_comma vbl_fl)
         in
         flatten body (form :: acc)
       | Pexp_sequence (exp_1, exp_2) -> flatten exp_2 (conv exp_1 :: acc)
@@ -127,11 +127,11 @@ end = struct
         flatten exp (Fl.open' (Mod.conv decl.popen_expr) :: acc)
       | _ -> List.rev (conv exp :: acc)
     in
-    let vbl' = List.map Vb.conv vbl in
+    let vbl_fl = List.map Vb.conv vbl in
     let form =
       match rec_flag with
-      | Nonrecursive -> Fl.let' vbl'
-      | Recursive -> Fl.let_rec vbl'
+      | Nonrecursive -> Fl.let' (Fl.seq_comma vbl_fl)
+      | Recursive -> Fl.let_rec (Fl.seq_comma vbl_fl)
     in
     let body' = flatten body [] in
     Fl.block (form :: body')
@@ -222,13 +222,11 @@ end = struct
 
   and function_ cases =
     let cases_syn =
-      Fl.cases
-        (List.map
-           (fun (c : Ml.case) -> case c.pc_lhs ?guard:c.pc_guard c.pc_rhs)
-           cases
-        )
+      List.map
+        (fun (c : Ml.case) -> case c.pc_lhs ?guard:c.pc_guard c.pc_rhs)
+        cases
     in
-    Fl.fn [] cases_syn
+    Fl.fn_match cases_syn
 
   and array ?loc:_ ?attrs:_ items = Fl.array (List.map conv items)
 
@@ -277,11 +275,9 @@ end = struct
   and match_ ?loc:_ ?attrs:_ exp cases =
     let exp_syn = conv exp in
     let cases_syn =
-      Fl.cases
-        (List.map
-           (fun (c : Ml.case) -> case c.pc_lhs ?guard:c.pc_guard c.pc_rhs)
-           cases
-        )
+      List.map
+        (fun (c : Ml.case) -> case c.pc_lhs ?guard:c.pc_guard c.pc_rhs)
+        cases
     in
     Fl.match' exp_syn cases_syn
 
@@ -313,7 +309,7 @@ end = struct
     let name_syn = Fl.longident (Lident name_with_loc.txt) in
     let cons_syn = Fl.constraint' name_syn (Typ.conv typ) in
     match prim with
-    | [] -> Fl.val' [ cons_syn ]
+    | [] -> Fl.let' cons_syn
     | _ -> Fl.longident (Lident "external")
 
   let conv (vdesc : Ml.value_description) =
@@ -474,7 +470,7 @@ end = struct
       | _ -> conv pat :: acc
     in
     let pats = flatten pat_1 [ conv pat_2 ] in
-    Fl.cases pats
+    Fl.alt pats
 end
 
 and Vb : sig
@@ -564,10 +560,10 @@ end = struct
     | Pstr_extension (_ext, _attrs) -> todo "extension"
 
   and value ?loc:_ rec_flag vbl =
-    let vbl' = List.map Vb.conv vbl in
+    let vbl_fl = List.map Vb.conv vbl in
     match rec_flag with
-    | Asttypes.Nonrecursive -> Fl.val' vbl'
-    | Recursive -> Fl.val_rec vbl'
+    | Asttypes.Nonrecursive -> Fl.let' (Fl.seq_comma vbl_fl)
+    | Recursive -> Fl.let_rec (Fl.seq_comma vbl_fl)
 
   and module_ ?loc:_ mb =
     let mb' = Mb.conv mb in

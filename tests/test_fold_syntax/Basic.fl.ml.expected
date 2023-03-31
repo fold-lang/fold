@@ -2,6 +2,9 @@
 ;;f a b
 ;;42
 ;;()
+let x = 1
+let x = 1
+and y = 2
 let a = ((42 + 10) - 2) / 2
 let b = 1001
 let c = (elem "p" [text "hello"]) + 1
@@ -15,6 +18,8 @@ let x = (Two (1, 2)) |> f
 let () = ()
 let () = let a = 1 in a
 let () = let a = 1 in ()
+let () = let a = 1
+         and b = 2 in ()
 let () = let a = 1 in let b = 2 in ()
 ;;print_endline "hello"
 ;;print_endline "hello"; print_endline "world"
@@ -23,6 +28,7 @@ let xs = [1]
 let xs = [1; 2]
 let xs = [1; 2; 3]
 let xs = 0 :: xs
+let xs = 1 :: 2 :: xs
 let f a = a + 1
 let sum b a = a + b
 let f a = a + 1
@@ -46,3 +52,4 @@ module M3 = struct let a = 1
                    let b = 2 end
 open M
 let x = let a = 1 in let open M in a
+let x = let open M in let a = 1 in a

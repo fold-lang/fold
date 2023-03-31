@@ -1,5 +1,9 @@
 # JOURNAL
 
+## 2023-03-31
+
+- The parser does not use Ast.Cons. Ast.Cons is for high-level syntax forms. We need a fragment-based Cons interface for the parser. For example `x & xs` is not valid Fold syntax, but it is valid _shaper_ Fold syntax fragment.
+
 ## 2023-03-17
 
 Consider always parsing scopes with the base grammar.

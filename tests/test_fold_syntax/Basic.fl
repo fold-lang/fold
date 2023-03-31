@@ -3,6 +3,11 @@ f a b;
 42;
 ();
 
+
+// Values
+x = 1;
+x = 1, y = 2;
+
 let a = (42 + 10 - 2) / 2;
 let b = calc! (1000 + 1);
 let c = xml! <p> "hello" </p> + 1;
@@ -27,6 +32,9 @@ let () = {
   let a = 1
 };
 let () = {
+  let a = 1, b = 2
+};
+let () = {
   let a = 1;
   let b = 2
 };
@@ -45,7 +53,12 @@ let xs = [];
 let xs = [1];
 let xs = [1, 2];
 let xs = [1, 2, 3];
-let xs = [0, ..xs];
+let xs = [0 & xs];
+let xs = [1, 2 & xs];
+
+// Records
+//let x = { name = "Alan", age = 28 }
+//let x = { alan & name = "Alan" }
 
 // Lambda
 let f = fn a -> a + 1;
@@ -66,7 +79,7 @@ let f = fn { a -> a + 1 };
 //let f = fn { a -> a + 1 } + 1;
 
 // Lambda with cases
-let x = fn { a -> 1 | b -> 2 };
+let x = fn { a -> 1, b -> 2 };
 
 // if else
 let x = if a { b } else { c };
@@ -123,5 +136,9 @@ let x = {
   let a = 1;
   open M;
   a
+};
+let x = {
+  open M;
+  let a = 1;
+  a
 }
-
