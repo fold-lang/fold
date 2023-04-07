@@ -1,7 +1,7 @@
 type ident = Upper of string | Lower of string
 type const = Int of int | Char of char | String of string | Float of float
 
-type syntax = private
+type syntax =
   | Ident of ident
   | Const of const
   | Sym of string

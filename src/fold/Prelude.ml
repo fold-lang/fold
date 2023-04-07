@@ -1,6 +1,7 @@
 let ( <| ) = Stdlib.( @@ )
 let ( @@ ) = `disallowed
 let ( @ ) = `disallowed
+let is = Stdlib.( == )
 let ( = ) : int -> int -> bool = Stdlib.( = )
 let ( > ) : int -> int -> bool = Stdlib.( > )
 let ( < ) : int -> int -> bool = Stdlib.( < )

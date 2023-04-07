@@ -1,6 +1,6 @@
 // Nested quoting
-let x = `{ $ (f `x ) };
+//let x = `{ $ (f `x ) };
 
 // Handling of arbitrary infix ops in juxt.
-let x = f a |> g
+f a |> g
 

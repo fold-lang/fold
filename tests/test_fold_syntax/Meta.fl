@@ -1,16 +1,16 @@
 // Code quoting
-let x = `a;
-let x = `1;
-let x = `("abc");
-let x = `(f x);
-let x = `(1 + 2);
-let x = `[1, 2, 3];
-let x = `((42));
-let x = `(let x = 1);
-let x = `(let a = 42; a + 1);
+x = quote a;
+x = quote 1;
+x = quote ("abc");
+x = quote (f x);
+x = quote (1 + 2);
+x = quote [1, 2, 3];
+x = quote ((42));
+x = quote (let x = 1);
+x = quote (let a = 42; a + 1);
 
-//// Code antiquoting
-let int_code = `42;
-let x = `(1000 + $int_code);
-let x = `(1000 + $(`42))
+// Code antiquoting
+int_code = quote 42;
+x = quote (1000 + unquote int_code);
+x = quote (2000 + unquote (quote 42))
 

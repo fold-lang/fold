@@ -1,24 +1,12 @@
 module G = Shaper_parser.Grammar
 module L = Shaper_parser.Lexer
+module S = Shaper
 module P = Shaper_parser.Parser
 module C = Fold_ast.Cons
-open Prelude
 
 type fl = Shaper.syntax
 
 let ( let* ) = P.( let* )
-let juxt_precedence = 300
-let item_precedence = 11
-
-let get_precedence str =
-  match str.[0] with
-  | '=' -> 1
-  | '<' | '>' -> 2
-  | '#' | '&' -> 2
-  | '|' -> 2
-  | '+' | '-' -> 3
-  | '*' | '/' -> 4
-  | _ -> 0
 
 let check_is_operator_char x =
   match x with
@@ -37,75 +25,63 @@ let eval_xml_to_fold : C.t Shaper_xml.eval =
 
 let xml_grammar = Shaper_xml.make_grammar ~eval:eval_xml_to_fold
 
-let form (left : fl) _g l =
+let _shape_ = function
+  | S.Seq (None, S.Ident (S.Lower x) :: args) -> C.shape x args
+  | x ->
+    Fmt.epr "shape: %a@." S.dump x;
+    failwith "invalid shape syntax"
+
+let shape (left : fl) g l =
   L.drop (L.Sym "!") l;
   match left with
-  | Ident (Lower "calc") ->
-    let x = P.parse_prefix Shaper_calc.grammar l in
-    Result.map C.int x
-  | Ident (Lower "xml") -> P.parse_prefix xml_grammar l
-  | Ident (Lower kwd) -> Fmt.failwith "no such macro: %s" kwd
+  (* | Ident (Lower "calc") -> *)
+  (* let x = P.parse_prefix Shaper_calc.grammar l in *)
+  (* Result.map C.int x *)
+  (* | Ident (Lower "xml") -> P.parse_prefix xml_grammar l *)
+  | Ident (Lower kwd) -> (
+    let* args = P.parse g l in
+    match args with
+    | S.Seq (None, items) -> Ok (S.shape kwd items)
+    | _ -> Ok (S.shape kwd [ args ])
+  )
   (* TODO: classify left in error *)
   | _ -> failwith "invalid macro call form, must be kwd!"
 
-let if_then_else =
-  let precedence = Some juxt_precedence in
-  let if_tok = L.Lower "if" in
-  let else_tok = L.Lower "else" in
-  let rule g l =
-    let* () = P.consume if_tok l in
-    let* cond = P.parse_prefix g l in
-    let* if_true = P.parse ?precedence g l in
-    if L.equal_token (L.pick l) else_tok then
-      let* () = P.consume else_tok l in
-      let* if_false = P.parse ?precedence g l in
-      Ok (C.if_then_else cond if_true if_false)
-    else Ok (C.if_then cond if_true)
-  in
-  rule
-
-let splice =
-  let tok = L.Sym "$" in
-  let rule g l =
-    L.drop tok l;
-    let* x = P.parse_prefix g l in
-    Ok (C.splice x)
-  in
-  rule
-
 let prefix (tok : L.token) =
   match tok with
-  (* `2 + 2` *)
-  (* | Sym "`" -> Some prefix_quote *)
-  | Sym "`" -> Some (P.prefix_unary ~precedence:juxt_precedence tok C.quote)
-  | Sym "$" -> Some splice
-  (* | Sym "|" -> Some (P.prefix_seq ~sep:(tok, 4) Fl.alt) *)
-  | Lower "if" -> Some if_then_else
-  | Lower "match" ->
-    Some (P.prefix_unary ~precedence:juxt_precedence tok C.match_single)
+  (* | Sym "#" -> Some (P.prefix_unary ~precedence:Fold_precedence.juxt tok shape) *)
   (* beats: `,` `=`; beaten by: `;` *)
-  | Lower "let" -> Some (P.prefix_unary ~precedence:item_precedence tok C.let')
-  | Lower "fn" ->
-    Some (P.prefix_unary ~precedence:item_precedence tok C.fn_single)
-  | Lower "module" ->
-    Some (P.prefix_unary ~precedence:item_precedence tok C.module')
-  | Lower "open" -> Some (P.prefix_unary ~precedence:item_precedence tok C.open')
+  | Lower (("fn" | "if" | "match" | "quote" | "unquote") as kwd) ->
+    Some
+      (P.prefix_unary ~precedence:Fold_precedence.juxt tok (function
+        | S.Seq (None, items) -> C.shape kwd items
+        | x -> C.shape kwd [ x ]
+        )
+        )
+  | Lower (("let" | "module" | "open") as kwd) ->
+    Some
+      (P.prefix_unary ~precedence:Fold_precedence.item tok (function
+        | S.Seq (None, items) -> C.shape kwd items
+        | x -> C.shape kwd [ x ]
+        )
+        )
   | Lparen ->
     P.prefix_scope Lparen Rparen (function
-      | None -> Shaper.parens (Shaper.seq [])
-      | Some items -> Shaper.parens items
+      | None -> C.tuple []
+      | Some (S.Seq (Some ",", items)) -> C.tuple items
+      | Some x -> x
       )
     |> Option.some
   | Lbrace ->
     P.prefix_scope Lbrace Rbrace (function
       | None -> Shaper.braces (Shaper.seq [])
-      | Some items -> Shaper.braces items
+      | Some x -> Shaper.braces x
       )
     |> Option.some
   | Lbracket ->
     P.prefix_scope Lbracket Rbracket (function
       | None -> Shaper.brackets (Shaper.seq [])
-      | Some items -> Shaper.brackets items
+      | Some x -> Shaper.brackets x
       )
     |> Option.some
   | Int x -> Some (P.const (C.int x))
@@ -115,13 +91,14 @@ let prefix (tok : L.token) =
   | String x -> Some (P.const (C.string x))
   | _ -> None
 
-let infix (tok : L.token) =
+let infix_ (tok : L.token) =
   match tok with
   | Sym "`" -> None
   | Rparen | Rbrace | Rbracket -> Some P.infix_unbalanced
   | Lower "if"
   | Lower "when"
   | Lower "do"
+  | Lower "end"
   | Lower "then"
   | Lower "else"
   | Lower "match"
@@ -137,11 +114,28 @@ let infix (tok : L.token) =
   | Sym "=" -> Some (P.infix_binary 30 (L.Sym "=") C.binding)
   | Sym "|" -> Some (P.infix_seq ~sep:(tok, 40) C.alt)
   | Sym "->" -> Some (P.infix_binary 50 tok C.arrow)
-  (* | Sym "->" -> Some (arrow, 50) *)
-  | Sym "!" -> Some (form, 210)
   | Sym "." -> Some (P.infix_binary 220 (L.Sym ".") C.dot)
   | Sym s when check_is_operator_char s.[0] ->
-    let precedence = 100 + get_precedence s in
+    let precedence = 100 + Fold_precedence.get s in
+    let rule =
+      P.infix_binary precedence tok (fun a b -> C.apply (Shaper.sym s) [ a; b ])
+    in
+    Some rule
+  | _ -> None
+
+let infix (tok : L.token) =
+  match tok with
+  | Rparen | Rbrace | Rbracket -> Some P.infix_unbalanced
+  | Semi -> Some (P.infix_seq ~sep:(Semi, 10) (Shaper.seq ~sep:";"))
+  | Sym "&" ->
+    Some (P.infix_binary 19 tok (fun a b -> Shaper.shape "&" [ a; b ]))
+  | Comma -> Some (P.infix_seq ~sep:(Comma, 20) (Shaper.seq ~sep:","))
+  | Sym "=" -> Some (P.infix_binary 30 (L.Sym "=") C.binding)
+  | Sym "|" -> Some (P.infix_seq ~sep:(tok, 40) C.alt)
+  | Sym "->" -> Some (P.infix_binary 50 tok C.arrow)
+  | Sym "!" -> Some (shape, 210)
+  | Sym s when check_is_operator_char s.[0] ->
+    let precedence = 100 + Fold_precedence.get s in
     let rule =
       P.infix_binary precedence tok (fun a b -> C.apply (Shaper.sym s) [ a; b ])
     in
@@ -151,9 +145,14 @@ let infix (tok : L.token) =
 let g =
   G.make ~default_infix:(P.parse_infix_juxt Shaper.seq) ~prefix ~infix "fold"
 
-let parse chan : C.t =
+let parse l : C.t =
+  let ast = P.run g l in
+  ast
+(* Fold_eval.eval ast *)
+
+let parse_chan chan : C.t =
   let l = L.for_channel chan in
-  P.run g l
+  parse l
 
 let parse_string str : C.t =
   let l = L.for_string str in

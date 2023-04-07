@@ -1,5 +1,31 @@
 # JOURNAL
 
+## 2023-04-04
+
+Dylan macros:
+```
+define macro when
+ { when (?test:expression) ?body:body end }
+   => { if (?test) ?body end if }
+end;
+
+define macro or
+  { or(?x:expression, ?y:expression)
+    => { let tmp = ?x;
+         if (tmp) tmp else ?y end }
+end define;
+```
+
+Honu macros:
+```
+macro info(at){ x:id, math:expresson at point:expression } {
+  syntax({
+    var f = function(x) { math }
+    printf("at ~a dx ~a\n", f(point))
+  })
+}
+```
+
 ## 2023-03-31
 
 - The parser does not use Ast.Cons. Ast.Cons is for high-level syntax forms. We need a fragment-based Cons interface for the parser. For example `x & xs` is not valid Fold syntax, but it is valid _shaper_ Fold syntax fragment.

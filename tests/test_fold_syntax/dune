@@ -15,19 +15,31 @@
  (action
   (diff expected-ml.txt actual-ml.txt)))
 
-;; Basic.fl
+;; Lispy.fl
 
 (rule
- (deps Basic.fl)
+ (deps Lispy.fl)
  (action
   (with-stdout-to
-   Basic.fl.ml.actual
+   Lispy.fl.ml.actual
    (run fold-fmt -i fl -o ml %{deps}))))
 
 (rule
  (alias runtest)
  (action
-  (diff Basic.fl.ml.expected Basic.fl.ml.actual)))
+  (diff Lispy.fl.ml.expected Lispy.fl.ml.actual)))
+
+(rule
+ (deps Lispy.fl)
+ (action
+  (with-stdout-to
+   Lispy.fl.sexp.actual
+   (run fold-fmt -i fl -o sexp %{deps}))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Lispy.fl.sexp.expected Lispy.fl.sexp.actual)))
 
 ;; Shapes.fl
 

@@ -19,6 +19,6 @@ let rec quote (syn : Shaper.syntax) =
     construct "Seq"
       [ construct "Some" [ string sep ]; list (List.map quote items) ]
   | Scope (l, x, r) -> construct "Scope" [ string l; quote x; string r ]
-  | Shape ("$", [ code ]) -> code
+  | Shape ("unquote", [ code ]) -> code
   | Shape (kwd, items) ->
     construct "Shape" [ string kwd; list (List.map quote items) ]

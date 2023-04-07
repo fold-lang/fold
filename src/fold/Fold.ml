@@ -11,6 +11,9 @@ module Utils = struct
     let next_token = Lexer.token in
     let structure = Parser.implementation next_token lexbuf in
     structure
+
+  let dump_parsetree = Printast.structure 0
+  let pprint_structure = Pprintast.structure
 end
 
 module Parser = Fold_parser

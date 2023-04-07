@@ -1,16 +1,16 @@
-type format = Fl | Ml | Bin | Sexp
+type format = Fl | Ml | Bin | Sexp | Parsetree
 
 let run ~input_file_name ~input_fmt ~output_fmt ic oc =
   match (input_fmt, output_fmt) with
   | Fl, Bin ->
-    let fl = Fold.Parser.parse ic in
+    let fl = Fold.Parser.parse_chan ic in
     let ml = Fold.To_ocaml.structure fl in
     Fold.Utils.output_binary_structure ~input_file_name oc ml
   | Fl, Ml ->
-    let fl = Fold.Parser.parse ic in
+    let fl = Fold.Parser.parse_chan ic in
     let ml = Fold.To_ocaml.structure fl in
     let out = Format.formatter_of_out_channel oc in
-    Format.fprintf out "%a@." Fold.To_ocaml.Pp.structure ml
+    Format.fprintf out "%a@." Fold.Utils.pprint_structure ml
   | Ml, Fl ->
     let ml = Fold.Utils.parse_structure ic in
     let fl = Fold.fl_of_ml ml in
@@ -21,19 +21,24 @@ let run ~input_file_name ~input_fmt ~output_fmt ic oc =
     let out = Format.formatter_of_out_channel oc in
     Format.fprintf out "%a@." Fold.pp_sexp fl
   | Fl, Sexp ->
-    let fl = Fold.Parser.parse ic in
+    let fl = Fold.Parser.parse_chan ic in
     let out = Format.formatter_of_out_channel oc in
     Format.fprintf out "%a@." Fold.pp_sexp fl
   | Fl, Fl ->
-    let fl = Fold.Parser.parse ic in
+    let fl = Fold.Parser.parse_chan ic in
     Fold.fmt oc fl
   | Ml, Ml ->
     let ml = Fold.Utils.parse_structure ic in
     let out = Format.formatter_of_out_channel oc in
-    Format.fprintf out "%a@." Fold.To_ocaml.Pp.structure ml
+    Format.fprintf out "%a@." Fold.Utils.pprint_structure ml
   | Ml, Bin ->
     let ml = Fold.Utils.parse_structure ic in
     Fold.Utils.output_binary_structure ~input_file_name oc ml
+  | Fl, Parsetree ->
+    let fl = Fold.Parser.parse_chan ic in
+    let ml = Fold.To_ocaml.structure fl in
+    let out = Format.formatter_of_out_channel oc in
+    Format.fprintf out "%a@." Fold.Utils.dump_parsetree ml
   | _ -> failwith "unsupported conversion format"
 
 let main input_fmt output_fmt input_file_name =
@@ -57,7 +62,13 @@ let output_fmt_arg =
     "Write the output in one of the following formats: ml, fl or bin."
   in
   let opts =
-    Arg.enum [ ("ml", Ml); ("fl", Fl); ("bin", Bin); ("sexp", Sexp) ]
+    Arg.enum
+      [ ("ml", Ml)
+      ; ("fl", Fl)
+      ; ("bin", Bin)
+      ; ("sexp", Sexp)
+      ; ("parsetree", Parsetree)
+      ]
   in
   Arg.(info [ "o"; "output" ] ~doc |> opt (some opts) None |> required)
 

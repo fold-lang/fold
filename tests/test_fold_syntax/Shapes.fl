@@ -5,8 +5,8 @@ f a |> g;
 a = b | c -> d, e;
 f;
 
-let a = 1;
-let b = 2 + 2;
+a = 1;
+b = 2 + 2;
 
 {
   a,
@@ -24,6 +24,6 @@ let b = 2 + 2;
   }
 };
 
-let f = fn a -> a + 1;
+foo f = f a -> a + 1;
 
 end

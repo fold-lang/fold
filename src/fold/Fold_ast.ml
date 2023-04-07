@@ -160,12 +160,63 @@ module Cons = struct
   let module' mb = shape "module" [ mb ]
   let module_rec mbl = shape "module rec" mbl
 
-  (* `a` *)
-  let quote x = shape "quote" [ x ]
-
-  (* $a *)
-  let splice x = shape "$" [ x ]
+  (* let quote x = shape "quote" [ x ] *)
+  (* let quasiquote x = shape "quasiquote" [ x ] *)
+  (* let quasiquote x = seq (lower "quasiquote" :: [x]) *)
+  let unquote x = shape "unquote" [ x ]
 
   (* for all 'a 'b, 'a -> 'b *)
   let for_all vars t = shape "for all" [ seq_comma [ seq vars; t ] ]
+end
+
+module Cons_next = struct
+  type t = Shaper.syntax
+
+  (* Ident *)
+  let lower = Shaper.lower
+  let upper = Shaper.upper
+
+  let longident lid =
+    match Longident.flatten lid with
+    | [ x ] -> ident_of_str x
+    | xs ->
+      xs
+      |> List.fold_left (fun acc id -> ident_of_str id :: acc) []
+      |> List.rev
+      |> Shaper.shape "."
+
+  (* Const *)
+
+  let string = Shaper.string
+  let int = Shaper.int
+  let float = Shaper.float
+  let char = Shaper.char
+
+  let const (const : Parsetree.constant) =
+    match const with
+    | Pconst_char x -> char x
+    | Pconst_float (x, _) -> float (float_of_string x)
+    | Pconst_string (x, _, _) -> string x
+    | Pconst_integer (x, _) -> int (int_of_string x)
+
+  (* f a b *)
+  let apply f args = Shaper.seq (f :: args)
+
+  (* X a *)
+  let construct ident_ml args = Shaper.seq (ident_fl_of_ml ident_ml :: args)
+
+  (* (), (a, b, c) *)
+  let tuple_kwd = Shaper.lower "tuple"
+  let tuple items = Shaper.seq (tuple_kwd :: items)
+
+  (* {}, {a}, {a, b, c} *)
+  let array_kwd = Shaper.lower "array"
+  let array items = Shaper.seq (array_kwd :: items)
+
+  (* {a;} {a; b; c} *)
+  let do_kwd = Shaper.lower "do"
+  let do' items = Shaper.seq (do_kwd :: items)
+
+  (* {a = 1, ~b, ..c} *)
+  let record_kwd = Shaper.lower "record"
 end

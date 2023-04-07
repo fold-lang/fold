@@ -1,2 +1,1 @@
-let x = Scope ("{", (f (Ident (Lower "x"))), "}")
-let x = (f a) |> g
+;;(f a) |> g

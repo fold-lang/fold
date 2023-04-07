@@ -10,16 +10,16 @@ let item input =
 let exp input =
   try
     let fl = Fold.Parser.parse_string input in
-    let ml = Fold.To_ocaml.Exp.conv fl in
+    let ml = Fold.To_ocaml.exp fl in
     Fmt.pr "exp: ml: @[%a@]@." Pprintast.expression ml
   with Failure err -> Fmt.pr "exp: err: %s@." err
 
 let test_item () =
   begin
-    item {|let x = 1|};
+    item {|x = 1|};
     item {|
-         let a = 1;
-         let b = 2
+         a = 1;
+         b = 2
        |}
   end
 

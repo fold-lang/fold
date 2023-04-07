@@ -8,33 +8,31 @@ f a b;
 x = 1;
 x = 1, y = 2;
 
-let a = (42 + 10 - 2) / 2;
-let b = calc! (1000 + 1);
-let c = xml! <p> "hello" </p> + 1;
+a = (42 + 10 - 2) / 2;
 print_newline ();
 print_endline (string_of_int (a + b));
 
 
 // Constructors
-let x = None;
-let x = Some 1;
-let x = Some [1, 2, 3];
-let x = Two 1 2;
-let x = Two 1 2 |> f;
+x = None;
+x = Some 1;
+x = Some [1, 2, 3];
+x = Two 1 2;
+x = Two 1 2 |> f;
 
 // Unit pattern, implicit let unit
-let () = ();
-let () = {
+() = ();
+() = {
   let a = 1;
   a
 };
-let () = {
+() = {
   let a = 1
 };
-let () = {
+() = {
   let a = 1, b = 2
 };
-let () = {
+() = {
   let a = 1;
   let b = 2
 };
@@ -49,20 +47,20 @@ let () = {
 
 
 // Lists
-let xs = [];
-let xs = [1];
-let xs = [1, 2];
-let xs = [1, 2, 3];
-let xs = [0 & xs];
-let xs = [1, 2 & xs];
+xs = [];
+xs = [1];
+xs = [1, 2];
+xs = [1, 2, 3];
+xs = [0 & xs];
+xs = [1, 2 & xs];
 
 // Records
 //let x = { name = "Alan", age = 28 }
 //let x = { alan & name = "Alan" }
 
 // Lambda
-let f = fn a -> a + 1;
-let sum = fn a b -> a + b;
+f = a -> a + 1;
+sum = a b -> a + b;
 
 // This matches on an singleton array
 // let f = fn {a} -> a + 1;
@@ -71,30 +69,30 @@ let sum = fn a b -> a + b;
 //let f = fn {~a} -> a + 1;
 
 // This wraps a single case.
-let f = fn { a -> a + 1 };
+f = { a -> a + 1 };
 //let f = fn {
 //  | a -> a + 1
 //  };
 // [BUG] + should beat fn.
-//let f = fn { a -> a + 1 } + 1;
+f = { a -> a + 1 } + 1;
 
 // Lambda with cases
-let x = fn { a -> 1, b -> 2 };
+x = { a -> 1, b -> 2 };
 
 // if else
-let x = if a { b } else { c };
-let x = if a { x; b } else { c };
-let x = if a { x; b } else { y; c };
-let x = { if a { b } else { c }; x };
-let x = if a { b } else { c } + 1;
+x = if a b c;
+x = if a { x; b } { c };
+x = if a { x; b } { y; c };
+x = { if a { b } { c }; x };
+x = if a { b } { c } + 1;
 // err
 //let x = if a { b } else c + 1;
 
 // if
-let x = if a { b };
-let x = if a { print_newline (); b };
-let x = if a { b + 1 };
-let x = if a { b } + 1;
+x = if a { b };
+x = if a { print_newline (); b };
+x = if a { b + 1 };
+x = if a { b } + 1;
 
 // Syntax errors
 //let x = if a; x then b else c;
@@ -102,18 +100,18 @@ let x = if a { b } + 1;
 // let + 1;
 
 // match
-let x =
+x =
   match a {
     1 -> 0,
     2 -> b
   };
-let x =
+x =
   match (a + b) {
     1 -> 0,
     2 -> b
   };
-let x = match a { 1 -> b, 2 -> c } + 100;
-let x =
+x = match a { 1 -> b, 2 -> c } + 100;
+x =
   match a {
     1 -> {
       print_endline "1";
@@ -126,19 +124,25 @@ let x =
 module M1 = X;
 module M2 = {};
 module M3 = {
-  let a = 1;
-  let b = 2
+  a = 1;
+  b = 2
 };
 
 // open
 open M;
-let x = {
+x = {
   let a = 1;
   open M;
   a
 };
-let x = {
+x = {
   open M;
   let a = 1;
   a
+};
+
+x = if {
+  a > 1 -> "yes",
+  a == 0 -> "maybe",
+  else -> "no"
 }

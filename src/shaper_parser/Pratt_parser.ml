@@ -14,16 +14,6 @@ type token = Lexer.token
 let pp_token = Lexer.pp_token
 let ( let* ) = Result.bind
 
-module Token_map = struct
-  include Map.Make (struct
-    type t = Lexer.token
-
-    let compare = Lexer.compare_token
-  end)
-
-  let get tbl x = try Some (find tbl x) with Not_found -> None
-end
-
 type reason =
   | Unexpected of { expected : token option; actual : token option }
   | Invalid_infix of token

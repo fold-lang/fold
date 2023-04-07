@@ -1,5 +1,4 @@
-let x = (42 + 10 - 2) / 2;
-let y = calc! (1000 + 1);
-let z = "xml! <p> hello </p>";
+x = (42 + 10 - 2) / 2;
+y = 1000 + 1;
 print_newline ();
 print_endline (string_of_int (x + y))

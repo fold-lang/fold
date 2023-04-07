@@ -1,27 +1,19 @@
 let x = Ident (Lower "a")
 let x = Const (Int 1)
-let x = Scope ("(", (Const (String "abc")), ")")
-let x =
-  Scope ("(", (Seq (None, [Ident (Lower "f"); Ident (Lower "x")])), ")")
-let x =
-  Scope ("(", (Seq (None, [Sym "+"; Const (Int 1); Const (Int 2)])), ")")
+let x = Const (String "abc")
+let x = Seq (None, [Ident (Lower "f"); Ident (Lower "x")])
+let x = Seq (None, [Sym "+"; Const (Int 1); Const (Int 2)])
 let x =
   Scope
     ("[", (Seq ((Some ","), [Const (Int 1); Const (Int 2); Const (Int 3)])),
       "]")
-let x = Scope ("(", (Scope ("(", (Const (Int 42)), ")")), ")")
+let x = Const (Int 42)
+let x = Shape ("let", [Shape ("=", [Ident (Lower "x"); Const (Int 1)])])
 let x =
-  Scope
-    ("(", (Shape ("let", [Shape ("=", [Ident (Lower "x"); Const (Int 1)])])),
-      ")")
-let x =
-  Scope
-    ("(",
-      (Seq
-         ((Some ";"),
-           [Shape ("let", [Shape ("=", [Ident (Lower "a"); Const (Int 42)])]);
-           Seq (None, [Sym "+"; Ident (Lower "a"); Const (Int 1)])])), ")")
+  Seq
+    ((Some ";"),
+      [Shape ("let", [Shape ("=", [Ident (Lower "a"); Const (Int 42)])]);
+      Seq (None, [Sym "+"; Ident (Lower "a"); Const (Int 1)])])
 let int_code = Const (Int 42)
-let x = Scope ("(", (Seq (None, [Sym "+"; Const (Int 1000); int_code])), ")")
-let x =
-  Scope ("(", (Seq (None, [Sym "+"; Const (Int 1000); Const (Int 42)])), ")")
+let x = Seq (None, [Sym "+"; Const (Int 1000); int_code])
+let x = Seq (None, [Sym "+"; Const (Int 2000); Const (Int 42)])
