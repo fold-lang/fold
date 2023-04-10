@@ -77,6 +77,7 @@ module Cons = struct
 
   (* (), (a, b, c) *)
   let tuple items = parens (seq_comma items)
+  let unit = parens (seq_comma [])
 
   (* {}, {a}, {a, b, c} *)
   let array items = braces (seq_comma items)

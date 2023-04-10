@@ -1,46 +1,61 @@
 open Prelude
 
 module type Eval = sig
-  type exp
+  type expr
   type pat
   type vb
   type opnd
-  type str
+  type structure_item
+  type signature_item
   type mod'
   type mb
+  type extension
 
   type eval =
-    { exp : fl -> exp
+    { expr : fl -> expr
     ; pat : fl -> pat
     ; vb : fl -> vb
     ; opnd : fl -> opnd
-    ; str : fl -> str
+    ; structure_item : fl -> structure_item
+    ; signature_item : fl -> signature_item
     ; mod' : fl -> mod'
     ; mb : fl -> mb
+    ; extension : fl -> extension
     }
 
-  module Exp : sig
-    val ident : eval -> Longident.t Location.loc -> exp
-    val constant : eval -> Shaper.const -> exp
-    val fn : eval -> fl list -> fl -> exp
-    val fn_match : eval -> fl list -> exp
-    val match' : eval -> fl -> fl list -> exp
-    val tuple : eval -> fl list -> exp
-    val block : eval -> fl list -> exp
-    val list : eval -> ?spread:fl -> fl list -> exp
-    val let_in_unit : eval -> fl list -> exp
-    val if_then_else : eval -> fl -> fl -> fl -> exp
-    val if_then : eval -> fl -> fl -> exp
-    val if_cases : eval -> fl list -> exp
-    val apply : eval -> fl -> fl list -> exp
-    val construct : eval -> Longident.t -> fl list -> exp
-    val while' : eval -> fl -> fl -> exp
+  module Expr : sig
+    val ident : eval -> Longident.t Location.loc -> expr
+    val extension : extension -> expr
+    val constant : eval -> Shaper.const -> expr
+    val field : eval -> fl -> Longident.t Location.loc -> expr
+    val fn : eval -> fl list -> fl -> expr
+    val fn_match : eval -> fl list -> expr
+    val match' : eval -> fl -> fl list -> expr
+    val tuple : eval -> fl list -> expr
+    val block : eval -> fl list -> expr
+    val list : eval -> ?spread:fl -> fl list -> expr
+    val let_in_unit : eval -> fl list -> expr
+    val if_then_else : eval -> fl -> fl -> fl -> expr
+    val if_then : eval -> fl -> fl -> expr
+    val if_cases : eval -> fl list -> expr
+    val apply : eval -> fl -> fl list -> expr
+    val construct : eval -> Longident.t -> fl list -> expr
+    val while' : eval -> fl -> fl -> expr
+  end
+
+  module Extension : sig
+    val structure :
+      eval -> string Location.loc -> structure_item list -> extension
+
+    val signature :
+      eval -> string Location.loc -> signature_item list -> extension
   end
 
   module Pat : sig
     val var : eval -> string Location.loc -> pat
     val constant : eval -> Shaper.const -> pat
     val construct : eval -> Longident.t Location.loc -> fl list -> pat
+    val list : eval -> ?spread:fl -> fl list -> pat
   end
 
   module Vb : sig
@@ -51,11 +66,11 @@ module type Eval = sig
     val mk : eval -> fl -> opnd
   end
 
-  module Str : sig
-    val value : eval -> fl list -> str
-    val module' : eval -> fl -> str
-    val eval : eval -> fl -> str
-    val open' : eval -> fl -> str
+  module Structure_item : sig
+    val value : eval -> fl list -> structure_item
+    val module' : eval -> fl -> structure_item
+    val eval : eval -> fl -> structure_item
+    val open' : eval -> fl -> structure_item
   end
 
   module Mb : sig
@@ -86,7 +101,7 @@ let unless_macro args =
     (* C.if_then (C.apply (C.lower "not") [ cond ]) body *)
   | _ -> failwith "rewrite: invalid unless args"
 
-let () = defmacro "unless" unless_macro
+(* let () = defmacro "unless" unless_macro *)
 
 (* foo *)
 
@@ -101,8 +116,8 @@ let foo_macro _args = Shaper.string "I am foo"
 let () = defmacro "foo" foo_macro
 
 module Eval (E : Eval) : sig
-  val exp : fl -> E.exp
-  val structure : fl -> E.str list
+  val expr : fl -> E.expr
+  val structure : fl -> E.structure_item list
 end = struct
   let rec quasiquote (syn : Shaper.syntax) =
     let open Fold_ast.Cons in
@@ -126,92 +141,105 @@ end = struct
     | Shape (kwd, items) ->
       construct "Shape" [ string kwd; list (List.map quasiquote items) ]
 
-  let rec eval : E.eval = { exp; pat; vb; opnd; str; mod'; mb }
+  let rec eval : E.eval =
+    { expr; pat; vb; opnd; structure_item; signature_item; mod'; mb; extension }
 
-  and exp (fl : fl) =
+  and list : 'a. (E.eval -> ?spread:fl -> fl list -> 'a) -> fl -> 'a =
+   fun mk scoped ->
+    match scoped with
+    (* list: [a, b & tl] *)
+    | Shape ("&", [ Seq (Some ",", items); tl ]) ->
+      mk eval ?spread:(Some tl) items
+    (* list: [a & tl] *)
+    | Shape ("&", [ a; tl ]) -> mk eval ?spread:(Some tl) [ a ]
+    (* list: [a, b, c] --- *)
+    | Seq (Some ",", items) -> mk eval ?spread:None items
+    (* list: [] *)
+    | Seq (None, []) -> mk eval ?spread:None []
+    (* list: [a] *)
+    | item -> mk eval ?spread:None [ item ]
+
+  and expr (fl : fl) =
     match fl with
-    (* -- let_in_unit -- *)
-    | Shape ("let", [ Seq (Some ",", vbl) ]) -> E.Exp.let_in_unit eval vbl
-    | Shape ("let", [ Scope ("(", Seq (Some ",", vbl), ")") ]) ->
-      E.Exp.let_in_unit eval vbl
-    | Shape ("let", [ vb ]) -> E.Exp.let_in_unit eval [ vb ]
     (* --- ident --- *)
-    | Ident (Lower x) -> E.Exp.ident eval (Location.mknoloc (Longident.Lident x))
-    | Sym x -> E.Exp.ident eval (Location.mknoloc (Longident.Lident x))
+    | Ident (Lower x) ->
+      E.Expr.ident eval (Location.mknoloc (Longident.Lident x))
+    | Sym x -> E.Expr.ident eval (Location.mknoloc (Longident.Lident x))
+    (* M.x *)
+    | Shape (".", [ Ident (Upper m); Ident (Lower v) ]) ->
+      E.Expr.ident eval (Location.mknoloc (Longident.Ldot (Lident m, v)))
+    (* a.b *)
+    | Shape (".", [ a; Ident (Lower id) ]) ->
+      E.Expr.field eval a (Location.mknoloc (Longident.Lident id))
+    (* -- let_in_unit -- *)
+    | Shape ("let", [ Seq (Some ",", vbl) ]) -> E.Expr.let_in_unit eval vbl
+    | Shape ("let", [ Scope ("(", Seq (Some ",", vbl), ")") ]) ->
+      E.Expr.let_in_unit eval vbl
+    | Shape ("let", [ vb ]) -> E.Expr.let_in_unit eval [ vb ]
     (* --- const --- *)
-    | Const const -> E.Exp.constant eval const
+    | Const const -> E.Expr.constant eval const
     (* --- fn --- *)
-    | Shape ("->", [ Seq (None, args); body ]) -> E.Exp.fn eval args body
-    | Shape ("->", [ arg; body ]) -> E.Exp.fn eval [ arg ] body
+    | Shape ("->", [ Seq (None, args); body ]) -> E.Expr.fn eval args body
+    | Shape ("->", [ arg; body ]) -> E.Expr.fn eval [ arg ] body
     | Scope ("{", Shape ("->", [ arg; body ]), "}") ->
-      E.Exp.fn eval [ arg ] body
+      E.Expr.fn eval [ arg ] body
     (* --- fn_match --- *)
-    | Scope ("{", Seq (Some ",", cases), "}") -> E.Exp.fn_match eval cases
+    | Scope ("{", Seq (Some ",", cases), "}") -> E.Expr.fn_match eval cases
     (* --- if_then_else --- *)
-    | Shape ("if", [ a; b; c ]) -> E.Exp.if_then_else eval a b c
+    | Shape ("if", [ a; b; c ]) -> E.Expr.if_then_else eval a b c
     (* --- if_then --- *)
-    | Shape ("if", [ a; b ]) -> E.Exp.if_then eval a b
+    | Shape ("if", [ a; b ]) -> E.Expr.if_then eval a b
     | Shape ("if", [ Scope ("{", Seq (Some ",", cases), "}") ]) ->
-      E.Exp.if_cases eval cases
-    | Shape ("if", [ Scope ("{", c, "}") ]) -> E.Exp.if_cases eval [ c ]
+      E.Expr.if_cases eval cases
+    | Shape ("if", [ Scope ("{", c, "}") ]) -> E.Expr.if_cases eval [ c ]
     (* -- while -- *)
-    | Shape ("while", [ cond; body ]) -> E.Exp.while' eval cond body
+    | Shape ("while", [ cond; body ]) -> E.Expr.while' eval cond body
     (* --- match exp cases --- *)
     | Shape ("match", [ exp_fl; Scope ("{", Seq (Some ",", cases_fl), "}") ]) ->
-      E.Exp.match' eval exp_fl cases_fl
+      E.Expr.match' eval exp_fl cases_fl
     (* --- construct --- *)
-    | Ident (Upper id) -> E.Exp.construct eval (Longident.Lident id) []
+    | Ident (Upper id) -> E.Expr.construct eval (Longident.Lident id) []
     | Scope ("(", Seq (None, []), ")") ->
-      E.Exp.construct eval (Longident.Lident "()") []
+      E.Expr.construct eval (Longident.Lident "()") []
     | Scope ("{", Seq (None, []), "}") ->
-      E.Exp.construct eval (Longident.Lident "()") []
+      E.Expr.construct eval (Longident.Lident "()") []
     | Seq (None, Ident (Upper c) :: args) ->
-      E.Exp.construct eval (Longident.Lident c) args
+      E.Expr.construct eval (Longident.Lident c) args
     (* --- apply or macro --- *)
-    | Seq (None, f :: args) -> E.Exp.apply eval f args
+    | Seq (None, f :: args) -> E.Expr.apply eval f args
     (* --- a; b; b --- *)
-    | Seq (Some ";", xs) -> E.Exp.block eval xs
+    | Seq (Some ";", xs) -> E.Expr.block eval xs
     (* Err: a, b *)
     | Seq (Some _sep, _) -> assert false
     (* --- () --- *)
     | Scope ("(", Seq (Some ",", []), ")") ->
-      E.Exp.construct eval (Longident.Lident "()") []
-    | Scope ("(", Seq (Some ",", items), ")") -> E.Exp.tuple eval items
+      E.Expr.construct eval (Longident.Lident "()") []
+    | Scope ("(", Seq (Some ",", items), ")") -> E.Expr.tuple eval items
     (* --- group --- *)
-    | Scope ("(", fl, ")") -> exp fl
-    | Scope ("{", x, "}") -> exp x
-    (* --- List --- *)
-    (* list: [a, b & tl] *)
-    | Scope ("[", Shape ("&", [ Seq (Some ",", items); tl ]), "]") ->
-      E.Exp.list eval ?spread:(Some tl) items
-    (* list: [a & tl] *)
-    | Scope ("[", Shape ("&", [ a; tl ]), "]") ->
-      E.Exp.list eval ?spread:(Some tl) [ a ]
-    (* list: [a, b, c] --- *)
-    | Scope ("[", Seq (Some ",", items), "]") ->
-      E.Exp.list eval ?spread:None items
-    (* list: [] *)
-    | Scope ("[", Seq (None, []), "]") -> E.Exp.list eval ?spread:None []
-    (* list: [a] *)
-    | Scope ("[", item, "]") -> E.Exp.list eval ?spread:None [ item ]
+    | Scope ("(", fl, ")") -> expr fl
+    | Scope ("{", x, "}") -> expr x
+    (* --- [...] --- *)
+    | Scope ("[", scoped, "]") -> list E.Expr.list scoped
     (* --- quote --- *)
-    | Shape ("quote", [ x ]) -> exp (quasiquote x)
-    | Shape ("quote", xs) -> exp (quasiquote (Shaper.seq xs))
+    | Shape ("quote", [ x ]) -> expr (quasiquote x)
+    | Shape ("quote", xs) -> expr (quasiquote (Shaper.seq xs))
     (* --- macro --- *)
     | Shape (kwd, args) -> begin
-      match macroexpand kwd args with
-      | Some expanded -> exp expanded
-      | None -> Fmt.failwith "unknown macro %S" kwd
+      match getmacro kwd with
+      | Some macro -> expr (macro args)
+      | None ->
+        (* Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl;
+           Fmt.failwith "unknown macro %S" kwd *)
+        let id = Location.mknoloc "fl.macro_call" in
+        let call = quasiquote fl in
+        let item = E.Structure_item.eval eval call in
+        let ext = E.Extension.structure eval id [ item ] in
+        E.Expr.extension ext
     end
     (* Err: unknown *)
     | _ ->
       Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl;
       assert false
-
-  and macroexpand kwd args =
-    match getmacro kwd with
-    | Some macro -> Some (macro args)
-    | None -> None
 
   and pat (fl : fl) =
     match fl with
@@ -220,6 +248,8 @@ end = struct
     | Scope ("(", Seq ((None | Some ","), []), ")") ->
       E.Pat.construct eval (Location.mknoloc (Longident.Lident "()")) []
     | Const const -> E.Pat.constant eval const
+    (* --- [...] --- *)
+    | Scope ("[", scoped, "]") -> list E.Pat.list scoped
     | Sym _ -> assert false
     | _ ->
       Fmt.epr "todo pat: %a@." Shaper.dump fl;
@@ -234,20 +264,31 @@ end = struct
       Fmt.epr "not a vb: %a@." Shaper.dump fl;
       assert false
 
-  and str (fl : fl) =
+  and structure_item (fl : fl) =
     match fl with
-    | Shape ("=", [ _lhs; _rhs ]) -> E.Str.value eval [ fl ]
-    | Seq (Some ",", vbl) -> E.Str.value eval vbl
+    | Shape ("=", [ _lhs; _rhs ]) -> E.Structure_item.value eval [ fl ]
+    | Seq (Some ",", vbl) -> E.Structure_item.value eval vbl
     (* | Shape ("let", [ Seq (Some ",", vbl) ]) -> value vbl *)
     (* | Shape ("let", [ vb ]) -> value [ vb ] *)
-    | Shape ("module", [ mb ]) -> E.Str.module' eval mb
-    | Shape ("open", [ mexp ]) -> E.Str.open' eval mexp
+    | Shape ("module", [ mb ]) -> E.Structure_item.module' eval mb
+    | Shape ("open", [ mexp ]) -> E.Structure_item.open' eval mexp
+    | Shape ("do", [ exp ]) ->
+      let unit = Shaper.parens (Shaper.seq []) in
+      let vb = Shaper.shape "=" [ unit; exp ] in
+      E.Structure_item.value eval [ vb ]
     | Ident _ | Const _ | Sym _ | Seq (None, _ :: _) | Scope _ | Seq (None, _)
-      -> E.Str.eval eval fl
+      -> E.Structure_item.eval eval fl
     | Shape (_kwd, _xs) ->
       Fmt.epr "Eval.str: %a@." Shaper.dump fl;
       assert false
     | Seq (Some _sep, _) -> assert false
+
+  and extension (fl : fl) =
+    match fl with
+    | _ -> assert false
+
+  and signature_item (fl : fl) =
+    match fl with
     | _ -> assert false
 
   and mod' (fl : fl) =
@@ -276,6 +317,6 @@ end = struct
 
   let structure (fl : fl) =
     match fl with
-    | Seq (Some ";", items) -> List.map str items
-    | _ -> [ str fl ]
+    | Seq (Some ";", items) -> List.map structure_item items
+    | _ -> [ structure_item fl ]
 end

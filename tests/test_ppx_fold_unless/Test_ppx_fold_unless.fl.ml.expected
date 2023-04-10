@@ -1,0 +1,10 @@
+let () =
+  let x = 1 in
+  [%fl.macro_call
+    Shape
+      ("unless",
+        [Seq (None, [Ident (Lower "x"); Sym "<="; Const (Int 0)]);
+        Scope
+          ("{",
+            (Seq (None, [Ident (Lower "print_endline"); Const (String "ok")])),
+            "}")])]

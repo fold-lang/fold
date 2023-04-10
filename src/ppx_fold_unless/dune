@@ -1,0 +1,4 @@
+(library
+  (name ppx_fold_unless)
+  (kind ppx_rewriter)
+  (libraries ppxlib fold_unless))

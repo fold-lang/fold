@@ -20,6 +20,20 @@ x = Some [1, 2, 3];
 x = Two 1 2;
 x = Two 1 2 |> f;
 
+// Field and module access.
+do {
+  a.x;
+  //a.x1.x2;
+  //a.x1.x2.x3;
+  M.x
+  //f a.x;
+  //f a.x1.x2;
+  //M.f x;
+  //M.a.f x;
+  //M.f x.a;
+  //M.a.f x.y.b
+};
+
 // Unit pattern, implicit let unit
 () = ();
 () = {
@@ -141,8 +155,52 @@ x = {
   a
 };
 
+// if cases
 x = if {
   a > 1 -> "yes",
   a == 0 -> "maybe",
   else -> "no"
-}
+};
+
+// type record
+//type person = { name : string, age : int, profession : option string };
+
+
+//module Person = {
+//  print = p -> print_endline (p.name ^ " " ^ string_of_int p.age)
+//};
+//
+//p = { name = "Anonymous"; age = 0; profession = None };
+//
+//f ~a ?(opt = 0) ?use ~name x = {
+//  ignore (a, opt, use, name, x);
+//  opt
+//};
+//
+//x = {
+//  let* x = 2, y = (3, 'a')[
+//  let age = 30 - fst y;
+//  let person = { p & name = "Xavier"; age };
+//  Person.print person;
+//  let result = {
+//    let a, opt, foo = (1, None, Some (if age > 30 then 0 else 10));
+//    f ~a ?opt ?use:foo ~name:"hello" x
+//  };
+//  let* map : ('a -> 'b) -> 'a list -> 'b list =
+//    f l ->
+//      match l {
+//        [] -> [],
+//        [x & xs] -> [f x & map f xs]
+//      };
+//  x + result - { let z = p.age; z * 2 }
+//}
+
+// Macro calls
+
+x = mc1! (2);
+x = mc2! (2) + 1;
+x = mc3! { <div> "hello" </div> };
+//x = mc1! a b;
+//x = mc1! a b + 1;
+
+fim

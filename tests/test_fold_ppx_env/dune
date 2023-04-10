@@ -1,0 +1,6 @@
+(env (_ (env-vars (FOLD_PPX_ENV_CHECK 42))))
+
+(test
+  (name test_fold_ppx_env)
+  (preprocess (pps fold_ppx_env))
+  (libraries ))

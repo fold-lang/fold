@@ -1,0 +1,4 @@
+(library
+  (name fold_ppx_env)
+  (kind ppx_rewriter)
+  (libraries ppxlib))

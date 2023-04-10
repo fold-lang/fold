@@ -1,5 +1,6 @@
 # TODO
 
+- [ ] Make the environment explicit in Fold_env. Maybe generalize in sig.
 - [ ] Represent `fn` as a form with `->`:
   - Requires arrow to be `t list * t`.
   - `fn! (_ -> _)` and `fn! {}`.

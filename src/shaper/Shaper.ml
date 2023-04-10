@@ -1,8 +1,3 @@
-type loc =
-  { start_line : int; start_column : int; end_line : int; end_column : int }
-
-let noloc = { start_line = 0; start_column = 0; end_line = 0; end_column = 0 }
-
 type ident = Upper of string | Lower of string
 type const = Int of int | Char of char | String of string | Float of float
 

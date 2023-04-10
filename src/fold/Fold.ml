@@ -31,3 +31,4 @@ let ml_of_fl : fl -> ml = Fold_to_ocaml.structure
 let fmt : out_channel -> fl -> unit = Fold_fmt.print
 let pp = Shaper.pp
 let pp_sexp = Shaper.pp_sexp
+let defmacro = Fold_eval.defmacro

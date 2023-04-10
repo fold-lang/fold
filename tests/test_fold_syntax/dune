@@ -55,19 +55,19 @@
  (action
   (diff Shapes.fl.sexp.expected Shapes.fl.sexp.actual)))
 
-;; Meta.fl
+;; Quote.fl
 
 (rule
- (deps Meta.fl)
+ (deps Quote.fl)
  (action
   (with-stdout-to
-   Meta.fl.ml.actual
+   Quote.fl.ml.actual
    (run fold-fmt -i fl -o ml %{deps}))))
 
 (rule
  (alias runtest)
  (action
-  (diff Meta.fl.ml.expected Meta.fl.ml.actual)))
+  (diff Quote.fl.ml.expected Quote.fl.ml.actual)))
 
 ;; Bugs.fl
 

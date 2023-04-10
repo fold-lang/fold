@@ -13,6 +13,7 @@ let x = Some 1
 let x = Some [1; 2; 3]
 let x = Two (1, 2)
 let x = (Two (1, 2)) |> f
+let () = a.x; M.x
 let () = ()
 let () = let a = 1 in a
 let () = let a = 1 in ()
@@ -53,3 +54,21 @@ open M
 let x = let a = 1 in let open M in a
 let x = let open M in let a = 1 in a
 let x = if a > 1 then "yes" else if a == 0 then "maybe" else "no"
+let x = [%fl.macro_call Shape ("mc1", [Const (Int 2)])]
+let x = ([%fl.macro_call Shape ("mc2", [Const (Int 2)])]) + 1
+let x =
+  [%fl.macro_call
+    Shape
+      ("mc3",
+        [Scope
+           ("{",
+             (Seq
+                (None,
+                  [Sym "<";
+                  Ident (Lower "div");
+                  Sym ">";
+                  Const (String "hello");
+                  Sym "</";
+                  Ident (Lower "div");
+                  Sym ">"])), "}")])]
+;;fim
