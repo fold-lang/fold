@@ -1,7 +1,7 @@
 module S = Shaper
-module P = Shaper_parser.Parser
-module G = Shaper_parser.Grammar
-module L = Shaper_parser.Lexer
+module P = Pratt
+module G = Pratt.Grammar
+module L = Pratt.Lexer
 
 (* We add core syntax delimiters to allow terminating the inner parser. *)
 let calc_g = Shaper_calc.grammar
@@ -27,13 +27,13 @@ let g =
     | Sym "!" -> Some (form, 80)
     | _ -> None
   in
-  G.extend ~prefix ~infix Shaper_parser.grammar
+  G.extend ~prefix ~infix Fold.Parser.Shaper_parser.grammar
 
 let rp input =
   try
     let l = L.for_string input in
     let x = P.run g l in
-    Fmt.pr "%a@." S.pp x
+    Fmt.pr "%a@." S.dump x
   with Failure err -> Fmt.pr "err: %s@." err
 
 let () =

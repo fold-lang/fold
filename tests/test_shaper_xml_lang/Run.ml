@@ -1,5 +1,5 @@
-module P = Shaper_parser.Parser
-module L = Shaper_parser.Lexer
+module P = Pratt
+module L = Pratt.Lexer
 
 let g = Shaper_xml.grammar
 

@@ -1,5 +1,0 @@
-(ocamllex Lexer)
-
-(library
- (name shaper_parser)
- (libraries fmt shaper))

@@ -36,12 +36,12 @@ module Ast_eval = struct
     | Seq (None, f :: args) -> apply ctx f args
     | Seq (Some ";", items) -> seq_semi ctx items
     | Seq (Some ",", items) -> seq_comma ctx items
-    | Shape ("->", [ a; b ]) -> arrow ctx a b
-    | Shape (":", [ v; t ]) -> constraint_ ctx v t
-    | Shape ("=", [ lhs; rhs ]) -> binding ctx lhs rhs
-    | Shape ("|", items) -> cases ctx items
-    | Shape (".", [ a; b ]) -> field ctx a b
-    | Shape (kwd, items) -> shape ctx kwd items
+    | Shape (_, "->", [ a; b ]) -> arrow ctx a b
+    | Shape (_, ":", [ v; t ]) -> constraint_ ctx v t
+    | Shape (_, "=", [ lhs; rhs ]) -> binding ctx lhs rhs
+    | Shape (_, "|", items) -> cases ctx items
+    | Shape (_, ".", [ a; b ]) -> field ctx a b
+    | Shape (_, kwd, items) -> shape ctx kwd items
     | Scope ("{", Seq (Some ";", items), "}") -> block ctx items
     | Scope ("(", Seq (Some ",", items), ")") -> parens ctx items
     | Scope ("{", Seq (Some ",", items), "}") -> braces ctx items
@@ -60,7 +60,7 @@ and const _ctx const = P.string (Fmt.str "%a" C.pp_const const)
 and binding ctx (lhs : fl) (rhs : fl) =
   let lval_doc =
     match lhs with
-    | Seq (None, _) | Shape (":", [ Seq (None, _); _ ]) ->
+    | Seq (None, _) | Shape (_, ":", [ Seq (None, _); _ ]) ->
       P.nest 2 (fmt ~ctx:{ enclose = false; inline = true } lhs)
     | _ -> fmt ~ctx:{ ctx with enclose = false } lhs
   in
@@ -70,7 +70,7 @@ and binding ctx (lhs : fl) (rhs : fl) =
   | Ident (Upper lid | Lower lid), Ident (Upper rid | Lower rid)
     when String.equal lid rid -> P.string "~" ^^ P.string lid
   (* [a = (b : t)] *)
-  | _, Shape (":", _ :: _) ->
+  | _, Shape (_, ":", _ :: _) ->
     P.group
       (lval_doc
       ^^ P.blank 1
@@ -87,7 +87,7 @@ and binding ctx (lhs : fl) (rhs : fl) =
 
 and arrow ctx a b =
   match (a, b) with
-  | Shape ("fn", args), body -> arrow_fn ctx args body
+  | Shape (_, "fn", args), body -> arrow_fn ctx args body
   | _, Scope ("{", _, "}") ->
     (* No indent *)
     P.group
@@ -120,7 +120,7 @@ and arrow_fn ({ enclose; _ } as ctx) args body =
   else
     let body_doc, ret_typ_doc =
       match body with
-      | Shape (":", [ body; t ]) ->
+      | Shape (_, ":", [ body; t ]) ->
         (fmt ~ctx:{ ctx with enclose = false } body, !^" : " ^^ fmt t)
       | _ -> (fmt ~ctx:{ ctx with enclose = false } body, P.empty)
     in
@@ -235,7 +235,7 @@ and juxt ~inline items =
   (* let juxt_sep = P.comma in *)
   let juxt_sep = P.empty in
   let sep_after = function
-    | Shaper.Shape ("fn", _) -> juxt_sep ^^ P.hardline
+    | Shaper.Shape (_, "fn", _) -> juxt_sep ^^ P.hardline
     | _ -> juxt_sep ^^ P.break 1
   in
   P.flow_map_sep ~inline ~sep_after fmt items
@@ -369,13 +369,13 @@ and labeled ctx l optional value =
     match fl with
     (* TODO Upper/lower *)
     (* id = rval *)
-    | Shape ("=", [ Ident (Lower id); rval ]) ->
+    | Shape (_, "=", [ Ident (Lower id); rval ]) ->
       C.shape "=" [ C.lower (id ^ "?"); rval ]
     (* id : rval *)
-    | Shape (":", [ Ident (Lower id); rval ]) ->
+    | Shape (_, ":", [ Ident (Lower id); rval ]) ->
       C.shape ":" [ C.lower (id ^ "?"); rval ]
     (* (id : typ) = rval *)
-    | Shape ("=", [ Shape ("{", [ Ident (Lower id); typ ]); rval ]) ->
+    | Shape (_, "=", [ Shape (_, "{", [ Ident (Lower id); typ ]); rval ]) ->
       C.shape "=" [ C.shape ":" [ C.lower (id ^ "?"); typ ]; rval ]
     | _ -> fl
   in
@@ -384,8 +384,12 @@ and labeled ctx l optional value =
   | Ident (Lower id) when String.equal id l ->
     if optional then P.string "~" ^^ P.string l ^^ P.string "?"
     else P.string "~" ^^ P.string l
-  | Shape ("=", [ (Ident (Lower id) | Shape (":", [ Ident (Lower id); _ ])); _ ])
-  | Shape (":", [ Ident (Lower id); _ ]) ->
+  | Shape
+      ( _
+      , "="
+      , [ (Ident (Lower id) | Shape (_, ":", [ Ident (Lower id); _ ])); _ ]
+      )
+  | Shape (_, ":", [ Ident (Lower id); _ ]) ->
     if String.equal id l then
       let constraint' = if optional then map_to_optional_id value else value in
       P.string "~"

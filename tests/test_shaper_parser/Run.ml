@@ -1,7 +1,7 @@
 let rp str =
   try
-    let syn = Shaper_parser.parse_string str in
-    Fmt.pr "%a@." Shaper.pp syn
+    let syn = Fold.Parser.Shaper_parser.parse_string str in
+    Fmt.pr "%a@." Shaper.dump syn
   with Failure err -> Fmt.pr "err: %s@." err
 
 let test_basic () =

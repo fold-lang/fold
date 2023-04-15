@@ -1,16 +1,17 @@
 open Prelude
+module Mlb = Ppxlib.Ast_builder.Default
 
 let const_ml_of_fl (const : Shaper.const) =
   match const with
-  | Int x -> Ml_cons.Const.int x
-  | Float x -> Ml_cons.Const.float (string_of_float x)
-  | String x -> Ml_cons.Const.string x
-  | Char x -> Ml_cons.Const.char x
+  | Int x -> Mlb.eint x
+  | Float x -> Mlb.efloat (string_of_float x)
+  | String x -> Mlb.estring x
+  | Char x -> Mlb.echar x
 
 let ident_ml_of_fl (ident : Shaper.ident) =
   match ident with
-  | Lower x -> Longident.Lident x
-  | Upper x -> Longident.Lident x
+  | Lower x -> Ident.Lident x
+  | Upper x -> Ident.Lident x
 
 let ident_of_str id =
   match id.[0] with
@@ -19,7 +20,7 @@ let ident_of_str id =
   | _ -> Shaper.sym id
 
 let ident_fl_of_ml lid =
-  match Longident.flatten lid with
+  match Ident.flatten lid with
   | [ x ] -> ident_of_str x
   | xs ->
     xs
@@ -34,7 +35,7 @@ let pp_const = Shaper.pp_const
 let is_scope = Shaper.is_scope
 
 let is_binding = function
-  | Shaper.Shape ("=", _) -> true
+  | Shaper.Shape (_, "=", _) -> true
   | _ -> false
 
 module Cons = struct
@@ -47,7 +48,7 @@ module Cons = struct
   let upper = Shaper.upper
 
   let longident lid =
-    match Longident.flatten lid with
+    match Ident.flatten lid with
     | [ x ] -> ident_of_str x
     | xs ->
       xs
@@ -178,7 +179,7 @@ module Cons_next = struct
   let upper = Shaper.upper
 
   let longident lid =
-    match Longident.flatten lid with
+    match Ident.flatten lid with
     | [ x ] -> ident_of_str x
     | xs ->
       xs

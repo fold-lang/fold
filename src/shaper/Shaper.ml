@@ -1,3 +1,5 @@
+let noloc = Astlib.Location.none
+
 type ident = Upper of string | Lower of string
 type const = Int of int | Char of char | String of string | Float of float
 
@@ -7,7 +9,7 @@ type syntax =
   | Sym of string
   | Scope of string * syntax * string
   | Seq of string option * syntax list
-  | Shape of string * syntax list
+  | Shape of Astlib.Location.t * string * syntax list
 
 let lower x = Ident (Lower x)
 let upper x = Ident (Upper x)
@@ -22,7 +24,7 @@ let braces x = Scope ("{", x, "}")
 let seq ?sep items = Seq (sep, items)
 let seq_comma items = Seq (Some ",", items)
 let seq_semi items = Seq (Some ";", items)
-let shape kwd items = Shape (kwd, items)
+let shape ?(loc = noloc) kwd items = Shape (loc, kwd, items)
 
 let is_scope = function
   | Scope _ -> true
@@ -64,7 +66,7 @@ let rec dump f t =
       sep_opt (Fmt.Dump.list dump) items
   | Scope (left, x, right) ->
     Fmt.pf f "(@[<hv1>Scope (%S,@,%a,@ %S)@])" left dump x right
-  | Shape (kwd, items) ->
+  | Shape (_loc, kwd, items) ->
     Fmt.pf f "(@[<hv1>Shape (%S,@ %a)@])" kwd (Fmt.Dump.list dump) items
 
 let rec pp_sexp f t =
@@ -84,7 +86,7 @@ let rec pp_sexp f t =
       (Fmt.list ~sep:Fmt.sp pp_sexp)
       items right
   | Scope (left, x, right) -> Fmt.pf f "%s@[<hv1>%a@]%s" left pp_sexp x right
-  | Shape (kwd, items) ->
+  | Shape (_loc, kwd, items) ->
     Fmt.pf f "!(@[<hv1>%s@ %a@])" kwd (Fmt.list ~sep:Fmt.sp pp_sexp) items
 
 let rec pp f t =
@@ -92,10 +94,9 @@ let rec pp f t =
   | Ident ident -> pp_ident f ident
   | Sym x -> Fmt.string f x
   | Const const -> pp_const f const
-  | Seq (None, items) ->
-    Fmt.pf f "<@[<hov1>%a@]>" (Fmt.list ~sep:Fmt.sp pp) items
+  | Seq (None, items) -> Fmt.pf f "@[<hov1>%a@]" (Fmt.list ~sep:Fmt.sp pp) items
   | Seq (Some sep, items) ->
-    Fmt.pf f "<@[<hov1>%a@]>" (Fmt.list ~sep:(pp_sep sep) pp) items
-  | Scope (left, x, right) -> Fmt.pf f "%s@[<hov1>%a@]%s" left pp x right
-  | Shape (kwd, items) ->
-    Fmt.pf f "<@@@[<hov1>%s %a@]>" kwd (Fmt.list ~sep:Fmt.sp pp) items
+    Fmt.pf f "@[<hov1>%a@]" (Fmt.list ~sep:(pp_sep sep) pp) items
+  | Scope (left, x, right) -> Fmt.pf f "%s @[<hov1>%a@] %s" left pp x right
+  | Shape (_loc, kwd, items) ->
+    Fmt.pf f "@[<hov1>%s! %a@]" kwd (Fmt.list ~sep:Fmt.sp pp) items

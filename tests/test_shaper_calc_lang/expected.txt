@@ -1,36 +1,52 @@
 
 [no_calc_lang]
-2
-<2 + 2>
-<<2 + 2>,<2 - 2>>
-{<<a,b>;<c,d>>}
+(Const 2)
+(Seq (None, [(Const 2); (Sym "+"); (Const 2)]))
+(Seq (Some ",",
+  [(Seq (None, [(Const 2); (Sym "+"); (Const 2)]));
+   (Seq (None, [(Const 2); (Sym "-"); (Const 2)]))]))
+(Scope ("{",
+  (Seq (Some ";",
+    [(Seq (Some ",", [(Ident a); (Ident b)]));
+     (Seq (Some ",", [(Ident c); (Ident d)]))])),
+  "}"))
 
 [scoping]
-1
-{<2 + a>}
-<2 + a>
-(2)
-(2)
-<2 + neg (2)>
-<5 + pow (<2,4>)>
+(Const 1)
+(Scope ("{",(Seq (None, [(Const 2); (Sym "+"); (Ident a)])), "}"))
+(Seq (None, [(Const 2); (Sym "+"); (Ident a)]))
+(Scope ("(",(Const 2), ")"))
+(Scope ("(",(Const 2), ")"))
+(Seq (None,
+  [(Const 2); (Sym "+"); (Ident neg); (Scope ("(",(Const 2), ")"))]))
+(Seq (None,
+  [(Const 5); (Sym "+"); (Ident pow);
+   (Scope ("(",(Seq (Some ",", [(Const 2); (Const 4)])), ")"))]))
 
 [calc_lang]
-1
-<2 + 3>
-<<2 + 3>,a>
-<a,<2 + 3>,b>
-<a,8>
-<a,8,b>
-<a {8} b>
-<a {8} b>
-{<2 + 2>}
-<{2} + 2>
-<{<2 + 3>} + 2>
-(<<f a b>,<2 + 3>>)
+(Const 1)
+(Seq (None, [(Const 2); (Sym "+"); (Const 3)]))
+(Seq (Some ",", [(Seq (None, [(Const 2); (Sym "+"); (Const 3)])); (Ident a)]))
+(Seq (Some ",",
+  [(Ident a); (Seq (None, [(Const 2); (Sym "+"); (Const 3)])); (Ident b)]))
+(Seq (Some ",", [(Ident a); (Const 8)]))
+(Seq (Some ",", [(Ident a); (Const 8); (Ident b)]))
+(Seq (None, [(Ident a); (Scope ("{",(Const 8), "}")); (Ident b)]))
+(Seq (None, [(Ident a); (Scope ("{",(Const 8), "}")); (Ident b)]))
+(Scope ("{",(Seq (None, [(Const 2); (Sym "+"); (Const 2)])), "}"))
+(Seq (None, [(Scope ("{",(Const 2), "}")); (Sym "+"); (Const 2)]))
+(Seq (None,
+  [(Scope ("{",(Seq (None, [(Const 2); (Sym "+"); (Const 3)])), "}"));
+   (Sym "+"); (Const 2)]))
+(Scope ("(",
+  (Seq (Some ",",
+    [(Seq (None, [(Ident f); (Ident a); (Ident b)]));
+     (Seq (None, [(Const 2); (Sym "+"); (Const 3)]))])),
+  ")"))
 
 [errors]
 err: invalid macro call form, must be kwd!
-<2 a>
+(Seq (None, [(Const 2); (Ident a)]))
 err: run: invalid syntax: parser halted at )
 err: run: invalid syntax: parser halted at }
 err: shaper: invalid syntax: unexpected end of file

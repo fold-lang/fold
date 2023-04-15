@@ -13,6 +13,14 @@ let x = Some 1
 let x = Some [1; 2; 3]
 let x = Two (1, 2)
 let x = (Two (1, 2)) |> f
+let x = `A
+let x = `A 42
+let x = `A (2 + a)
+let x = `A (a, 42)
+let x = `A (b, 43)
+let x = `A |> f
+let x = f `A `B
+let x = (f `A `B) <| `C
 let () = a.x; M.x
 let () = ()
 let () = let a = 1 in a
@@ -20,14 +28,33 @@ let () = let a = 1 in ()
 let () = let a = 1
          and b = 2 in ()
 let () = let a = 1 in let b = 2 in ()
+let () = let a = 1 in ()
 ;;print_endline "hello"
 ;;print_endline "hello"; print_endline "world"
-let xs = []
-let xs = [1]
-let xs = [1; 2]
-let xs = [1; 2; 3]
-let xs = 0 :: xs
-let xs = 1 :: 2 :: xs
+let x = []
+let x = [1]
+let x = [1; 2]
+let x = [1; 2; 3]
+let x = 0 :: xs
+let x = 1 :: 2 :: xs
+let [] = x
+let 1::[] = x
+let 1::2::[] = x
+let 1::2::xs = x
+let []::(1::2::[])::xs = x
+let x = { a = "A"; b = 1; c = 2 }
+let x = { a }
+let x = { a = 1 }
+let x = { a; b = 1 }
+let x = { a = 1; b }
+let x = { a; b; c }
+let x = { r with a = 23; b = 1 }
+let x = { r with a = 23; b }
+let x = { r with a; b = 1 }
+let x = { r with a; b }
+let x = { r with a }
+let x = { r with a = 1 }
+let x = { a = 1; f = (fun x -> x + 1); g = (fun y -> fun x -> x - y) }
 let f a = a + 1
 let sum b a = a + b
 let f a = a + 1
@@ -43,9 +70,13 @@ let x = if a then (print_newline (); b)
 let x = if a then b + 1
 let x = (if a then b) + 1
 let x = match a with | 1 -> 0 | 2 -> b
+let x = match a with | 1 -> 0
 let x = match a + b with | 1 -> 0 | 2 -> b
 let x = (match a with | 1 -> b | 2 -> c) + 100
 let x = match a with | 1 -> (print_endline "1"; a) | 2 -> b
+let x = match a with | 1 -> 0 | x when x > 0 -> b | _ -> 1
+let x = try f () with | a -> prerr_endline msg
+let x = try f () with | a -> prerr_endline msg | b -> bar
 module M1 = X
 module M2 = struct  end
 module M3 = struct let a = 1
@@ -54,21 +85,19 @@ open M
 let x = let a = 1 in let open M in a
 let x = let open M in let a = 1 in a
 let x = if a > 1 then "yes" else if a == 0 then "maybe" else "no"
-let x = [%fl.macro_call Shape ("mc1", [Const (Int 2)])]
-let x = ([%fl.macro_call Shape ("mc2", [Const (Int 2)])]) + 1
-let x =
-  [%fl.macro_call
-    Shape
-      ("mc3",
-        [Scope
-           ("{",
-             (Seq
-                (None,
-                  [Sym "<";
-                  Ident (Lower "div");
-                  Sym ">";
-                  Const (String "hello");
-                  Sym "</";
-                  Ident (Lower "div");
-                  Sym ">"])), "}")])]
+let x = [%fl.mc1 "( 2 )"]
+let x = ([%fl.mc2 "( 2 )"]) + 1
+let x = [%fl.mc3 "{ < div > \"hello\" </ div > }"]
+let () = while e1 do e2 done; while x > 1 do (print "hello"; f ()) done
+let () =
+  for i = e1 to e2 do e3 done;
+  for i = e1 downto e2 do e3 done;
+  for i = e1 to e2 do (print "hello"; f ()) done
+let () = (x : t); 2 + ((x : int) * 2); f (x : int) y; f (xs : int list)
+type t
+type nonrec t
+type t = int
+type t = int list
+type t = int list list
+type nonrec t = int
 ;;fim

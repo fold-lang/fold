@@ -9,6 +9,8 @@
    - delimiter = 1, to allow lbp(1) > rbp(0) and trigger invalid infix
 *)
 
+module Lexer = Lexer
+
 type token = Lexer.token
 
 let pp_token = Lexer.pp_token
@@ -168,6 +170,18 @@ let parse_infix_juxt f left g l =
       (parse_prefix g) l
   in
   Ok (f (left :: xs))
+
+(* let parse_infix_juxt' ?precedence f left g l =
+   let tok = Lexer.pick l in
+   if not (Grammar.has_infix tok g || Lexer.is_eof tok) then
+     let* right = parse ?precedence g l in
+     let* xs =
+       until
+         (fun tok -> not (Grammar.has_infix tok g || Lexer.is_eof tok))
+         (parse_prefix g) l
+     in
+     Ok (f (left :: xs))
+   else Ok (f [ left ]) *)
 
 let parse_prefix_juxt =
   let rule g l =

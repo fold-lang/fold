@@ -3,7 +3,6 @@ f a b;
 42;
 ();
 
-
 // Values
 x = 1;
 x = 1, y = 2;
@@ -12,13 +11,22 @@ a = (42 + 10 - 2) / 2;
 print_newline ();
 print_endline (string_of_int (a + b));
 
-
 // Constructors
 x = None;
 x = Some 1;
 x = Some [1, 2, 3];
 x = Two 1 2;
 x = Two 1 2 |> f;
+
+// Polymorphic variants
+x = #A;
+x = #A 42;
+x = #A (2 + a);
+x = #A a 42;
+x = #A (b, 43);
+x = #A |> f;
+x = f #A #B;
+x = f #A #B <| #C;
 
 // Field and module access.
 do {
@@ -51,6 +59,8 @@ do {
   let b = 2
 };
 
+do { let a = 1 };
+
 // Scopes
 // { }; // array? unit?
 { print_endline "hello" };
@@ -59,18 +69,43 @@ do {
   print_endline "world"
 };
 
+// List expressions
+x = [];
+x = [1];
+x = [1, 2];
+x = [1, 2, 3];
+x = [0 & xs];
+x = [1, 2 & xs];
 
-// Lists
-xs = [];
-xs = [1];
-xs = [1, 2];
-xs = [1, 2, 3];
-xs = [0 & xs];
-xs = [1, 2 & xs];
+// List patterns
+[] = x;
+[1] = x;
+[1, 2] = x;
+[1, 2 & xs] = x;
+[[], [1, 2] & xs] = x;
+
+// Arrays
+// x = {a};
+// x = {a, b, c};
 
 // Records
-//let x = { name = "Alan", age = 28 }
-//let x = { alan & name = "Alan" }
+x = { a = "A", b = 1, c = 2 };
+x = { ~a };
+x = { a = 1 };
+x = { ~a, b = 1 };
+x = { a = 1, ~b };
+x = { ~a, ~b, ~c };
+x = { r & a = 23, b = 1 };
+x = { r & a = 23, ~b };
+x = { r & ~a, b = 1 };
+x = { r & ~a, ~b };
+x = { r & ~a };
+x = { r & a = 1 };
+x = {
+  a = 1,
+  f = x -> x + 1,
+  g = x y -> x - y
+};
 
 // Lambda
 f = a -> a + 1;
@@ -87,11 +122,13 @@ f = { a -> a + 1 };
 //let f = fn {
 //  | a -> a + 1
 //  };
-// [BUG] + should beat fn.
 f = { a -> a + 1 } + 1;
 
 // Lambda with cases
 x = { a -> 1, b -> 2 };
+
+// Lambda argument
+// x = xs |> (List.map) { x -> x + 1 };
 
 // if else
 x = if a b c;
@@ -114,25 +151,35 @@ x = if a { b } + 1;
 // let + 1;
 
 // match
-x =
-  match a {
-    1 -> 0,
-    2 -> b
-  };
-x =
-  match (a + b) {
-    1 -> 0,
-    2 -> b
-  };
+x = match a {
+  1 -> 0,
+  2 -> b
+};
+x = match a { 1 -> 0 };
+x = match (a + b) {
+  1 -> 0,
+  2 -> b
+};
 x = match a { 1 -> b, 2 -> c } + 100;
-x =
-  match a {
-    1 -> {
-      print_endline "1";
-      a
-    },
-    2 -> b
-  };
+x = match a {
+  1 -> {
+    print_endline "1";
+    a
+  },
+  2 -> b
+};
+x = match a {
+  1 -> 0,
+  x if x > 0 -> b,
+  _ -> 1
+};
+
+// try
+x = try (f ()) { a -> prerr_endline msg };
+x = try (f ()) {
+  a -> prerr_endline msg,
+  b -> bar
+};
 
 // Module bindings
 module M1 = X;
@@ -161,6 +208,11 @@ x = if {
   a == 0 -> "maybe",
   else -> "no"
 };
+
+// labels
+// f ~a;
+// f ~a:8;
+// f ~a:8 ~a? ~a?:None;
 
 // type record
 //type person = { name : string, age : int, profession : option string };
@@ -202,5 +254,64 @@ x = mc2! (2) + 1;
 x = mc3! { <div> "hello" </div> };
 //x = mc1! a b;
 //x = mc1! a b + 1;
+
+// PPX
+
+// Extension
+//x = extension! (env "HOME");
+
+//do {
+  // [%env "HOME"]
+  //env! "HOME";
+
+  // [%pp: int list]
+  //pp! "HOME";
+
+  // [%view? (Some _ as x) :: []]
+  //pp! "HOME";
+
+  // [%mody let x = 1;; let y = 2]
+  //pp! "HOME";
+
+  // [%sigy: val x : int;; val y : bool]
+  //pp! "HOME"
+//};
+
+
+// while
+do {
+  while e1 e2;
+  while (x > 1) {
+    print "hello";
+    f ()
+  }
+};
+
+// for
+do {
+  for (i = e1 to e2) e3;
+  for (i = e1 downto e2) e3;
+  for (i = e1 to e2) {
+    print "hello";
+    f ()
+  }
+};
+
+// constraint
+do {
+  x : t;
+  2 + (x : int) * 2;
+  // 2 + f x y : int * 2;
+  f (x : int) y;
+  f (xs : list int)
+};
+
+// type
+type t;
+type nonrec t;
+type t = int;
+type t = list int;
+type t = list (list int);
+type nonrec t = int;
 
 fim

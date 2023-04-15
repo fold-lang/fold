@@ -1,8 +1,5 @@
 open Prelude
 
-type ident = Longident.t
-type const = Ml.constant
-
 (** AST fragments as types *)
 
 type 'r alt = fl list -> 'r
@@ -37,7 +34,7 @@ type 'r while' = fl -> fl -> 'r
 module type Cons = sig
   type t
 
-  val const : const -> t
+  val const : constant -> t
   val string : string -> t
   val int : int -> t
   val float : float -> t

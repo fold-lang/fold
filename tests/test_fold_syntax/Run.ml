@@ -10,7 +10,7 @@ let item input =
 let exp input =
   try
     let fl = Fold.Parser.parse_string input in
-    let ml = Fold.To_ocaml.expr fl in
+    let ml = Fold.To_ocaml.expression fl in
     Fmt.pr "exp: ml: @[%a@]@." Pprintast.expression ml
   with Failure err -> Fmt.pr "exp: err: %s@." err
 

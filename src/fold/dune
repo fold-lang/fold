@@ -2,10 +2,12 @@
  (name fold)
  (libraries
   shaper
-  shaper_parser
+  pratt
   shaper_calc
   shaper_xml
   fmt
   pprint
+  ppxlib.astlib
+  ppxlib
   compiler-libs.bytecomp
   compiler-libs.common))

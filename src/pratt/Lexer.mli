@@ -23,8 +23,9 @@ type t
 
 val line_number : t -> int
 val for_string : string -> t
-val for_channel : in_channel -> t
+val for_channel : ?file_name:string -> in_channel -> t
 val pick : t -> token
 val next : t -> token
 val move : t -> unit
 val drop : token -> t -> unit
+val loc : t -> Astlib.Location.t

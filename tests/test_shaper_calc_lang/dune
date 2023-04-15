@@ -1,6 +1,6 @@
 (executable
  (name run)
- (libraries fmt shaper shaper_parser shaper_calc))
+ (libraries fmt shaper pratt fold shaper_calc))
 
 (rule
  (with-stdout-to

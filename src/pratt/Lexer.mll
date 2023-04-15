@@ -45,9 +45,21 @@
     mutable line_count : int;
   }
 
-  let incr_line lexer =
+  let update_loc_ lexer =
     lexer.line_count <- lexer.line_count + 1;
     lexer.line_start <- lexer.lexbuf.lex_abs_pos + lexer.lexbuf.lex_curr_pos
+
+  let update_loc lexbuf file line absolute chars =
+    let pos = lexbuf.Lexing.lex_curr_p in
+    let new_file = match file with
+                   | None -> pos.pos_fname
+                   | Some s -> s
+    in
+    lexbuf.Lexing.lex_curr_p <- { pos with
+      pos_fname = new_file;
+      pos_lnum = if absolute then line else pos.pos_lnum + line;
+      pos_bol = pos.pos_cnum - chars;
+    }
 }
 
 (* Ident *)
@@ -86,7 +98,10 @@ rule read lexer = parse
     Buffer.clear lexer.strbuf;
     String (finish_string lexer lexbuf)
   }
-  | "\n" { incr_line lexer; read lexer lexbuf }
+  | "\n" {
+    update_loc lexbuf None 1 false 0;
+    read lexer lexbuf
+  }
   | space { read lexer lexbuf }
   | eof { Eof }
   | _ { Fmt.failwith "Invalid token: %s" (Lexing.lexeme lexbuf) }
@@ -116,8 +131,9 @@ and finish_string lexer = parse
     let lexbuf = Lexing.from_string s in
     for_lexbuf lexbuf
 
-  let for_channel ic =
+  let for_channel ?file_name ic =
     let lexbuf = Lexing.from_channel ic in
+    (match file_name with Some f -> Lexing.set_filename lexbuf f | _ -> ());
     for_lexbuf lexbuf
 
   let next lexer =
@@ -145,4 +161,10 @@ and finish_string lexer = parse
     match token with
     | Eof -> true
     | _ -> false
+
+  let loc {lexbuf;_} = {
+    Astlib.Location.loc_start = lexbuf.Lexing.lex_start_p;
+    loc_end = lexbuf.lex_curr_p;
+    loc_ghost = false
+  }
 }

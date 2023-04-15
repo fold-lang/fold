@@ -7,7 +7,9 @@ type syntax =
   | Sym of string
   | Scope of string * syntax * string
   | Seq of string option * syntax list
-  | Shape of string * syntax list
+  | Shape of Astlib.Location.t * string * syntax list
+
+val noloc : Astlib.Location.t
 
 (** {2 Construct syntax} *)
 
@@ -24,7 +26,7 @@ val braces : syntax -> syntax
 val seq : ?sep:string -> syntax list -> syntax
 val seq_comma : syntax list -> syntax
 val seq_semi : syntax list -> syntax
-val shape : string -> syntax list -> syntax
+val shape : ?loc:Astlib.Location.t -> string -> syntax list -> syntax
 
 (** {2 Syntax predicates} *)
 

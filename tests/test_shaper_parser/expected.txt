@@ -1,51 +1,108 @@
 [basic]
-1
-123456789
-{<>}
-{1}
-{<1 2>}
-{<1 2 3>}
-{{<>}}
-{{{<>}}}
-{<1 {<>}>}
-{<1 {<>} 3>}
-{<1 {<>} {<1 2 3>}>}
-{{{{{1}}}}}
-{<{0} {<1 2>} {<3 4 5>} {<6 7 8 9>}>}
+(Const 1)
+(Const 123456789)
+(Scope ("{",(Seq (None, [])), "}"))
+(Scope ("{",(Const 1), "}"))
+(Scope ("{",(Seq (None, [(Const 1); (Const 2)])), "}"))
+(Scope ("{",(Seq (None, [(Const 1); (Const 2); (Const 3)])), "}"))
+(Scope ("{",(Scope ("{",(Seq (None, [])), "}")), "}"))
+(Scope ("{",(Scope ("{",(Scope ("{",(Seq (None, [])), "}")), "}")), "}"))
+(Scope ("{",
+  (Seq (None, [(Const 1); (Scope ("{",(Seq (None, [])), "}"))])),
+  "}"))
+(Scope ("{",
+  (Seq (None, [(Const 1); (Scope ("{",(Seq (None, [])), "}")); (Const 3)])),
+  "}"))
+(Scope ("{",
+  (Seq (None,
+    [(Const 1); (Scope ("{",(Seq (None, [])), "}"));
+     (Scope ("{",(Seq (None, [(Const 1); (Const 2); (Const 3)])), "}"))])),
+  "}"))
+(Scope ("{",
+  (Scope ("{",
+    (Scope ("{",(Scope ("{",(Scope ("{",(Const 1), "}")), "}")), "}")),
+    "}")),
+  "}"))
+(Scope ("{",
+  (Seq (None,
+    [(Scope ("{",(Const 0), "}"));
+     (Scope ("{",(Seq (None, [(Const 1); (Const 2)])), "}"));
+     (Scope ("{",(Seq (None, [(Const 3); (Const 4); (Const 5)])), "}"));
+     (Scope ("{",
+       (Seq (None, [(Const 6); (Const 7); (Const 8); (Const 9)])),
+       "}"))])),
+  "}"))
 
 [juxt]
-1
-<1 2>
-<1 2 3>
-<1 2 3 4 5 6 7>
-<f (a) b>
-<f (<a x b>) c>
-<f {<a,b>} c>
+(Const 1)
+(Seq (None, [(Const 1); (Const 2)]))
+(Seq (None, [(Const 1); (Const 2); (Const 3)]))
+(Seq (None,
+  [(Const 1); (Const 2); (Const 3); (Const 4); (Const 5); (Const 6);
+   (Const 7)]))
+(Seq (None, [(Ident f); (Scope ("(",(Ident a), ")")); (Ident b)]))
+(Seq (None,
+  [(Ident f);
+   (Scope ("(",(Seq (None, [(Ident a); (Ident x); (Ident b)])), ")"));
+   (Ident c)]))
+(Seq (None,
+  [(Ident f); (Scope ("{",(Seq (Some ",", [(Ident a); (Ident b)])), "}"));
+   (Ident c)]))
 
 [comma]
-1
-<1,2>
-<1,2,3>
-<1,2,3,4,5,6,7>
+(Const 1)
+(Seq (Some ",", [(Const 1); (Const 2)]))
+(Seq (Some ",", [(Const 1); (Const 2); (Const 3)]))
+(Seq (Some ",",
+  [(Const 1); (Const 2); (Const 3); (Const 4); (Const 5); (Const 6);
+   (Const 7)]))
 
 [juxt_comma]
-<<0 1>,1>
-<1,<0 1>>
-<<0 1>,<0 2>>
-<1,<0 1>,<0 1 2>,<0 1 2 3>>
-<<0 1 2 3>,<0 1 2>,<0 1>,1>
+(Seq (Some ",", [(Seq (None, [(Const 0); (Const 1)])); (Const 1)]))
+(Seq (Some ",", [(Const 1); (Seq (None, [(Const 0); (Const 1)]))]))
+(Seq (Some ",",
+  [(Seq (None, [(Const 0); (Const 1)]));
+   (Seq (None, [(Const 0); (Const 2)]))]))
+(Seq (Some ",",
+  [(Const 1); (Seq (None, [(Const 0); (Const 1)]));
+   (Seq (None, [(Const 0); (Const 1); (Const 2)]));
+   (Seq (None, [(Const 0); (Const 1); (Const 2); (Const 3)]))]))
+(Seq (Some ",",
+  [(Seq (None, [(Const 0); (Const 1); (Const 2); (Const 3)]));
+   (Seq (None, [(Const 0); (Const 1); (Const 2)]));
+   (Seq (None, [(Const 0); (Const 1)])); (Const 1)]))
 
 [seq_mixed]
-<<1,2>;<3,4>>
-<1;<2,3>;4>
-<<0 1>;<2,<0 3 4>>;<5,6>>
-<<1,<0 2>>;<{<0 3 4>},<0 {<<1,2>;3>}>,{<1;<2,3>>}>>
+(Seq (Some ";",
+  [(Seq (Some ",", [(Const 1); (Const 2)]));
+   (Seq (Some ",", [(Const 3); (Const 4)]))]))
+(Seq (Some ";",
+  [(Const 1); (Seq (Some ",", [(Const 2); (Const 3)])); (Const 4)]))
+(Seq (Some ";",
+  [(Seq (None, [(Const 0); (Const 1)]));
+   (Seq (Some ",",
+     [(Const 2); (Seq (None, [(Const 0); (Const 3); (Const 4)]))]));
+   (Seq (Some ",", [(Const 5); (Const 6)]))]))
+(Seq (Some ";",
+  [(Seq (Some ",", [(Const 1); (Seq (None, [(Const 0); (Const 2)]))]));
+   (Seq (Some ",",
+     [(Scope ("{",(Seq (None, [(Const 0); (Const 3); (Const 4)])), "}"));
+      (Seq (None,
+        [(Const 0);
+         (Scope ("{",
+           (Seq (Some ";",
+             [(Seq (Some ",", [(Const 1); (Const 2)])); (Const 3)])),
+           "}"))]));
+      (Scope ("{",
+        (Seq (Some ";",
+          [(Const 1); (Seq (Some ",", [(Const 2); (Const 3)]))])),
+        "}"))]))]))
 
 [whitespace]
-1
-1
-{1}
-{1}
+(Const 1)
+(Const 1)
+(Scope ("{",(Const 1), "}"))
+(Scope ("{",(Const 1), "}"))
 
 [err_unbalanced]
 err: shaper: invalid syntax: unexpected end of file
@@ -54,12 +111,12 @@ err: consume: invalid syntax: end of file while expecting '}'
 err: run: invalid syntax: parser halted at }
 
 [ident]
-a
-a_
-a1
-fooBar
-fooBar_BAZ_001
-X
-Xa
-X_
-X_fooBar
+(Ident a)
+(Ident a_)
+(Ident a1)
+(Ident fooBar)
+(Ident fooBar_BAZ_001)
+(Ident X)
+(Ident Xa)
+(Ident X_)
+(Ident X_fooBar)

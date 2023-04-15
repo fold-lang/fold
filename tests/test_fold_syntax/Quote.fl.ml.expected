@@ -8,11 +8,16 @@ let x =
     ("[", (Seq ((Some ","), [Const (Int 1); Const (Int 2); Const (Int 3)])),
       "]")
 let x = Const (Int 42)
-let x = Shape ("let", [Shape ("=", [Ident (Lower "x"); Const (Int 1)])])
+let x =
+  Shape
+    (Shaper.noloc, "let",
+      [Shape (Shaper.noloc, "=", [Ident (Lower "x"); Const (Int 1)])])
 let x =
   Seq
     ((Some ";"),
-      [Shape ("let", [Shape ("=", [Ident (Lower "a"); Const (Int 42)])]);
+      [Shape
+         (Shaper.noloc, "let",
+           [Shape (Shaper.noloc, "=", [Ident (Lower "a"); Const (Int 42)])]);
       Seq (None, [Sym "+"; Ident (Lower "a"); Const (Int 1)])])
 let int_code = Const (Int 42)
 let x = Seq (None, [Sym "+"; Const (Int 1000); int_code])

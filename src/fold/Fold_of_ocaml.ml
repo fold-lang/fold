@@ -1,10 +1,6 @@
 open Prelude
 module Fl = Fold_ast.Cons
 
-type lid = Longident.t
-type loc = Location.t
-type 'a with_loc = 'a Location.loc
-
 let check_has_explicit_arity_attr attrs =
   List.exists
     (fun (attr : Ml.attribute) ->
@@ -36,11 +32,11 @@ module rec Exp : sig
   val record :
        ?loc:'a
     -> ?attrs:'b
-    -> (lid Location.loc * Ml.expression) list
+    -> (ident with_loc * Ml.expression) list
     -> Ml.expression option
     -> Fl.t
 
-  val field : ?loc:'a -> ?attrs:'b -> Ml.expression -> lid -> Fl.t
+  val field : ?loc:'a -> ?attrs:'b -> Ml.expression -> ident -> Fl.t
   val while_ : ?loc:'a -> ?attrs:'b -> Ml.expression -> Ml.expression -> Fl.t
 
   val for_ :
@@ -53,7 +49,7 @@ module rec Exp : sig
     -> Ml.expression
     -> Fl.t
 end = struct
-  let todo what = Fl.longident (Lident ("$EXP: " ^ what))
+  let todo what = Fl.longident (Ident.Lident ("$EXP: " ^ what))
 
   let flatten_map_list ~hd ~tl:tl0 f =
     let rec loop (tl : Ml.expression) acc =
@@ -160,9 +156,7 @@ end = struct
   and record ?loc:_ ?attrs:_ bindings r0 =
     let bindings' =
       List.map
-        (fun ({ Location.txt = lid; _ }, v) ->
-          Fl.binding (Fl.longident lid) (conv v)
-        )
+        (fun ({ Loc.txt = lid; _ }, v) -> Fl.binding (Fl.longident lid) (conv v))
         bindings
     in
     match r0 with
@@ -240,7 +234,7 @@ end = struct
     in
     match id with
     (* Empty list *)
-    | Longident.Lident "[]" -> (
+    | Ident.Lident "[]" -> (
       match args_opt with
       (* [] *)
       | None -> Fl.list []
@@ -248,7 +242,7 @@ end = struct
       | Some args -> Fl.apply (Fl.longident id) (mk_args args)
     )
     (* Non-empty list *)
-    | Longident.Lident "::" -> (
+    | Ident.Lident "::" -> (
       match args_opt with
       (* [(::) (hd, tl)] *)
       | Some { pexp_desc = Pexp_tuple [ hd; tl ]; _ } ->
@@ -321,7 +315,7 @@ end
 and Typ : sig
   val conv : Ml.core_type -> Fl.t
 end = struct
-  let todo what = Fl.longident (Longident.Lident ("XXX: " ^ what))
+  let todo what = Fl.longident (Ident.Lident ("XXX: " ^ what))
 
   let rec conv (typ : Ml.core_type) =
     match typ.ptyp_desc with
@@ -341,7 +335,7 @@ end = struct
 
   and tuple items = Fl.tuple (List.map conv items)
 
-  and constr ?loc:_ ?attrs:_ (id : _ Location.loc) typs =
+  and constr ?loc:_ ?attrs:_ (id : _ with_loc) typs =
     let typs_syn = List.map conv typs in
     Fl.apply (Fl.longident id.txt) typs_syn
 
@@ -362,7 +356,7 @@ end = struct
     | vars ->
       let vars =
         List.map
-          (fun { Location.txt = var; _ } -> Fl.longident (Lident ("'" ^ var)))
+          (fun { Loc.txt = var; _ } -> Fl.longident (Lident ("'" ^ var)))
           vars
       in
       Fl.for_all vars (conv typ)
@@ -414,7 +408,7 @@ end = struct
   and record ?loc:_ ?attrs:_ fields closed_flag =
     let fields_syn =
       List.map
-        (fun ({ Location.txt = id; _ }, p) ->
+        (fun ({ Loc.txt = id; _ }, p) ->
           Fl.binding (Fl.longident id) (Pat.conv p)
         )
         fields
@@ -433,14 +427,14 @@ end = struct
     in
     match id with
     (* List constructors *)
-    | Longident.Lident "[]" -> (
+    | Ident.Lident "[]" -> (
       match args_opt with
       (* [] *)
       | None -> Fl.list []
       (* [([]) x], i.e., not a list. *)
       | Some args -> Fl.apply (Fl.longident id) (mk_args args)
     )
-    | Longident.Lident "::" -> (
+    | Ident.Lident "::" -> (
       match args_opt with
       (* [(::) (hd, tl)] *)
       | Some (_types, { ppat_desc = Ppat_tuple [ hd; tl ]; _ }) ->
@@ -584,11 +578,12 @@ and Mb : sig
     -> ?attrs:'attrs
     -> ?docs:'docs
     -> ?text:'text
-    -> Ast_helper.str_opt
+    -> string option with_loc
     -> Ml.module_expr
     -> Fl.t
 end = struct
-  let mk ?loc:_ ?attrs:_ ?docs:_ ?text:_ (str_opt : Ast_helper.str_opt) mexp =
+  let mk ?loc:_ ?attrs:_ ?docs:_ ?text:_ (str_opt : string option with_loc) mexp
+      =
     let mod_name =
       Fl.longident
         (Lident
@@ -615,10 +610,7 @@ and Mod : sig
   type module_expr = Fl.t
 
   val mk :
-       ?loc:Location.t
-    -> ?attrs:Ml.attributes
-    -> Ml.module_expr_desc
-    -> module_expr
+    ?loc:Loc.t -> ?attrs:Ml.attributes -> Ml.module_expr_desc -> module_expr
 
   val conv : Ml.module_expr -> Fl.t
 end = struct

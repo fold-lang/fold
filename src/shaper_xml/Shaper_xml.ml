@@ -1,6 +1,6 @@
-module L = Shaper_parser.Lexer
-module P = Shaper_parser.Parser
-module G = Shaper_parser.Parser.Grammar
+module P = Pratt
+module L = Pratt.Lexer
+module G = Pratt.Grammar
 
 let ( let* ) = P.( let* )
 

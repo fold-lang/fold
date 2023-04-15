@@ -1,6 +1,6 @@
 (executable
  (name run)
- (libraries fmt shaper shaper_parser shaper_xml))
+ (libraries fmt shaper pratt shaper_xml))
 
 (rule
  (with-stdout-to
