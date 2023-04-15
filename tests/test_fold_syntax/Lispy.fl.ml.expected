@@ -100,4 +100,16 @@ type t = int
 type t = int list
 type t = int list list
 type nonrec t = int
+type t =
+  | A 
+type t =
+  | A of int 
+type t =
+  | A of int * string 
+type t =
+  | A 
+type t =
+  | A of int 
+type t =
+  | A of int * string 
 ;;fim

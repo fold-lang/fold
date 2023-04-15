@@ -25,7 +25,7 @@ module type T = sig
   type binding_op
   type value_description
   type type_declaration
-  type type_kind = Parsetree.type_kind
+  type type_kind
   type label_declaration
   type constructor_declaration
   type constructor_arguments
@@ -472,9 +472,22 @@ module type S = sig
     -> res:core_type option
     -> constructor_declaration
 
+  (* Extra: constructor_arguments *)
+  val pcstr_tuple : core_type list -> constructor_arguments
+  val pcstr_record : label_declaration list -> constructor_arguments
+
+  (* Extra: payload *)
   val pstr : structure -> payload
   val psig : signature -> payload
   val ptyp : core_type -> payload
   val ppat : pattern -> guard:expression option -> payload
+
+  (* Extra: type_kind *)
+  val ptype_abstract : type_kind
+  val ptype_variant : constructor_declaration list -> type_kind
+  val ptype_record : label_declaration list -> type_kind
+  val ptype_open : type_kind
+
+  (* Extra: attributes *)
   val pexp_with_attributes : attributes -> expression -> expression
 end

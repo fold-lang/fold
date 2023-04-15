@@ -557,8 +557,7 @@ end = struct
         let name = with_noloc name in
         let td =
           E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[]
-            ~kind:Parsetree.Ptype_abstract ~private_:Asttypes.Public
-            ~manifest:None
+            ~kind:E.ptype_abstract ~private_:Asttypes.Public ~manifest:None
         in
         E.pstr_type ~loc Asttypes.Nonrecursive [ td ]
       (* --- *)
@@ -584,55 +583,69 @@ end = struct
 
     and eval_eval ~loc fl = E.pstr_eval ~loc (Expression.eval fl) []
 
-    and eval_type ~loc fl =
+    and eval_constructor_declaration ~loc (fl : fl) =
       match fl with
-      (* name *)
-      | Ident (Lower name) ->
+      | Ident (Upper a) ->
+        E.constructor_declaration ~loc ~name:(with_noloc a)
+          ~args:(E.pcstr_tuple []) ~res:None
+      | Seq (None, Ident (Upper a) :: args) ->
+        E.constructor_declaration ~loc ~name:(with_noloc a)
+          ~args:(E.pcstr_tuple []) ~res:None
+      | _ -> assert false
+
+    and eval_type ~loc (fl0 : fl) =
+      let mk ~loc rec_flag name private_ (rhs : fl option) =
         let name = with_noloc name in
-        let td =
-          E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[]
-            ~kind:Parsetree.Ptype_abstract ~private_:Asttypes.Public
-            ~manifest:None
+        let kind, manifest =
+          match rhs with
+          | Some (Ident (Upper a) | Scope ("{", Ident (Upper a), "}")) ->
+            let cd =
+              E.constructor_declaration ~loc ~name:(with_noloc a)
+                ~args:(E.pcstr_tuple []) ~res:None
+            in
+            let kind = E.ptype_variant [ cd ] in
+            (kind, None)
+          | Some
+              ( Seq (None, Ident (Upper a) :: args)
+              | Scope ("{", Seq (None, Ident (Upper a) :: args), "}") ) ->
+            let cd =
+              let args = E.pcstr_tuple (List.map Core_type.eval args) in
+              E.constructor_declaration ~loc ~name:(with_noloc a) ~args
+                ~res:None
+            in
+            let kind = E.ptype_variant [ cd ] in
+            (kind, None)
+          | Some fl -> (E.ptype_abstract, Some (Core_type.eval fl))
+          | None -> (E.ptype_abstract, None)
         in
-        E.pstr_type ~loc Asttypes.Recursive [ td ]
-      (* nonrec name *)
+        let td =
+          E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[] ~kind
+            ~private_ ~manifest
+        in
+        E.pstr_type ~loc rec_flag [ td ]
+      in
+      match fl0 with
+      (* t *)
+      | Ident (Lower name) -> mk ~loc Recursive name Public None
+      (* nonrec t *)
       | Seq (None, [ Ident (Lower "nonrec"); Ident (Lower name) ]) ->
-        let name = with_noloc name in
-        let td =
-          E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[]
-            ~kind:Parsetree.Ptype_abstract ~private_:Asttypes.Public
-            ~manifest:None
-        in
-        E.pstr_type ~loc Asttypes.Nonrecursive [ td ]
-      (* name = t *)
-      | Shape (loc, "=", [ Ident (Lower name); manifest ]) ->
-        let name = with_noloc name in
-        let manifest = Core_type.eval manifest in
-        let td =
-          E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[]
-            ~kind:Parsetree.Ptype_abstract ~private_:Asttypes.Public
-            ~manifest:(Some manifest)
-        in
-        E.pstr_type ~loc Asttypes.Recursive [ td ]
-      (* nonrec name = t *)
+        mk ~loc Nonrecursive name Public None
+      (* t = ... *)
+      | Shape (loc, "=", [ Ident (Lower name); rhs ]) ->
+        mk ~loc Recursive name Public (Some rhs)
+      (* nonrec t = ... *)
       | Shape
           ( loc
           , "="
-          , [ Seq (None, [ Ident (Lower "nonrec"); Ident (Lower name) ])
-            ; manifest
-            ]
-          ) ->
-        let name = with_noloc name in
-        let manifest = Core_type.eval manifest in
-        let td =
-          E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[]
-            ~kind:Parsetree.Ptype_abstract ~private_:Asttypes.Public
-            ~manifest:(Some manifest)
-        in
-        E.pstr_type ~loc Asttypes.Nonrecursive [ td ]
+          , [ Seq (None, [ Ident (Lower "nonrec"); Ident (Lower name) ]); rhs ]
+          ) -> mk ~loc Nonrecursive name Public (Some rhs)
       | _ ->
-        Fmt.epr "%a@." Shaper.dump fl;
+        Fmt.epr "%a@." Shaper.dump fl0;
         assert false
+
+    and eval_type_declaration_rhs fl =
+      match fl with
+      | _ -> ()
   end
 
   let structure (fl : fl) =

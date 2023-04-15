@@ -124,7 +124,7 @@ let infix (tok : L.token) =
   | Sym "#" -> None
   | Sym "&" ->
     Some (P.infix_binary Prec.ampr tok (fun a b -> Shaper.shape "&" [ a; b ]))
-  | Sym "=" -> Some (P.infix_binary Prec.equal (L.Sym "=") C.binding)
+  | Sym "=" -> Some (P.infix_right_binary Prec.equal (L.Sym "=") C.binding)
   | Sym "|" -> Some (P.infix_seq ~sep:(tok, Prec.pipe) C.alt)
   | Sym "->" -> Some (P.infix_binary Prec.arrow tok C.arrow)
   | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')

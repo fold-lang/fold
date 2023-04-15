@@ -314,4 +314,29 @@ type t = list int;
 type t = list (list int);
 type nonrec t = int;
 
+// type variant
+type t = A;
+type t = A int;
+type t = A int string;
+type t = { A };
+type t = { A int };
+type t = { A int string };
+
+// type t = { A | B | C };
+
+// type variant
+// type t = u = { A | B | C };
+
+// type record
+// type t = { a : int, b : list bool };
+// type t = u = { a : int, b : list bool };
+// type t = ..;
+
+// type constraints
+// type t = int constraint t1 = t2;
+// type t = {
+// a : int
+// } constraint t1 = t2
+// constraint t3 = t4;
+
 fim
