@@ -94,7 +94,7 @@ let prefix (tok : L.token) =
         )
         )
   (* prefix tight *)
-  | Sym (("#" | "~") as kwd) ->
+  | Sym (("#" | "~" | "@") as kwd) ->
     let rule g l =
       let* () = P.consume tok l in
       let* x = P.parse_prefix g l in

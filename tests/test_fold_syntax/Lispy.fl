@@ -144,6 +144,8 @@ x = if a { b };
 x = if a { print_newline (); b };
 x = if a { b + 1 };
 x = if a { b } + 1;
+x = if a b + 1;
+x = if a b c + 1;
 
 // Syntax errors
 //let x = if a; x then b else c;
@@ -334,9 +336,30 @@ type t = { A int string };
 
 // type constraints
 // type t = int constraint t1 = t2;
+// @constraint (a = int list, b = _ option)
+// type t = X a b,
+//   constraint a = int list,
+//   constraint b = _ option;
 // type t = {
 // a : int
 // } constraint t1 = t2
 // constraint t3 = t4;
+
+// (type t {
+//   a : int
+// } :constraint (= t1 t2)
+// :constraint (= t1 t2))
+
+
+// @private
+// @constraint (a = int list)
+// @constraint (b = _ option)
+// type t = { a : int };
+
+// @deriving json
+// type t = { a : int };
+
+// @deriving json 42
+// type t = { a : int };
 
 fim
