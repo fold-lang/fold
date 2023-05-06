@@ -11,3 +11,4 @@
   - Use a token_group for "glued" tokens.
 - [ ] `a |> f` is ok, but `f a |> g` is not: undeclared infix operators use
   fallback infix rule wich is not triggered on juxt parsing.  
+- [ ] Err: check for `{, ...}` as an incorrect syntax for records.

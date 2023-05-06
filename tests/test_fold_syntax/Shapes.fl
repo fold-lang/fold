@@ -26,4 +26,4 @@ b = 2 + 2;
 
 foo f = f a -> a + 1;
 
-end
+fim

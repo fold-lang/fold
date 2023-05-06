@@ -1,0 +1,17 @@
+(test
+ (name test_random)
+ (libraries))
+
+;; Generated code
+
+(rule
+ (deps Test_random.fl)
+ (action
+  (with-stdout-to
+   Test_random.fl.ml.actual
+   (run fold-fmt -i fl -o ml %{deps}))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Test_random.fl.ml.expected Test_random.fl.ml.actual)))

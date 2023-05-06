@@ -191,6 +191,11 @@ module M3 = {
   b = 2
 };
 
+// Module bindings with constraint
+module M4 : {} = {};
+module M5 : { x : int } = { x = 42 };
+module M6 : { x : int; y : int } = { x = 42; y = 2 };
+
 // open
 open M;
 x = {
@@ -308,6 +313,12 @@ do {
   f (xs : list int)
 };
 
+// value constraint
+v_constraint_1 : int = 42;
+v_constraint_2 : list (string, int) = [("a", 2), ("b", 3)];
+// v_constraint_3 : type a . a = a;
+// v_constraint_4 : 'a . 'a  = a;
+
 // type
 type t;
 type nonrec t;
@@ -316,6 +327,9 @@ type t = list int;
 type t = list (list int);
 type nonrec t = int;
 
+// type tuple
+type t = (int, bool);
+
 // type variant
 type t = A;
 type t = A int;
@@ -323,16 +337,40 @@ type t = A int string;
 type t = { A };
 type t = { A int };
 type t = { A int string };
+type t = { A (int, string) };
 
-// type t = { A | B | C };
+type t = { A | B | C };
+type t = { A | B int bool };
 
-// type variant
-// type t = u = { A | B | C };
+type t = u = A;
+type t = u = { A | B int };
 
 // type record
-// type t = { a : int, b : list bool };
-// type t = u = { a : int, b : list bool };
-// type t = ..;
+type t = { a : int, b : list bool };
+type t = u = { a : int, b : list bool };
+type t = { a : mutable int, b : mutable (list bool) };
+type t = ..;
+
+// type private
+// @private
+// type t = int;
+
+// @(derive debug)
+// type t = int;
+
+// @[
+//   derive debug,
+//   abstract,
+//   private,
+//   constraint { 'a = float, 'b = (int, 'a) }
+// ]
+// type t = int;
+
+// @(derive debug)
+// @abstract
+// @private
+// @(constraint { 'a = float, 'b = (int, 'a) })
+// type t = int;
 
 // type constraints
 // type t = int constraint t1 = t2;
@@ -350,13 +388,18 @@ type t = { A int string };
 // } :constraint (= t1 t2)
 // :constraint (= t1 t2))
 
+// @(constraint 'a = list (float, 'b))
+// type t 'a = {
+//   x : int,
+//   y : 'a
+// };
 
 // @private
 // @constraint (a = int list)
-// @constraint (b = _ option)
+// @(constraint (b = _ option)
 // type t = { a : int };
 
-// @deriving json
+// @(deriving json)
 // type t = { a : int };
 
 // @deriving json 42

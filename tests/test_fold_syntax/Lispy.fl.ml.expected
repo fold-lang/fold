@@ -54,9 +54,9 @@ let x = { r with a; b = 1 }
 let x = { r with a; b }
 let x = { r with a }
 let x = { r with a = 1 }
-let x = { a = 1; f = (fun x -> x + 1); g = (fun y -> fun x -> x - y) }
+let x = { a = 1; f = (fun x -> x + 1); g = (fun x -> fun y -> x - y) }
 let f a = a + 1
-let sum b a = a + b
+let sum a b = a + b
 let f a = a + 1
 let f = (fun a -> a + 1) + 1
 let x = function | a -> 1 | b -> 2
@@ -83,6 +83,10 @@ module M1 = X
 module M2 = struct  end
 module M3 = struct let a = 1
                    let b = 2 end
+module M4 : sig  end = struct  end 
+module M5 : sig val x : int end = struct let x = 42 end 
+module M6 : sig val x : int val y : int end = struct let x = 42
+                                                     let y = 2 end 
 open M
 let x = let a = 1 in let open M in a
 let x = let open M in let a = 1 in a
@@ -96,12 +100,15 @@ let () =
   for i = e1 downto e2 do e3 done;
   for i = e1 to e2 do (print "hello"; f ()) done
 let () = (x : t); 2 + ((x : int) * 2); f (x : int) y; f (xs : int list)
+let (v_constraint_1 : int) = 42
+let (v_constraint_2 : (string * int) list) = [("a", 2); ("b", 3)]
 type t
 type nonrec t
 type t = int
 type t = int list
 type t = int list list
 type nonrec t = int
+type t = (int * bool)
 type t =
   | A 
 type t =
@@ -114,4 +121,28 @@ type t =
   | A of int 
 type t =
   | A of int * string 
+type t =
+  | A of (int * string) 
+type t =
+  | A 
+  | B 
+  | C 
+type t =
+  | A 
+  | B of int * bool 
+type t = u =
+  | A 
+type t = u =
+  | A 
+  | B of int 
+type t = {
+  a: int ;
+  b: bool list }
+type t = u = {
+  a: int ;
+  b: bool list }
+type t = {
+  mutable a: int ;
+  mutable b: bool list }
+type t = ..
 ;;fim

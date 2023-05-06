@@ -94,11 +94,20 @@ let prefix (tok : L.token) =
         )
         )
   (* prefix tight *)
-  | Sym (("#" | "~" | "@") as kwd) ->
+  | Sym (("#" | "~" | "'") as kwd) ->
     let rule g l =
       let* () = P.consume tok l in
       let* x = P.parse_prefix g l in
       Ok (S.shape kwd [ x ])
+    in
+    Some rule
+  (* prefix attr *)
+  | Sym "@" ->
+    let rule g l =
+      let* () = P.consume tok l in
+      let* attr = P.parse_prefix g l in
+      let* payload = P.parse_prefix g l in
+      Ok (S.shape "@" [ attr; payload ])
     in
     Some rule
   | _ -> Shaper_parser.prefix tok
@@ -115,6 +124,7 @@ let infix (tok : L.token) =
       | "let"
       | "fn"
       | "module"
+      | "type"
       | "open"
       | "val" ) -> Some P.infix_delimiter
   | Lower "if" ->

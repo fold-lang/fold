@@ -25,7 +25,7 @@ module type T = sig
   type binding_op
   type value_description
   type type_declaration
-  type type_kind
+  type type_kind = Parsetree.type_kind
   type label_declaration
   type constructor_declaration
   type constructor_arguments

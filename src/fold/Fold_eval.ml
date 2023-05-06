@@ -176,7 +176,9 @@ end = struct
       (* --- a; b; b --- *)
       | Seq (Some ";", xs) -> eval_block xs
       (* Err: a, b *)
-      | Seq (Some _sep, _) -> assert false
+      | Seq (Some _sep, _) ->
+        Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl;
+        failwith "err: a, b"
       (* --- () --- *)
       | Scope ("(", Seq (Some ",", []), ")") ->
         eval_construct ~loc:noloc (Ident.Lident "()") []
@@ -275,13 +277,18 @@ end = struct
             let label = Asttypes.Nolabel in
             let default = None in
             E.pexp_fun ~loc:noloc label default pat acc
+          | Shape (loc, "~", [ (Ident (Lower l) as arg_fl) ]) ->
+            let pat = Pattern.eval arg_fl in
+            let label = Asttypes.Labelled l in
+            let default = None in
+            E.pexp_fun ~loc label default pat acc
           | _ ->
             Fmt.epr "@.args=%a@.body=%a@.@."
               (Fmt.Dump.list Shaper.dump)
               args_fl Shaper.dump body_fl;
             assert false
         )
-        body_ml args_fl
+        body_ml (List.rev args_fl)
 
     and eval_fn_match (cases_fl : fl list) =
       let cases = List.map eval_case cases_fl in
@@ -425,9 +432,13 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       | Ident (Lower id) -> eval_var ~loc:noloc id
-      (* Unit *)
+      (* --- unit --- *)
       | Scope ("(", Seq ((None | Some ","), []), ")") ->
         pat_construct (with_noloc (Ident.Lident "()")) []
+      (* --- tuple --- *)
+      | Scope ("(", Seq (Some ",", items), ")") ->
+        E.ppat_tuple ~loc:noloc (List.map eval items)
+      (* --- const --- *)
       | Const const -> E.ppat_constant ~loc:noloc (conv_const const)
       (* --- list --- *)
       (* [a, b & tl] *)
@@ -443,7 +454,11 @@ end = struct
       | Scope ("[", Seq (None, []), "]") -> pat_list ~loc:noloc ?spread:None []
       (* [a] *)
       | Scope ("[", item, "]") -> pat_list ~loc:noloc ?spread:None [ item ]
-      | Sym _ -> assert false
+      (* A *)
+      | Ident (Upper a) -> pat_construct (with_noloc (Ident.Lident a)) []
+      (* A ... *)
+      | Seq (None, Ident (Upper a) :: args) ->
+        pat_construct (with_noloc (Ident.Lident a)) args
       | _ ->
         Fmt.epr "todo pat: %a@." Shaper.dump fl;
         assert false
@@ -477,11 +492,33 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       | Scope ("(", fl, ")") -> eval fl
-      (* `a = b` *)
+      (* (_ : _) = _ *)
+      | Shape (loc, "=", [ Shape (constraint_loc, ":", [ pat; typ ]); expr ]) ->
+        let typ = Core_type.eval typ in
+        let pat = Pattern.eval pat in
+        let pat = E.ppat_constraint ~loc:constraint_loc pat typ in
+        let expr = Expression.eval expr in
+        E.value_binding ~loc ~pat ~expr
+      (* _ = _ *)
       | Shape (loc, "=", [ pat; expr ]) ->
         let pat = Pattern.eval pat in
         let expr = Expression.eval expr in
         E.value_binding ~loc ~pat ~expr
+      | _ ->
+        Fmt.epr "not a vb: %a@." Shaper.dump fl;
+        assert false
+  end
+
+  and Value_description : sig
+    val eval : fl -> E.value_description
+  end = struct
+    let eval (fl : fl) =
+      match fl with
+      (* name : ... *)
+      | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
+        let name = with_loc loc name in
+        let type' = Core_type.eval type' in
+        E.value_description ~loc ~name ~type_:type' ~prim:[]
       | _ ->
         Fmt.epr "not a vb: %a@." Shaper.dump fl;
         assert false
@@ -493,6 +530,8 @@ end = struct
     let rec eval (fl : fl) : E.core_type =
       let loc = Ppxlib.Location.none in
       match fl with
+      | Scope ("(", Seq (Some ",", items), ")") ->
+        E.ptyp_tuple ~loc (List.map eval items)
       | Scope ("(", fl, ")") -> eval fl
       | Ident (Lower id) -> E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) []
       | Seq (None, Ident (Lower id) :: args) ->
@@ -508,11 +547,23 @@ end = struct
   end = struct
     let eval (fl : fl) =
       match fl with
-      (* `a = b` *)
+      (* M = ... *)
       | Shape (loc, "=", [ Ident (Upper m_name); mexp_fl ]) ->
         let name = if String.equal m_name "_" then None else Some m_name in
         let name = with_loc loc name in
         let expr = Module_expr.eval mexp_fl in
+        E.module_binding ~loc ~name ~expr
+      (* M : ... = ... *)
+      | Shape
+          ( loc
+          , "="
+          , [ Shape (_loc, ":", [ Ident (Upper m_name); mtyp_fl ]); mexp_fl ]
+          ) ->
+        let name = if String.equal m_name "_" then None else Some m_name in
+        let name = with_loc loc name in
+        let expr = Module_expr.eval mexp_fl in
+        let type' = Module_type.eval mtyp_fl in
+        let expr = E.pmod_constraint ~loc expr type' in
         E.module_binding ~loc ~name ~expr
       | _ ->
         Fmt.epr "not a mb: %a@." Shaper.dump fl;
@@ -530,8 +581,30 @@ end = struct
       | Scope ("{", Seq (Some ";", items), "}") ->
         let items = List.map Structure_item.eval items in
         E.pmod_structure ~loc:noloc items
+      | Scope ("{", item, "}") ->
+        let items = [ Structure_item.eval item ] in
+        E.pmod_structure ~loc:noloc items
       | _ ->
         Fmt.epr "todo: Mod:@.%a@." Shaper.dump fl;
+        assert false
+  end
+
+  and Module_type : sig
+    val eval : fl -> E.module_type
+  end = struct
+    let eval (fl : fl) =
+      match fl with
+      | Ident (Upper id) ->
+        E.pmty_ident ~loc:noloc (with_noloc (Ident.Lident id))
+      | Scope ("{", Seq (None, []), "}") -> E.pmty_signature ~loc:noloc []
+      | Scope ("{", Seq (Some ";", items), "}") ->
+        let items = List.map Signature_item.eval items in
+        E.pmty_signature ~loc:noloc items
+      | Scope ("{", item, "}") ->
+        let items = [ Signature_item.eval item ] in
+        E.pmty_signature ~loc:noloc items
+      | _ ->
+        Fmt.epr "todo: Mty:@.%a@." Shaper.dump fl;
         assert false
   end
 
@@ -551,15 +624,10 @@ end = struct
         let vb = Shaper.shape "=" [ unit; exp ] in
         eval_item_value ~loc [ vb ]
       (* --- type --- *)
-      | Shape (loc, "type", [ Seq (Some ",", tdl) ]) -> assert false
-      | Shape (loc, "type", [ td ]) -> eval_type ~loc td
-      | Shape (loc, "type", [ Ident (Lower "nonrec"); Ident (Lower name) ]) ->
-        let name = with_noloc name in
-        let td =
-          E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[]
-            ~kind:E.ptype_abstract ~private_:Asttypes.Public ~manifest:None
-        in
-        E.pstr_type ~loc Asttypes.Nonrecursive [ td ]
+      | Shape (loc, "type", args) ->
+        eval_type ~loc ~private_flag:Asttypes.Public args
+      (* --- type attributes --- *)
+      (* | Shape (loc, "@", []) *)
       (* --- *)
       | Ident _ | Const _ | Sym _ | Seq (None, _ :: _) | Scope _ | Seq (None, _)
         -> eval_eval ~loc:noloc fl
@@ -585,67 +653,140 @@ end = struct
 
     and eval_constructor_declaration ~loc (fl : fl) =
       match fl with
+      (* A *)
       | Ident (Upper a) ->
         E.constructor_declaration ~loc ~name:(with_noloc a)
           ~args:(E.pcstr_tuple []) ~res:None
+      (* A ... *)
       | Seq (None, Ident (Upper a) :: args) ->
+        let args = List.map Core_type.eval args in
         E.constructor_declaration ~loc ~name:(with_noloc a)
-          ~args:(E.pcstr_tuple []) ~res:None
+          ~args:(E.pcstr_tuple args) ~res:None
       | _ -> assert false
 
-    and eval_type ~loc (fl0 : fl) =
-      let mk ~loc rec_flag name private_ (rhs : fl option) =
-        let name = with_noloc name in
-        let kind, manifest =
-          match rhs with
-          | Some (Ident (Upper a) | Scope ("{", Ident (Upper a), "}")) ->
-            let cd =
-              E.constructor_declaration ~loc ~name:(with_noloc a)
-                ~args:(E.pcstr_tuple []) ~res:None
-            in
-            let kind = E.ptype_variant [ cd ] in
-            (kind, None)
-          | Some
-              ( Seq (None, Ident (Upper a) :: args)
-              | Scope ("{", Seq (None, Ident (Upper a) :: args), "}") ) ->
-            let cd =
-              let args = E.pcstr_tuple (List.map Core_type.eval args) in
-              E.constructor_declaration ~loc ~name:(with_noloc a) ~args
-                ~res:None
-            in
-            let kind = E.ptype_variant [ cd ] in
-            (kind, None)
-          | Some fl -> (E.ptype_abstract, Some (Core_type.eval fl))
-          | None -> (E.ptype_abstract, None)
-        in
-        let td =
-          E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[] ~kind
-            ~private_ ~manifest
-        in
-        E.pstr_type ~loc rec_flag [ td ]
-      in
-      match fl0 with
-      (* t *)
-      | Ident (Lower name) -> mk ~loc Recursive name Public None
-      (* nonrec t *)
-      | Seq (None, [ Ident (Lower "nonrec"); Ident (Lower name) ]) ->
-        mk ~loc Nonrecursive name Public None
-      (* t = ... *)
-      | Shape (loc, "=", [ Ident (Lower name); rhs ]) ->
-        mk ~loc Recursive name Public (Some rhs)
-      (* nonrec t = ... *)
+    and eval_label_declaration ~loc (fl : fl) =
+      match fl with
+      (* ... : mutable t *)
       | Shape
           ( loc
-          , "="
-          , [ Seq (None, [ Ident (Lower "nonrec"); Ident (Lower name) ]); rhs ]
-          ) -> mk ~loc Nonrecursive name Public (Some rhs)
-      | _ ->
-        Fmt.epr "%a@." Shaper.dump fl0;
-        assert false
+          , ":"
+          , [ Ident (Lower name)
+            ; Seq (None, [ Ident (Lower "mutable"); type' ])
+            ]
+          ) ->
+        let type' = Core_type.eval type' in
+        E.label_declaration ~loc ~name:(with_loc loc name)
+          ~mutable_:Asttypes.Mutable ~type_:type'
+      (* err: ... : mutable ... *)
+      | Shape
+          ( _loc
+          , ":"
+          , [ Ident (Lower name); Seq (None, Ident (Lower "mutable") :: _) ]
+          ) -> Fmt.failwith "invalid mutable record field syntax: %s" name
+      (* ... : ... *)
+      | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
+        let type' = Core_type.eval type' in
+        E.label_declaration ~loc ~name:(with_loc loc name)
+          ~mutable_:Asttypes.Immutable ~type_:type'
+      | _ -> assert false
 
-    and eval_type_declaration_rhs fl =
+    and eval_type_kind ~loc (fl : fl) =
       match fl with
-      | _ -> ()
+      (* A *)
+      (* { A } *)
+      | Ident (Upper a) | Scope ("{", Ident (Upper a), "}") ->
+        let cd =
+          E.constructor_declaration ~loc ~name:(with_noloc a)
+            ~args:(E.pcstr_tuple []) ~res:None
+        in
+        E.ptype_variant [ cd ]
+      (* A ... *)
+      (* { A ... } *)
+      | Seq (None, Ident (Upper a) :: args)
+      | Scope ("{", Seq (None, Ident (Upper a) :: args), "}") ->
+        let cd =
+          let args = List.map Core_type.eval args in
+          E.constructor_declaration ~loc ~name:(with_noloc a)
+            ~args:(E.pcstr_tuple args) ~res:None
+        in
+        E.ptype_variant [ cd ]
+      (* { ... | ... } *)
+      | Scope ("{", Shape (loc, "|", cds_fl), "}") ->
+        let cdl = List.map (eval_constructor_declaration ~loc) cds_fl in
+        E.ptype_variant cdl
+      (* { ... , ... } *)
+      | Scope ("{", Seq (Some ",", cds_fl), "}") ->
+        let ldl = List.map (eval_label_declaration ~loc) cds_fl in
+        E.ptype_record ldl
+      (* .. *)
+      | Sym ".." -> E.ptype_open
+      (* a *)
+      (* a t *)
+      | _ -> E.ptype_abstract
+
+    and make_type ~loc rec_flag name private_ (rhs : fl option) =
+      let name = with_noloc name in
+      let kind, manifest =
+        match rhs with
+        (* t = ... *)
+        | Some (Shape (loc, "=", [ manifest_t; kind ])) ->
+          let kind = eval_type_kind ~loc kind in
+          let manifest = Core_type.eval manifest_t in
+          (kind, Some manifest)
+        (* ... *)
+        | Some fl -> (
+          match eval_type_kind ~loc fl with
+          | Ml.Ptype_abstract as k -> (k, Some (Core_type.eval fl))
+          | k -> (k, None)
+        )
+        | None -> (E.ptype_abstract, None)
+      in
+      let td =
+        E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[] ~kind ~private_
+          ~manifest
+      in
+      E.pstr_type ~loc rec_flag [ td ]
+
+    and eval_type ~loc ~private_flag (args : fl list) =
+      match args with
+      (* type t *)
+      | [ Ident (Lower name) ] ->
+        make_type ~loc Asttypes.Recursive name private_flag None
+      (* type nonrec t. *)
+      | [ Ident (Lower "nonrec"); Ident (Lower name) ] ->
+        make_type ~loc Nonrecursive name private_flag None
+      (* type t = ...rhs *)
+      | [ Shape (loc, "=", [ Ident (Lower name); rhs ]) ] ->
+        make_type ~loc Recursive name private_flag (Some rhs)
+      (* type nonrec t = ... *)
+      | [ Shape
+            ( loc
+            , "="
+            , [ Seq (None, [ Ident (Lower "nonrec"); Ident (Lower name) ])
+              ; rhs
+              ]
+            )
+        ] -> make_type ~loc Nonrecursive name private_flag (Some rhs)
+      | _ ->
+        Fmt.epr "Eval.str: %a@." (Fmt.Dump.list Shaper.dump) args;
+        assert false
+  end
+
+  and Signature_item : sig
+    val eval : fl -> E.signature_item
+  end = struct
+    let rec eval (fl : fl) =
+      match fl with
+      (* name : ... *)
+      | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
+        make_value ~loc ~name ~type'
+      | _ -> assert false
+
+    and make_value ~loc ~name ~type' =
+      let name = with_loc loc name in
+      let type' = Core_type.eval type' in
+      let vd = E.value_description ~loc ~name ~type_:type' ~prim:[] in
+      E.psig_value ~loc vd
   end
 
   let structure (fl : fl) =
