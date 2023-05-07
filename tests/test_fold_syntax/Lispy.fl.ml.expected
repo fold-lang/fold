@@ -1,5 +1,6 @@
 ;;a
 ;;f a b
+;;f a b c d e
 ;;42
 ;;()
 let x = 1
@@ -21,7 +22,7 @@ let x = `A (b, 43)
 let x = `A |> f
 let x = f `A `B
 let x = (f `A `B) <| `C
-let () = a.x; M.x
+let () = a.x; M.x; M.f x; f a.x; M.f x.a; fim
 let () = ()
 let () = let a = 1 in a
 let () = let a = 1 in ()
@@ -29,8 +30,12 @@ let () = let a = 1
          and b = 2 in ()
 let () = let a = 1 in let b = 2 in ()
 let () = let a = 1 in ()
-;;print_endline "hello"
-;;print_endline "hello"; print_endline "world"
+;;a
+;;a
+;;a; b
+;;a; b
+;;a; b; c
+;;a; b; c
 let x = []
 let x = [1]
 let x = [1; 2]

@@ -37,13 +37,15 @@ module Shaper_parser = struct
   let infix (tok : L.token) =
     match tok with
     | Rparen | Rbrace | Rbracket -> Some P.infix_unbalanced
-    | Semi -> Some (P.infix_seq ~sep:(Semi, Prec.semi) (Shaper.seq ~sep:";"))
-    | Comma -> Some (P.infix_seq ~sep:(Comma, Prec.comma) (Shaper.seq ~sep:","))
+    | Semi -> Some (P.infix_seq ~sep:(tok, Prec.semi) (Shaper.seq ~sep:";"))
+    | Sym "%%" ->
+      Some (P.infix_seq_opt ~sep:(tok, Prec.semi) (Shaper.seq ~sep:";"))
+    | Comma -> Some (P.infix_seq ~sep:(tok, Prec.comma) (Shaper.seq ~sep:","))
     | _ -> None
 
   let grammar =
     G.make
-      ~default_infix:(P.parse_infix_juxt Shaper.seq)
+      ~default_infix:(P.parse_infix_juxt ~precedence:Prec.juxt Shaper.seq)
       ~prefix ~infix "shaper"
 
   let parse_string str : C.t =
@@ -73,6 +75,20 @@ let macro_call (left : fl) _g l =
     let shape = Shaper.shape ~loc kwd args in
     Ok shape
   | _ -> failwith "invalid macro call form, must be kwd!"
+
+let parse_infix_dot_seq left g l =
+  let dot_tok = L.Sym "." in
+  let* xs =
+    P.until
+      (fun tok -> L.equal_token tok dot_tok)
+      (fun l ->
+        let* () = P.consume dot_tok l in
+        P.parse_prefix g l
+      )
+      l
+  in
+  let loc = L.loc l in
+  Ok (Shaper.shape ~loc "." (left :: xs))
 
 let prefix (tok : L.token) =
   match tok with
@@ -138,7 +154,7 @@ let infix (tok : L.token) =
   | Sym "|" -> Some (P.infix_seq ~sep:(tok, Prec.pipe) C.alt)
   | Sym "->" -> Some (P.infix_binary Prec.arrow tok C.arrow)
   | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
-  | Sym "." -> Some (P.infix_binary Prec.dot tok C.dot)
+  | Sym "." -> Some (parse_infix_dot_seq, Prec.dot)
   | Sym "!" -> Some (macro_call, Prec.excl)
   | Sym s when check_is_operator_char s.[0] ->
     let precedence = Prec.get s in
@@ -146,10 +162,13 @@ let infix (tok : L.token) =
       P.infix_binary precedence tok (fun a b -> C.apply (Shaper.sym s) [ a; b ])
     in
     Some rule
+  | Eof -> Some P.eof
   | _ -> Shaper_parser.infix tok
 
 let grammar =
-  G.make ~default_infix:(P.parse_infix_juxt Shaper.seq) ~prefix ~infix "fold"
+  G.make
+    ~default_infix:(P.parse_infix_juxt ~precedence:Prec.juxt Shaper.seq)
+    ~prefix ~infix "fold"
 
 let parse l : C.t =
   try P.run grammar l

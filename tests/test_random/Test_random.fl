@@ -48,13 +48,13 @@ of_string = ~timezone ts -> {
         ("-", -offset_seconds); // positive for computing hr and min
     let hours = offset_seconds / 3600;
     let minutes = offset_seconds % 3600 / 60;
-    (Stdx.fmt) "%s%s02d:%02d" signal hours minutes
+    Stdx.fmt "%s%s02d:%02d" signal hours minutes
   };
   let get_offset_hours_iso_float = offset_seconds -> offset_seconds /. 3600;
   try {
     let (timestamp, offset_seconds) = datetime_tz ts;
 
-    if ((Option.is_some) offset_seconds && (Option.is_some) timezone)
+    if (Option.is_some offset_seconds && Option.is_some timezone)
       (failwith "Timestamp cannot have both timezone and an offset defined")
     {
         match offset_seconds {

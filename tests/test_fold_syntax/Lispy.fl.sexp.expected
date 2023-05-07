@@ -1,6 +1,7 @@
 (;
   a
   (f a b)
+  (f a b c d e)
   42
   ()
   !(= x 1)
@@ -21,15 +22,20 @@
   !(= x (|> !(# A) f))
   !(= x (f !(# A) !(# B)))
   !(= x (<| (f !(# A) !(# B)) !(# C)))
-  !(do {; !(. a x) !(. M x)})
+  !(do
+     {; !(. a x) !(. M x) (!(. M f) x) (f !(. a x)) (!(. M f) !(. x a)) fim})
   !(= () ())
   !(= () {; !(let !(= a 1)) a})
   !(= () {!(let !(= a 1))})
   !(= () {!(let (, !(= a 1) !(= b 2)))})
   !(= () {; !(let !(= a 1)) !(let !(= b 2))})
   !(do {!(let !(= a 1))})
-  {(print_endline "hello")}
-  {; (print_endline "hello") (print_endline "world")}
+  {a}
+  {; a}
+  {; a b}
+  {; a b}
+  {; a b c}
+  {; a b c}
   !(= x [])
   !(= x [1])
   !(= x [, 1 2])

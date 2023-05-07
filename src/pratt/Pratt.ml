@@ -133,7 +133,7 @@ let parse_prefix g : 'a parser =
     | None -> g.default_prefix g l
     | Some rule -> rule g l
 
-let rec parse_infix rbp left g : 'a parser =
+let rec parse_infix ?(use_default_infix = true) rbp left g : 'a parser =
  fun l ->
   let tok = Lexer.pick l in
   if Lexer.is_eof tok then Ok left
@@ -144,14 +144,15 @@ let rec parse_infix rbp left g : 'a parser =
         let* left' = rule left g l in
         parse_infix rbp left' g l
       else Ok left
-    | None ->
+    | None when use_default_infix ->
       let* left' = g.default_infix left g l in
       parse_infix rbp left' g l
+    | None -> Ok left
 
-let parse ?precedence:(rbp = 0) g : 'a parser =
+let parse ?(use_default_infix = true) ?precedence:(rbp = 0) g : 'a parser =
  fun l ->
   let* left = parse_prefix g l in
-  parse_infix rbp left g l
+  parse_infix ~use_default_infix rbp left g l
 
 let run g l =
   match parse g l with
@@ -163,13 +164,22 @@ let run g l =
 
 (* Rules *)
 
-let parse_infix_juxt f left g l =
+let parse_infix_juxt ~precedence f left g l =
   let* xs =
     until
-      (fun tok -> not (Grammar.has_infix tok g || Lexer.is_eof tok))
-      (parse_prefix g) l
+      (fun tok -> not (Grammar.has_infix tok g))
+      (parse ~use_default_infix:false ~precedence g)
+      l
   in
   Ok (f (left :: xs))
+
+(* let parse_infix_juxt f left g l =
+   let* xs =
+     until
+       (fun tok -> not (Grammar.has_infix tok g || Lexer.is_eof tok))
+       (parse_prefix g) l
+   in
+   Ok (f (left :: xs)) *)
 
 (* let parse_infix_juxt' ?precedence f left g l =
    let tok = Lexer.pick l in
@@ -185,9 +195,7 @@ let parse_infix_juxt f left g l =
 
 let parse_prefix_juxt =
   let rule g l =
-    until
-      (fun tok -> not (Grammar.has_infix tok g || Lexer.is_eof tok))
-      (parse_prefix g) l
+    until (fun tok -> not (Grammar.has_infix tok g)) (parse_prefix g) l
   in
   rule
 
@@ -301,7 +309,47 @@ let infix_seq ~sep:(sep, precedence) f =
   in
   (rule, precedence)
 
+let postfix_seq ~sep:(sep, precedence) f =
+  let rule left g l =
+    let* () = consume sep l in
+    let* xs =
+      until
+        (fun tok -> not (Grammar.has_infix tok g))
+        (fun l ->
+          let* x = parse ~precedence g l in
+          let* () = consume sep l in
+          Ok x
+        )
+        l
+    in
+    Ok (f (left :: xs))
+  in
+  (rule, precedence)
+
+let infix_seq_opt ~sep:(sep, precedence) f =
+  let rule left g l =
+    let* () = consume sep l in
+    let rec loop () =
+      let tok = Lexer.pick l in
+      match Grammar.get_infix tok g with
+      | None ->
+        let* x = parse ~precedence g l in
+        let tok = Lexer.pick l in
+        if Lexer.equal_token tok sep then
+          let* () = consume sep l in
+          let* xs = loop () in
+          Ok (x :: xs)
+        else Ok [ x ]
+      | Some (_rule, _lbp) -> Ok []
+    in
+    let* xs = loop () in
+    Ok (f (left :: xs))
+  in
+  (rule, precedence)
+
 let prefix_seq ~sep:(sep, precedence) f g l =
   let* () = consume sep l in
   let* left = parse ~precedence g l in
   parse_infix_seq ~sep:(sep, precedence) f left g l
+
+let eof = ((fun left _g _l -> Ok left), 0)

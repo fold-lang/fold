@@ -70,6 +70,7 @@ end = struct
       | Shape (_loc, ".", [ Ident (Upper m); Ident (Lower v) ]) ->
         E.pexp_ident ~loc:noloc (with_noloc (Ident.Ldot (Lident m, v)))
       (* a.b *)
+      (* TODO: M.a.M.a.M.b *)
       | Shape (loc, ".", [ a; Ident (Lower id) ]) ->
         let a = eval a in
         E.pexp_field ~loc a (with_noloc (Ident.Lident id))

@@ -1,5 +1,6 @@
 a;
 f a b;
+f a b c d e;
 42;
 ();
 
@@ -31,15 +32,17 @@ x = f #A #B <| #C;
 // Field and module access.
 do {
   a.x;
-  //a.x1.x2;
-  //a.x1.x2.x3;
-  M.x
-  //f a.x;
-  //f a.x1.x2;
-  //M.f x;
+  M.x;
+  M.f x;
+  f a.x;
+  M.f x.a;
   //M.a.f x;
-  //M.f x.a;
-  //M.a.f x.y.b
+  // a.x1.x2;
+  //a.x1.x2.x3;
+  //f a.x1.x2;
+  //M.a.f x.y.b;
+  //(Set.Make M).t;
+  fim
 };
 
 // Unit pattern, implicit let unit
@@ -63,11 +66,20 @@ do { let a = 1 };
 
 // Scopes
 // { }; // array? unit?
-{ print_endline "hello" };
-{
-  print_endline "hello";
-  print_endline "world"
-};
+// { a };
+// { a; };
+// { a; b };
+// { a; b; };
+// { a; b; c };
+// { a; b; c; };
+
+// { a };
+// { a %% };
+// { a %% b };
+// { a %% b %% };
+// { a %% b %% c };
+// { a %% b %% c %% };
+// { a %% let a = 1 };
 
 // List expressions
 x = [];
