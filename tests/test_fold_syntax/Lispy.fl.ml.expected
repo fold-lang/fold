@@ -33,9 +33,8 @@ let () = let a = 1 in ()
 ;;a
 ;;a
 ;;a; b
-;;a; b
 ;;a; b; c
-;;a; b; c
+;;a; (let a = 1 in a)
 let x = []
 let x = [1]
 let x = [1; 2]

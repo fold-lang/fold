@@ -41,7 +41,7 @@ do {
   //a.x1.x2.x3;
   //f a.x1.x2;
   //M.a.f x.y.b;
-  //(Set.Make M).t;
+  // (Set.Make M).t;
   fim
 };
 
@@ -66,20 +66,15 @@ do { let a = 1 };
 
 // Scopes
 // { }; // array? unit?
-// { a };
-// { a; };
-// { a; b };
-// { a; b; };
-// { a; b; c };
-// { a; b; c; };
-
-// { a };
-// { a %% };
-// { a %% b };
-// { a %% b %% };
-// { a %% b %% c };
-// { a %% b %% c %% };
-// { a %% let a = 1 };
+{ a };
+{ a };
+{ a; b };
+{ a; b; c };
+{
+  a;
+  let a = 1;
+  a
+};
 
 // List expressions
 x = [];

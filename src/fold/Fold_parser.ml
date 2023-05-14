@@ -38,9 +38,9 @@ module Shaper_parser = struct
     match tok with
     | Rparen | Rbrace | Rbracket -> Some P.infix_unbalanced
     | Semi -> Some (P.infix_seq ~sep:(tok, Prec.semi) (Shaper.seq ~sep:";"))
-    | Sym "%%" ->
-      Some (P.infix_seq_opt ~sep:(tok, Prec.semi) (Shaper.seq ~sep:";"))
+    (* | Semi -> Some (P.postfix_seq ~sep:(tok, Prec.semi) (Shaper.seq ~sep:";")) *)
     | Comma -> Some (P.infix_seq ~sep:(tok, Prec.comma) (Shaper.seq ~sep:","))
+    | Eof -> Some P.eof
     | _ -> None
 
   let grammar =
@@ -162,7 +162,6 @@ let infix (tok : L.token) =
       P.infix_binary precedence tok (fun a b -> C.apply (Shaper.sym s) [ a; b ])
     in
     Some rule
-  | Eof -> Some P.eof
   | _ -> Shaper_parser.infix tok
 
 let grammar =

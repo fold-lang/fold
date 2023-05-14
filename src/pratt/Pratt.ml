@@ -314,7 +314,7 @@ let postfix_seq ~sep:(sep, precedence) f =
     let* () = consume sep l in
     let* xs =
       until
-        (fun tok -> not (Grammar.has_infix tok g))
+        (fun tok -> Grammar.has_prefix tok g)
         (fun l ->
           let* x = parse ~precedence g l in
           let* () = consume sep l in
