@@ -33,18 +33,18 @@ module Ast_eval = struct
     match fl with
     | Ident x -> ident ctx x
     | Const x -> const ctx x
-    | Seq (None, f :: args) -> apply ctx f args
-    | Seq (Some ";", items) -> seq_semi ctx items
-    | Seq (Some ",", items) -> seq_comma ctx items
+    | Seq (f :: args) -> apply ctx f args
+    | Shape (_, ";", items) -> seq_semi ctx items
+    | Shape (_, ",", items) -> seq_comma ctx items
     | Shape (_, "->", [ a; b ]) -> arrow ctx a b
     | Shape (_, ":", [ v; t ]) -> constraint_ ctx v t
     | Shape (_, "=", [ lhs; rhs ]) -> binding ctx lhs rhs
     | Shape (_, "|", items) -> cases ctx items
     | Shape (_, ".", [ a; b ]) -> field ctx a b
     | Shape (_, kwd, items) -> shape ctx kwd items
-    | Scope ("{", Seq (Some ";", items), "}") -> block ctx items
-    | Scope ("(", Seq (Some ",", items), ")") -> parens ctx items
-    | Scope ("{", Seq (Some ",", items), "}") -> braces ctx items
+    | Scope ("{", Shape (_, ";", items), "}") -> block ctx items
+    | Scope ("(", Shape (_, ",", items), ")") -> parens ctx items
+    | Scope ("{", Shape (_, ",", items), "}") -> braces ctx items
     | _ -> ident ctx (Lower "$FMT")
 end
 
@@ -60,7 +60,7 @@ and const _ctx const = P.string (Fmt.str "%a" C.pp_const const)
 and binding ctx (lhs : fl) (rhs : fl) =
   let lval_doc =
     match lhs with
-    | Seq (None, _) | Shape (_, ":", [ Seq (None, _); _ ]) ->
+    | Seq _ | Shape (_, ":", [ Seq _; _ ]) ->
       P.nest 2 (fmt ~ctx:{ enclose = false; inline = true } lhs)
     | _ -> fmt ~ctx:{ ctx with enclose = false } lhs
   in

@@ -47,11 +47,8 @@ end = struct
     | Const (Char x) -> construct "Const" [ construct "Char" [ char x ] ]
     | Const (String x) -> construct "Const" [ construct "String" [ string x ] ]
     | Sym x -> construct "Sym" [ string x ]
-    | Seq (None, items) ->
+    | Seq items ->
       construct "Seq" [ construct "None" []; list (List.map quasiquote items) ]
-    | Seq (Some sep, items) ->
-      construct "Seq"
-        [ construct "Some" [ string sep ]; list (List.map quasiquote items) ]
     | Scope (l, x, r) -> construct "Scope" [ string l; quasiquote x; string r ]
     | Shape (_loc, "unquote", [ code ]) -> code
     | Shape (_loc, kwd, items) ->
@@ -75,27 +72,26 @@ end = struct
         let a = eval a in
         E.pexp_field ~loc a (with_noloc (Ident.Lident id))
       (* -- let_in_unit -- *)
-      | Shape (loc, "let", [ Seq (Some ",", vbl) ]) -> eval_let_in_unit ~loc vbl
-      | Shape (loc, "let", [ Scope ("(", Seq (Some ",", vbl), ")") ]) ->
+      | Shape (loc, "let", [ Shape (_loc, ",", vbl) ]) ->
+        eval_let_in_unit ~loc vbl
+      | Shape (loc, "let", [ Scope ("(", Shape (_, ",", vbl), ")") ]) ->
         eval_let_in_unit ~loc vbl
       | Shape (loc, "let", [ vb ]) -> eval_let_in_unit ~loc [ vb ]
       (* --- const --- *)
       | Const const -> E.pexp_constant ~loc:noloc (conv_const const)
       (* --- fn --- *)
-      | Shape (_loc, "->", [ Seq (None, args); body ]) -> eval_fn args body
+      | Shape (_loc, "->", [ Seq args; body ]) -> eval_fn args body
       | Shape (_loc, "->", [ arg; body ]) -> eval_fn [ arg ] body
       | Scope ("{", Shape (_loc, "->", [ arg; body ]), "}") ->
         eval_fn [ arg ] body
       (* --- fn_match --- *)
       | Scope
-          ( "{"
-          , Seq (Some ",", (Shape (_loc, "->", [ _; _ ]) :: _ as cases))
-          , "}"
-          ) -> eval_fn_match cases
+          ("{", Shape (_, ",", (Shape (_, "->", [ _; _ ]) :: _ as cases)), "}")
+        -> eval_fn_match cases
       (* -- record -- *)
       (* `{ ~l, ...}` or `{ l = e, ... }` *)
       | Scope
-          ("{", Seq (Some ",", (Shape (_, ("~" | "="), _) :: _ as fields)), "}")
+          ("{", Shape (_, ",", (Shape (_, ("~" | "="), _) :: _ as fields)), "}")
         -> eval_record fields
       (* `{ r & ~l, ...}` or `{ r & l = e, ... }` *)
       | Scope
@@ -104,7 +100,7 @@ end = struct
               ( _
               , "&"
               , [ r
-                ; Seq (Some ",", (Shape (_, ("~" | "="), _) :: _ as fields))
+                ; Shape (_, ",", (Shape (_, ("~" | "="), _) :: _ as fields))
                 ]
               )
           , "}"
@@ -120,13 +116,13 @@ end = struct
       | Shape (loc, "if", [ a; b; c ]) -> eval_if_then_else ~loc a b (Some c)
       (* --- if_then --- *)
       | Shape (loc, "if", [ a; b ]) -> eval_if_then_else ~loc a b None
-      | Shape (loc, "if", [ Scope ("{", Seq (Some ",", cases), "}") ]) ->
+      | Shape (loc, "if", [ Scope ("{", Shape (_, ",", cases), "}") ]) ->
         eval_if_cases ~loc cases
       | Shape (loc, "if", [ Scope ("{", c, "}") ]) -> eval_if_cases ~loc [ c ]
       (* --- match --- *)
-      | Shape (loc, "match", [ a; Scope ("{", Seq (Some ",", b), "}") ]) ->
+      | Shape (loc, "match", [ a; Scope ("{", Shape (_, ",", b), "}") ]) ->
         eval_match ~loc a b
-      | Shape (loc, "match", [ _a; Scope ("{", Seq (None, []), "}") ]) ->
+      | Shape (loc, "match", [ _a; Scope ("{", Seq [], "}") ]) ->
         (* XXX: generates an error attribute for the syntax error *)
         let attr =
           E.attribute ~loc ~name:(with_noloc "ocaml.alert")
@@ -151,7 +147,7 @@ end = struct
         eval_match ~loc a [ single_case ]
       (* -- try --- *)
       (* try _ { _, ... } *)
-      | Shape (loc, "try", [ a; Scope ("{", Seq (Some ",", b), "}") ]) ->
+      | Shape (loc, "try", [ a; Scope ("{", Shape (_, ",", b), "}") ]) ->
         eval_try ~loc a b
       (* try _ { _ } *)
       | Shape (loc, "try", [ a; Scope ("{", b, "}") ]) -> eval_try ~loc a [ b ]
@@ -159,31 +155,31 @@ end = struct
       (* TODO: explicit arity *)
       | Ident (Upper id) -> eval_construct ~loc:noloc (Ident.Lident id) []
       (* () *)
-      | Scope ("(", Seq (None, []), ")") ->
+      | Scope ("(", Seq [], ")") ->
         eval_construct ~loc:noloc (Ident.Lident "()") []
       (* {} *)
-      | Scope ("{", Seq (None, []), "}") ->
+      | Scope ("{", Seq [], "}") ->
         eval_construct ~loc:noloc (Ident.Lident "()") []
-      | Seq (None, Ident (Upper c) :: args) ->
+      | Seq (Ident (Upper c) :: args) ->
         eval_construct ~loc:noloc (Ident.Lident c) args
       (* --- polyvar --- *)
       (* TODO: explicit arity *)
-      | Seq (None, Shape (loc, "#", [ Ident (Upper id) ]) :: args) ->
+      | Seq (Shape (loc, "#", [ Ident (Upper id) ]) :: args) ->
         eval_variant ~loc id args
       | Shape (loc, "#", [ Ident (Upper id) ]) -> eval_variant ~loc id []
       | Shape (_loc, "#", _) -> failwith "invalid polyvar syntax"
       (* --- apply or macro --- *)
-      | Seq (None, f :: args) -> eval_apply f args
+      | Seq (f :: args) -> eval_apply f args
       (* --- a; b; b --- *)
-      | Seq (Some ";", xs) -> eval_block xs
+      | Shape (loc, ";", xs) -> eval_block ~loc xs
       (* Err: a, b *)
-      | Seq (Some _sep, _) ->
+      | Shape (_loc, ",", _xs) ->
         Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl;
         failwith "err: a, b"
       (* --- () --- *)
-      | Scope ("(", Seq (Some ",", []), ")") ->
+      | Scope ("(", Shape (_, ",", []), ")") ->
         eval_construct ~loc:noloc (Ident.Lident "()") []
-      | Scope ("(", Seq (Some ",", items), ")") -> eval_tuple ~loc:noloc items
+      | Scope ("(", Shape (_, ",", items), ")") -> eval_tuple ~loc:noloc items
       (* --- group --- *)
       | Scope ("(", fl, ")") -> eval fl
       | Scope ("{", x, "}") -> eval x
@@ -200,16 +196,16 @@ end = struct
         eval_for ~loc binding body
       (* --- list --- *)
       (* [a, b & tl] *)
-      | Scope ("[", Shape (_loc, "&", [ Seq (Some ",", items); tl ]), "]") ->
-        eval_list ~loc:noloc ?spread:(Some tl) items
+      | Scope ("[", Shape (loc, "&", [ Shape (_, ",", items); tl ]), "]") ->
+        eval_list ~loc ?spread:(Some tl) items
       (* [a & tl] *)
       | Scope ("[", Shape (_loc, "&", [ a; tl ]), "]") ->
         eval_list ~loc:noloc ?spread:(Some tl) [ a ]
       (* [a, b, c] --- *)
-      | Scope ("[", Seq (Some ",", items), "]") ->
-        eval_list ~loc:noloc ?spread:None items
+      | Scope ("[", Shape (loc, ",", items), "]") ->
+        eval_list ~loc ?spread:None items
       (* [] *)
-      | Scope ("[", Seq (None, []), "]") -> eval_list ~loc:noloc ?spread:None []
+      | Scope ("[", Seq [], "]") -> eval_list ~loc:noloc ?spread:None []
       (* [a] *)
       | Scope ("[", item, "]") -> eval_list ~loc:noloc ?spread:None [ item ]
       (* --- quote --- *)
@@ -394,25 +390,24 @@ end = struct
         E.pexp_for ~loc p e1 e2 Asttypes.Downto body
       | _ -> failwith "ivalid for binding syntax"
 
-    and eval_block (xs : fl list) =
+    and eval_block ~loc (xs : fl list) =
       match xs with
-      | [] -> pexp_unit ~loc:noloc
+      | [] -> pexp_unit ~loc
       | [ x ] -> eval x
-      | Shape (loc, "let", [ Scope ("(", Seq (Some ",", vbl), ")") ]) :: xs
-      | Shape (loc, "let", [ Seq (Some ",", vbl) ]) :: xs ->
+      | Shape (loc, "let", [ Scope ("(", Shape (_, ",", vbl), ")") ]) :: xs
+      | Shape (loc, "let", [ Shape (_, ",", vbl) ]) :: xs ->
         let vbl_ml = List.map Value_binding.eval vbl in
-        let body_ml = eval_block xs in
+        let body_ml = eval_block ~loc xs in
         E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml body_ml
       | Shape (loc, "let", [ vb ]) :: xs ->
         let vbl_ml = [ Value_binding.eval vb ] in
-        let body_ml = eval_block xs in
+        let body_ml = eval_block ~loc xs in
         E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml body_ml
       | Shape (loc, "open", [ mexpr ]) :: items ->
         let mexpr = Module_expr.eval mexpr in
         let decl = E.open_infos ~loc ~expr:mexpr ~override:Asttypes.Fresh in
-        E.pexp_open ~loc decl (eval_block items)
-      | item :: items ->
-        E.pexp_sequence ~loc:noloc (eval item) (eval_block items)
+        E.pexp_open ~loc decl (eval_block ~loc items)
+      | item :: items -> E.pexp_sequence ~loc (eval item) (eval_block ~loc items)
 
     and eval_let_in_unit ~loc vbl_fl =
       let vbl_ml = List.map Value_binding.eval vbl_fl in
@@ -434,31 +429,31 @@ end = struct
       match fl with
       | Ident (Lower id) -> eval_var ~loc:noloc id
       (* --- unit --- *)
-      | Scope ("(", Seq ((None | Some ","), []), ")") ->
+      | Scope ("(", Shape (_, ",", []), ")") | Scope ("(", Seq [], ")") ->
         pat_construct (with_noloc (Ident.Lident "()")) []
       (* --- tuple --- *)
-      | Scope ("(", Seq (Some ",", items), ")") ->
+      | Scope ("(", Shape (_, ",", items), ")") ->
         E.ppat_tuple ~loc:noloc (List.map eval items)
       (* --- const --- *)
       | Const const -> E.ppat_constant ~loc:noloc (conv_const const)
       (* --- list --- *)
       (* [a, b & tl] *)
-      | Scope ("[", Shape (_loc, "&", [ Seq (Some ",", items); tl ]), "]") ->
+      | Scope ("[", Shape (_loc, "&", [ Shape (_, ",", items); tl ]), "]") ->
         pat_list ~loc:noloc ?spread:(Some tl) items
       (* [a & tl] *)
       | Scope ("[", Shape (_loc, "&", [ a; tl ]), "]") ->
         pat_list ~loc:noloc ?spread:(Some tl) [ a ]
       (* [a, b, c] --- *)
-      | Scope ("[", Seq (Some ",", items), "]") ->
+      | Scope ("[", Shape (_, ",", items), "]") ->
         pat_list ~loc:noloc ?spread:None items
       (* [] *)
-      | Scope ("[", Seq (None, []), "]") -> pat_list ~loc:noloc ?spread:None []
+      | Scope ("[", Seq [], "]") -> pat_list ~loc:noloc ?spread:None []
       (* [a] *)
       | Scope ("[", item, "]") -> pat_list ~loc:noloc ?spread:None [ item ]
       (* A *)
       | Ident (Upper a) -> pat_construct (with_noloc (Ident.Lident a)) []
       (* A ... *)
-      | Seq (None, Ident (Upper a) :: args) ->
+      | Seq (Ident (Upper a) :: args) ->
         pat_construct (with_noloc (Ident.Lident a)) args
       | _ ->
         Fmt.epr "todo pat: %a@." Shaper.dump fl;
@@ -531,11 +526,11 @@ end = struct
     let rec eval (fl : fl) : E.core_type =
       let loc = Ppxlib.Location.none in
       match fl with
-      | Scope ("(", Seq (Some ",", items), ")") ->
+      | Scope ("(", Shape (_, ",", items), ")") ->
         E.ptyp_tuple ~loc (List.map eval items)
       | Scope ("(", fl, ")") -> eval fl
       | Ident (Lower id) -> E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) []
-      | Seq (None, Ident (Lower id) :: args) ->
+      | Seq (Ident (Lower id) :: args) ->
         let args = List.map eval args in
         E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) args
       | _ ->
@@ -578,10 +573,10 @@ end = struct
       match fl with
       | Ident (Upper id) ->
         E.pmod_ident ~loc:noloc (with_noloc (Ident.Lident id))
-      | Scope ("{", Seq (None, []), "}") -> E.pmod_structure ~loc:noloc []
-      | Scope ("{", Seq (Some ";", items), "}") ->
+      | Scope ("{", Seq [], "}") -> E.pmod_structure ~loc:noloc []
+      | Scope ("{", Shape (loc, ";", items), "}") ->
         let items = List.map Structure_item.eval items in
-        E.pmod_structure ~loc:noloc items
+        E.pmod_structure ~loc items
       | Scope ("{", item, "}") ->
         let items = [ Structure_item.eval item ] in
         E.pmod_structure ~loc:noloc items
@@ -597,10 +592,10 @@ end = struct
       match fl with
       | Ident (Upper id) ->
         E.pmty_ident ~loc:noloc (with_noloc (Ident.Lident id))
-      | Scope ("{", Seq (None, []), "}") -> E.pmty_signature ~loc:noloc []
-      | Scope ("{", Seq (Some ";", items), "}") ->
+      | Scope ("{", Seq [], "}") -> E.pmty_signature ~loc:noloc []
+      | Scope ("{", Shape (loc, ";", items), "}") ->
         let items = List.map Signature_item.eval items in
-        E.pmty_signature ~loc:noloc items
+        E.pmty_signature ~loc items
       | Scope ("{", item, "}") ->
         let items = [ Signature_item.eval item ] in
         E.pmty_signature ~loc:noloc items
@@ -615,8 +610,8 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       | Shape (loc, "=", [ _lhs; _rhs ]) -> eval_item_value ~loc [ fl ]
-      | Seq (Some ",", vbl) -> eval_item_value ~loc:noloc vbl
-      (* | Shape (_loc,"let", [ Seq (Some ",", vbl) ]) -> value vbl *)
+      | Shape (loc, ",", vbl) -> eval_item_value ~loc vbl
+      (* | Shape (_loc,"let", [ Shape (_, ",", vbl) ]) -> value vbl *)
       (* | Shape (_loc,"let", [ vb ]) -> value [ vb ] *)
       | Shape (loc, "module", [ mb ]) -> eval_item_module ~loc mb
       | Shape (loc, "open", [ mexp ]) -> eval_item_open ~loc mexp
@@ -630,12 +625,11 @@ end = struct
       (* --- type attributes --- *)
       (* | Shape (loc, "@", []) *)
       (* --- *)
-      | Ident _ | Const _ | Sym _ | Seq (None, _ :: _) | Scope _ | Seq (None, _)
-        -> eval_eval ~loc:noloc fl
+      | Ident _ | Const _ | Sym _ | Seq (_ :: _) | Scope _ | Seq _ ->
+        eval_eval ~loc:noloc fl
       | Shape (_loc, _kwd, _xs) ->
         Fmt.epr "Eval.str: %a@." Shaper.dump fl;
         assert false
-      | Seq (Some _sep, _) -> assert false
 
     and eval_item_value ~loc fl =
       let vbl = List.map Value_binding.eval fl in
@@ -659,7 +653,7 @@ end = struct
         E.constructor_declaration ~loc ~name:(with_noloc a)
           ~args:(E.pcstr_tuple []) ~res:None
       (* A ... *)
-      | Seq (None, Ident (Upper a) :: args) ->
+      | Seq (Ident (Upper a) :: args) ->
         let args = List.map Core_type.eval args in
         E.constructor_declaration ~loc ~name:(with_noloc a)
           ~args:(E.pcstr_tuple args) ~res:None
@@ -671,19 +665,15 @@ end = struct
       | Shape
           ( loc
           , ":"
-          , [ Ident (Lower name)
-            ; Seq (None, [ Ident (Lower "mutable"); type' ])
-            ]
+          , [ Ident (Lower name); Seq [ Ident (Lower "mutable"); type' ] ]
           ) ->
         let type' = Core_type.eval type' in
         E.label_declaration ~loc ~name:(with_loc loc name)
           ~mutable_:Asttypes.Mutable ~type_:type'
       (* err: ... : mutable ... *)
       | Shape
-          ( _loc
-          , ":"
-          , [ Ident (Lower name); Seq (None, Ident (Lower "mutable") :: _) ]
-          ) -> Fmt.failwith "invalid mutable record field syntax: %s" name
+          (_loc, ":", [ Ident (Lower name); Seq (Ident (Lower "mutable") :: _) ])
+        -> Fmt.failwith "invalid mutable record field syntax: %s" name
       (* ... : ... *)
       | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
         let type' = Core_type.eval type' in
@@ -703,8 +693,8 @@ end = struct
         E.ptype_variant [ cd ]
       (* A ... *)
       (* { A ... } *)
-      | Seq (None, Ident (Upper a) :: args)
-      | Scope ("{", Seq (None, Ident (Upper a) :: args), "}") ->
+      | Seq (Ident (Upper a) :: args)
+      | Scope ("{", Seq (Ident (Upper a) :: args), "}") ->
         let cd =
           let args = List.map Core_type.eval args in
           E.constructor_declaration ~loc ~name:(with_noloc a)
@@ -716,7 +706,7 @@ end = struct
         let cdl = List.map (eval_constructor_declaration ~loc) cds_fl in
         E.ptype_variant cdl
       (* { ... , ... } *)
-      | Scope ("{", Seq (Some ",", cds_fl), "}") ->
+      | Scope ("{", Shape (loc, ",", cds_fl), "}") ->
         let ldl = List.map (eval_label_declaration ~loc) cds_fl in
         E.ptype_record ldl
       (* .. *)
@@ -763,9 +753,7 @@ end = struct
       | [ Shape
             ( loc
             , "="
-            , [ Seq (None, [ Ident (Lower "nonrec"); Ident (Lower name) ])
-              ; rhs
-              ]
+            , [ Seq [ Ident (Lower "nonrec"); Ident (Lower name) ]; rhs ]
             )
         ] -> make_type ~loc Nonrecursive name private_flag (Some rhs)
       | _ ->
@@ -792,7 +780,7 @@ end = struct
 
   let structure (fl : fl) =
     match fl with
-    | Seq (Some ";", items) -> List.map Structure_item.eval items
+    | Shape (_loc, ";", items) -> List.map Structure_item.eval items
     | _ -> [ Structure_item.eval fl ]
 
   let expression = Expression.eval

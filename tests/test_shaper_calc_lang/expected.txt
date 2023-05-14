@@ -1,52 +1,49 @@
 
 [no_calc_lang]
 (Const 2)
-(Seq (None, [(Const 2); (Sym "+"); (Const 2)]))
-(Seq (Some ",",
-  [(Seq (None, [(Const 2); (Sym "+"); (Const 2)]));
-   (Seq (None, [(Const 2); (Sym "-"); (Const 2)]))]))
+(Seq ([(Const 2); (Sym "+"); (Const 2)]))
+(Shape (",",
+  [(Seq ([(Const 2); (Sym "+"); (Const 2)]));
+   (Seq ([(Const 2); (Sym "-"); (Const 2)]))]))
 (Scope ("{",
-  (Seq (Some ";",
-    [(Seq (Some ",", [(Ident a); (Ident b)]));
-     (Seq (Some ",", [(Ident c); (Ident d)]))])),
+  (Shape (";",
+    [(Shape (",", [(Ident a); (Ident b)]));
+     (Shape (",", [(Ident c); (Ident d)]))])),
   "}"))
 
 [scoping]
 (Const 1)
-(Scope ("{",(Seq (None, [(Const 2); (Sym "+"); (Ident a)])), "}"))
-(Seq (None, [(Const 2); (Sym "+"); (Ident a)]))
+(Scope ("{",(Seq ([(Const 2); (Sym "+"); (Ident a)])), "}"))
+(Seq ([(Const 2); (Sym "+"); (Ident a)]))
 (Scope ("(",(Const 2), ")"))
 (Scope ("(",(Const 2), ")"))
-(Seq (None,
-  [(Const 2); (Sym "+"); (Ident neg); (Scope ("(",(Const 2), ")"))]))
-(Seq (None,
-  [(Const 5); (Sym "+"); (Ident pow);
-   (Scope ("(",(Seq (Some ",", [(Const 2); (Const 4)])), ")"))]))
+(Seq ([(Const 2); (Sym "+"); (Ident neg); (Scope ("(",(Const 2), ")"))]))
+(Seq ([(Const 5); (Sym "+"); (Ident pow);
+       (Scope ("(",(Shape (",", [(Const 2); (Const 4)])), ")"))]))
 
 [calc_lang]
 (Const 1)
-(Seq (None, [(Const 2); (Sym "+"); (Const 3)]))
-(Seq (Some ",", [(Seq (None, [(Const 2); (Sym "+"); (Const 3)])); (Ident a)]))
-(Seq (Some ",",
-  [(Ident a); (Seq (None, [(Const 2); (Sym "+"); (Const 3)])); (Ident b)]))
-(Seq (Some ",", [(Ident a); (Const 8)]))
-(Seq (Some ",", [(Ident a); (Const 8); (Ident b)]))
-(Seq (None, [(Ident a); (Scope ("{",(Const 8), "}")); (Ident b)]))
-(Seq (None, [(Ident a); (Scope ("{",(Const 8), "}")); (Ident b)]))
-(Scope ("{",(Seq (None, [(Const 2); (Sym "+"); (Const 2)])), "}"))
-(Seq (None, [(Scope ("{",(Const 2), "}")); (Sym "+"); (Const 2)]))
-(Seq (None,
-  [(Scope ("{",(Seq (None, [(Const 2); (Sym "+"); (Const 3)])), "}"));
-   (Sym "+"); (Const 2)]))
+(Seq ([(Const 2); (Sym "+"); (Const 3)]))
+(Shape (",", [(Seq ([(Const 2); (Sym "+"); (Const 3)])); (Ident a)]))
+(Shape (",",
+  [(Ident a); (Seq ([(Const 2); (Sym "+"); (Const 3)])); (Ident b)]))
+(Shape (",", [(Ident a); (Const 8)]))
+(Shape (",", [(Ident a); (Const 8); (Ident b)]))
+(Seq ([(Ident a); (Scope ("{",(Const 8), "}")); (Ident b)]))
+(Seq ([(Ident a); (Scope ("{",(Const 8), "}")); (Ident b)]))
+(Scope ("{",(Seq ([(Const 2); (Sym "+"); (Const 2)])), "}"))
+(Seq ([(Scope ("{",(Const 2), "}")); (Sym "+"); (Const 2)]))
+(Seq ([(Scope ("{",(Seq ([(Const 2); (Sym "+"); (Const 3)])), "}"));
+       (Sym "+"); (Const 2)]))
 (Scope ("(",
-  (Seq (Some ",",
-    [(Seq (None, [(Ident f); (Ident a); (Ident b)]));
-     (Seq (None, [(Const 2); (Sym "+"); (Const 3)]))])),
+  (Shape (",",
+    [(Seq ([(Ident f); (Ident a); (Ident b)]));
+     (Seq ([(Const 2); (Sym "+"); (Const 3)]))])),
   ")"))
 
 [errors]
 err: invalid macro call form, must be kwd!
-(Seq (None, [(Const 2); (Ident a)]))
+(Seq ([(Const 2); (Ident a)]))
 err: run: invalid syntax: parser halted at )
 err: run: invalid syntax: parser halted at }
 err: shaper: invalid syntax: unexpected end of file

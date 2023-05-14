@@ -5,7 +5,9 @@ let x = Seq (None, [Ident (Lower "f"); Ident (Lower "x")])
 let x = Seq (None, [Sym "+"; Const (Int 1); Const (Int 2)])
 let x =
   Scope
-    ("[", (Seq ((Some ","), [Const (Int 1); Const (Int 2); Const (Int 3)])),
+    ("[",
+      (Shape
+         (Shaper.noloc, ",", [Const (Int 1); Const (Int 2); Const (Int 3)])),
       "]")
 let x = Const (Int 42)
 let x =
@@ -13,8 +15,8 @@ let x =
     (Shaper.noloc, "let",
       [Shape (Shaper.noloc, "=", [Ident (Lower "x"); Const (Int 1)])])
 let x =
-  Seq
-    ((Some ";"),
+  Shape
+    (Shaper.noloc, ";",
       [Shape
          (Shaper.noloc, "let",
            [Shape (Shaper.noloc, "=", [Ident (Lower "a"); Const (Int 42)])]);

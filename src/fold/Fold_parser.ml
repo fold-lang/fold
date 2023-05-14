@@ -37,9 +37,9 @@ module Shaper_parser = struct
   let infix (tok : L.token) =
     match tok with
     | Rparen | Rbrace | Rbracket -> Some P.infix_unbalanced
-    | Semi -> Some (P.infix_seq ~sep:(tok, Prec.semi) (Shaper.seq ~sep:";"))
-    (* | Semi -> Some (P.postfix_seq ~sep:(tok, Prec.semi) (Shaper.seq ~sep:";")) *)
-    | Comma -> Some (P.infix_seq ~sep:(tok, Prec.comma) (Shaper.seq ~sep:","))
+    | Semi -> Some (P.infix_seq ~sep:(tok, Prec.semi) Shaper.semi)
+    (* | Semi -> Some (P.postfix_seq ~sep:(tok, Prec.semi) (Shaper.semi)) *)
+    | Comma -> Some (P.infix_seq ~sep:(tok, Prec.comma) Shaper.comma)
     | Eof -> Some P.eof
     | _ -> None
 
@@ -68,7 +68,7 @@ let macro_call (left : fl) _g l =
     let* arg = P.parse_prefix Shaper_parser.grammar l in
     let args =
       match arg with
-      | Shaper.Scope ("(", Shaper.Seq (None, items), ")") -> items
+      | Shaper.Scope ("(", Shaper.Seq items, ")") -> items
       | Shaper.Scope _ -> [ arg ]
       | _ -> failwith "macro arguments must be scoped"
     in
@@ -98,14 +98,14 @@ let prefix (tok : L.token) =
       ) ->
     Some
       (P.prefix_unary ~precedence:Fold_precedence.juxt tok (function
-        | S.Seq (None, items) -> C.shape kwd items
+        | S.Seq items -> C.shape kwd items
         | x -> C.shape kwd [ x ]
         )
         )
   | Lower (("let" | "module" | "open" | "do" | "type") as kwd) ->
     Some
       (P.prefix_unary ~precedence:Fold_precedence.item tok (function
-        | S.Seq (None, items) -> C.shape kwd items
+        | S.Seq items -> C.shape kwd items
         | x -> C.shape kwd [ x ]
         )
         )

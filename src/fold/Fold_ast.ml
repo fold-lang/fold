@@ -77,14 +77,14 @@ module Cons = struct
   let construct ident_ml args = seq (ident_fl_of_ml ident_ml :: args)
 
   (* (), (a, b, c) *)
-  let tuple items = parens (seq_comma items)
-  let unit = parens (seq_comma [])
+  let tuple items = parens (Shaper.comma items)
+  let unit = parens (Shaper.comma [])
 
   (* {}, {a}, {a, b, c} *)
-  let array items = braces (seq_comma items)
+  let array items = braces (Shaper.comma items)
 
   (* {a;} {a; b; c} *)
-  let block items = braces (seq_semi items)
+  let block items = braces (Shaper.semi items)
 
   (* ..a *)
   let spread x = shape ".." [ x ]
@@ -92,14 +92,14 @@ module Cons = struct
   (* {a = 1, ~b, ..c} *)
   let record ?spread:x items =
     match x with
-    | Some x -> braces (seq_comma (List.append items [ spread x ]))
-    | None -> braces (seq_comma items)
+    | Some x -> braces (Shaper.comma (List.append items [ spread x ]))
+    | None -> braces (Shaper.comma items)
 
   (* [a, b, ..c] *)
   let list ?spread:x items =
     match x with
-    | Some x -> braces (seq_comma (List.append items [ spread x ]))
-    | None -> brackets (seq_comma items)
+    | Some x -> braces (Shaper.comma (List.append items [ spread x ]))
+    | None -> brackets (Shaper.comma items)
 
   (* a | b | ... *)
   let alt items = shape "|" items
@@ -155,7 +155,7 @@ module Cons = struct
   let if_then cond if_true = shape "if" [ cond; if_true ]
 
   (* match a { (cases,)* } *)
-  let match' exp cases = shape "match" [ exp; braces (seq_comma cases) ]
+  let match' exp cases = shape "match" [ exp; braces (Shaper.comma cases) ]
   let match_single arg = shape "match" [ arg ]
 
   (* module M = ... *)
@@ -168,7 +168,7 @@ module Cons = struct
   let unquote x = shape "unquote" [ x ]
 
   (* for all 'a 'b, 'a -> 'b *)
-  let for_all vars t = shape "for all" [ seq_comma [ seq vars; t ] ]
+  let for_all vars t = shape "for all" [ Shaper.comma [ seq vars; t ] ]
 end
 
 module Cons_next = struct

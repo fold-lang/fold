@@ -1,22 +1,19 @@
 [basic]
 (Const 1)
 (Const 123456789)
-(Scope ("{",(Seq (None, [])), "}"))
+(Scope ("{",(Seq ([])), "}"))
 (Scope ("{",(Const 1), "}"))
-(Scope ("{",(Seq (None, [(Const 1); (Const 2)])), "}"))
-(Scope ("{",(Seq (None, [(Const 1); (Const 2); (Const 3)])), "}"))
-(Scope ("{",(Scope ("{",(Seq (None, [])), "}")), "}"))
-(Scope ("{",(Scope ("{",(Scope ("{",(Seq (None, [])), "}")), "}")), "}"))
+(Scope ("{",(Seq ([(Const 1); (Const 2)])), "}"))
+(Scope ("{",(Seq ([(Const 1); (Const 2); (Const 3)])), "}"))
+(Scope ("{",(Scope ("{",(Seq ([])), "}")), "}"))
+(Scope ("{",(Scope ("{",(Scope ("{",(Seq ([])), "}")), "}")), "}"))
+(Scope ("{",(Seq ([(Const 1); (Scope ("{",(Seq ([])), "}"))])), "}"))
 (Scope ("{",
-  (Seq (None, [(Const 1); (Scope ("{",(Seq (None, [])), "}"))])),
+  (Seq ([(Const 1); (Scope ("{",(Seq ([])), "}")); (Const 3)])),
   "}"))
 (Scope ("{",
-  (Seq (None, [(Const 1); (Scope ("{",(Seq (None, [])), "}")); (Const 3)])),
-  "}"))
-(Scope ("{",
-  (Seq (None,
-    [(Const 1); (Scope ("{",(Seq (None, [])), "}"));
-     (Scope ("{",(Seq (None, [(Const 1); (Const 2); (Const 3)])), "}"))])),
+  (Seq ([(Const 1); (Scope ("{",(Seq ([])), "}"));
+         (Scope ("{",(Seq ([(Const 1); (Const 2); (Const 3)])), "}"))])),
   "}"))
 (Scope ("{",
   (Scope ("{",
@@ -24,78 +21,69 @@
     "}")),
   "}"))
 (Scope ("{",
-  (Seq (None,
-    [(Scope ("{",(Const 0), "}"));
-     (Scope ("{",(Seq (None, [(Const 1); (Const 2)])), "}"));
-     (Scope ("{",(Seq (None, [(Const 3); (Const 4); (Const 5)])), "}"));
-     (Scope ("{",
-       (Seq (None, [(Const 6); (Const 7); (Const 8); (Const 9)])),
-       "}"))])),
+  (Seq ([(Scope ("{",(Const 0), "}"));
+         (Scope ("{",(Seq ([(Const 1); (Const 2)])), "}"));
+         (Scope ("{",(Seq ([(Const 3); (Const 4); (Const 5)])), "}"));
+         (Scope ("{",
+           (Seq ([(Const 6); (Const 7); (Const 8); (Const 9)])),
+           "}"))])),
   "}"))
 
 [juxt]
 (Const 1)
-(Seq (None, [(Const 1); (Const 2)]))
-(Seq (None, [(Const 1); (Const 2); (Const 3)]))
-(Seq (None,
-  [(Const 1); (Const 2); (Const 3); (Const 4); (Const 5); (Const 6);
-   (Const 7)]))
-(Seq (None, [(Ident f); (Scope ("(",(Ident a), ")")); (Ident b)]))
-(Seq (None,
-  [(Ident f);
-   (Scope ("(",(Seq (None, [(Ident a); (Ident x); (Ident b)])), ")"));
-   (Ident c)]))
-(Seq (None,
-  [(Ident f); (Scope ("{",(Seq (Some ",", [(Ident a); (Ident b)])), "}"));
-   (Ident c)]))
+(Seq ([(Const 1); (Const 2)]))
+(Seq ([(Const 1); (Const 2); (Const 3)]))
+(Seq ([(Const 1); (Const 2); (Const 3); (Const 4); (Const 5); (Const 6);
+       (Const 7)]))
+(Seq ([(Ident f); (Scope ("(",(Ident a), ")")); (Ident b)]))
+(Seq ([(Ident f);
+       (Scope ("(",(Seq ([(Ident a); (Ident x); (Ident b)])), ")"));
+       (Ident c)]))
+(Seq ([(Ident f); (Scope ("{",(Shape (",", [(Ident a); (Ident b)])), "}"));
+       (Ident c)]))
 
 [comma]
 (Const 1)
-(Seq (Some ",", [(Const 1); (Const 2)]))
-(Seq (Some ",", [(Const 1); (Const 2); (Const 3)]))
-(Seq (Some ",",
+(Shape (",", [(Const 1); (Const 2)]))
+(Shape (",", [(Const 1); (Const 2); (Const 3)]))
+(Shape (",",
   [(Const 1); (Const 2); (Const 3); (Const 4); (Const 5); (Const 6);
    (Const 7)]))
 
 [juxt_comma]
-(Seq (Some ",", [(Seq (None, [(Const 0); (Const 1)])); (Const 1)]))
-(Seq (Some ",", [(Const 1); (Seq (None, [(Const 0); (Const 1)]))]))
-(Seq (Some ",",
-  [(Seq (None, [(Const 0); (Const 1)]));
-   (Seq (None, [(Const 0); (Const 2)]))]))
-(Seq (Some ",",
-  [(Const 1); (Seq (None, [(Const 0); (Const 1)]));
-   (Seq (None, [(Const 0); (Const 1); (Const 2)]));
-   (Seq (None, [(Const 0); (Const 1); (Const 2); (Const 3)]))]))
-(Seq (Some ",",
-  [(Seq (None, [(Const 0); (Const 1); (Const 2); (Const 3)]));
-   (Seq (None, [(Const 0); (Const 1); (Const 2)]));
-   (Seq (None, [(Const 0); (Const 1)])); (Const 1)]))
+(Shape (",", [(Seq ([(Const 0); (Const 1)])); (Const 1)]))
+(Shape (",", [(Const 1); (Seq ([(Const 0); (Const 1)]))]))
+(Shape (",",
+  [(Seq ([(Const 0); (Const 1)])); (Seq ([(Const 0); (Const 2)]))]))
+(Shape (",",
+  [(Const 1); (Seq ([(Const 0); (Const 1)]));
+   (Seq ([(Const 0); (Const 1); (Const 2)]));
+   (Seq ([(Const 0); (Const 1); (Const 2); (Const 3)]))]))
+(Shape (",",
+  [(Seq ([(Const 0); (Const 1); (Const 2); (Const 3)]));
+   (Seq ([(Const 0); (Const 1); (Const 2)])); (Seq ([(Const 0); (Const 1)]));
+   (Const 1)]))
 
 [seq_mixed]
-(Seq (Some ";",
-  [(Seq (Some ",", [(Const 1); (Const 2)]));
-   (Seq (Some ",", [(Const 3); (Const 4)]))]))
-(Seq (Some ";",
-  [(Const 1); (Seq (Some ",", [(Const 2); (Const 3)])); (Const 4)]))
-(Seq (Some ";",
-  [(Seq (None, [(Const 0); (Const 1)]));
-   (Seq (Some ",",
-     [(Const 2); (Seq (None, [(Const 0); (Const 3); (Const 4)]))]));
-   (Seq (Some ",", [(Const 5); (Const 6)]))]))
-(Seq (Some ";",
-  [(Seq (Some ",", [(Const 1); (Seq (None, [(Const 0); (Const 2)]))]));
-   (Seq (Some ",",
-     [(Scope ("{",(Seq (None, [(Const 0); (Const 3); (Const 4)])), "}"));
-      (Seq (None,
-        [(Const 0);
-         (Scope ("{",
-           (Seq (Some ";",
-             [(Seq (Some ",", [(Const 1); (Const 2)])); (Const 3)])),
-           "}"))]));
+(Shape (";",
+  [(Shape (",", [(Const 1); (Const 2)]));
+   (Shape (",", [(Const 3); (Const 4)]))]))
+(Shape (";", [(Const 1); (Shape (",", [(Const 2); (Const 3)])); (Const 4)]))
+(Shape (";",
+  [(Seq ([(Const 0); (Const 1)]));
+   (Shape (",", [(Const 2); (Seq ([(Const 0); (Const 3); (Const 4)]))]));
+   (Shape (",", [(Const 5); (Const 6)]))]))
+(Shape (";",
+  [(Shape (",", [(Const 1); (Seq ([(Const 0); (Const 2)]))]));
+   (Shape (",",
+     [(Scope ("{",(Seq ([(Const 0); (Const 3); (Const 4)])), "}"));
+      (Seq ([(Const 0);
+             (Scope ("{",
+               (Shape (";",
+                 [(Shape (",", [(Const 1); (Const 2)])); (Const 3)])),
+               "}"))]));
       (Scope ("{",
-        (Seq (Some ";",
-          [(Const 1); (Seq (Some ",", [(Const 2); (Const 3)]))])),
+        (Shape (";", [(Const 1); (Shape (",", [(Const 2); (Const 3)]))])),
         "}"))]))]))
 
 [whitespace]

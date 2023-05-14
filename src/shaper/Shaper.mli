@@ -1,12 +1,12 @@
 type ident = Upper of string | Lower of string
 type const = Int of int | Char of char | String of string | Float of float
 
-type syntax =
+type syntax = private
   | Ident of ident
   | Const of const
   | Sym of string
   | Scope of string * syntax * string
-  | Seq of string option * syntax list
+  | Seq of syntax list
   | Shape of Astlib.Location.t * string * syntax list
 
 val noloc : Astlib.Location.t
@@ -23,9 +23,9 @@ val float : float -> syntax
 val parens : syntax -> syntax
 val brackets : syntax -> syntax
 val braces : syntax -> syntax
-val seq : ?sep:string -> syntax list -> syntax
-val seq_comma : syntax list -> syntax
-val seq_semi : syntax list -> syntax
+val seq : syntax list -> syntax
+val comma : ?loc:Astlib.Location.t -> syntax list -> syntax
+val semi : ?loc:Astlib.Location.t -> syntax list -> syntax
 val shape : ?loc:Astlib.Location.t -> string -> syntax list -> syntax
 
 (** {2 Syntax predicates} *)

@@ -114,8 +114,8 @@ end = struct
         let vbl_fl = List.map Vb.conv vbl in
         let form =
           match rec_flag with
-          | Nonrecursive -> Fl.let' (Fl.seq_comma vbl_fl)
-          | Recursive -> Fl.let_rec (Fl.seq_comma vbl_fl)
+          | Nonrecursive -> Fl.let' (Fl.comma vbl_fl)
+          | Recursive -> Fl.let_rec (Fl.comma vbl_fl)
         in
         flatten body (form :: acc)
       | Pexp_sequence (exp_1, exp_2) -> flatten exp_2 (conv exp_1 :: acc)
@@ -126,8 +126,8 @@ end = struct
     let vbl_fl = List.map Vb.conv vbl in
     let form =
       match rec_flag with
-      | Nonrecursive -> Fl.let' (Fl.seq_comma vbl_fl)
-      | Recursive -> Fl.let_rec (Fl.seq_comma vbl_fl)
+      | Nonrecursive -> Fl.let' (Fl.comma vbl_fl)
+      | Recursive -> Fl.let_rec (Fl.comma vbl_fl)
     in
     let body' = flatten body [] in
     Fl.block (form :: body')
@@ -556,8 +556,8 @@ end = struct
   and value ?loc:_ rec_flag vbl =
     let vbl_fl = List.map Vb.conv vbl in
     match rec_flag with
-    | Asttypes.Nonrecursive -> Fl.let' (Fl.seq_comma vbl_fl)
-    | Recursive -> Fl.let_rec (Fl.seq_comma vbl_fl)
+    | Asttypes.Nonrecursive -> Fl.let' (Fl.comma vbl_fl)
+    | Recursive -> Fl.let_rec (Fl.comma vbl_fl)
 
   and module_ ?loc:_ mb =
     let mb' = Mb.conv mb in
