@@ -48,7 +48,7 @@ of_string = ~timezone ts -> {
         ("-", -offset_seconds); // positive for computing hr and min
     let hours = offset_seconds / 3600;
     let minutes = offset_seconds % 3600 / 60;
-    Stdx.fmt "%s%s02d:%02d" signal hours minutes
+    Stdx.fmt "%s%s02d:%02d" signal hours minutes;
   };
   let get_offset_hours_iso_float = offset_seconds -> offset_seconds /. 3600;
   try {
@@ -74,8 +74,8 @@ of_string = ~timezone ts -> {
             offset_hours_iso_float = None
           }
         }
-      }
+      };
   } {
     Failure _ -> failwith ("Couldn't parse timestamp: " ++ ts)
-  }
+  };
 }

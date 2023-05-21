@@ -39,6 +39,10 @@ let run ~input_file_name ~input_fmt ~output_fmt ic oc =
     let ml = Fold.To_ocaml.structure fl in
     let out = Format.formatter_of_out_channel oc in
     Format.fprintf out "%a@." Fold.Utils.dump_parsetree ml
+  | Ml, Parsetree ->
+    let ml = Fold.Utils.parse_structure ic in
+    let out = Format.formatter_of_out_channel oc in
+    Format.fprintf out "%a@." Fold.Utils.dump_parsetree ml
   | _ -> failwith "unsupported conversion format"
 
 let main input_fmt output_fmt input_file_name =

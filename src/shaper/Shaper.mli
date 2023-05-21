@@ -1,3 +1,4 @@
+(* t = name | atom | list | form *)
 type ident = Upper of string | Lower of string
 type const = Int of int | Char of char | String of string | Float of float
 
@@ -34,6 +35,8 @@ val is_scope : syntax -> bool
 val is_seq : syntax -> bool
 val is_seq_juxt : syntax -> bool
 val is_shape : syntax -> bool
+val is_lower : syntax -> bool
+val is_upper : syntax -> bool
 
 (** {2 Print shapes} *)
 

@@ -163,6 +163,16 @@ and finish_string lexer = parse
     | Eof -> true
     | _ -> false
 
+  let is_lower token =
+    match token with
+    | Lower _ -> true
+    | _ -> false
+
+  let is_upper token =
+    match token with
+    | Upper _ -> true
+    | _ -> false
+
   let loc {lexbuf;_} = {
     Astlib.Location.loc_start = lexbuf.Lexing.lex_start_p;
     loc_end = lexbuf.lex_curr_p;

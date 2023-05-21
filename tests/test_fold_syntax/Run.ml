@@ -19,17 +19,17 @@ let test_item () =
     item {|x = 1|};
     item {|
          a = 1;
-         b = 2
+         b = 2;
        |}
   end
 
 let test_exp () =
-  exp {|let a = 1; a|};
-  exp {|let a = 1, b = 2; b|};
+  exp {|let a = 1; a;|};
+  exp {|let a = 1, b = 2; b;|};
   exp {|
     let a = 1;
     let b = 2;
-    a + b
+    a + b;
   |}
 
 let test_list () =

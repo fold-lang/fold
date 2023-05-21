@@ -139,8 +139,8 @@ end = struct
 
   and conv_arg (arg_label, exp) =
     match arg_label with
-    | Labelled l -> Fl.label ~optional:false l (conv exp)
-    | Optional l -> Fl.label ~optional:true l (conv exp)
+    | Labelled l -> Fl.label l (conv exp)
+    | Optional l -> Fl.label_opt l (conv exp)
     | Nolabel -> conv exp
 
   and tuple ?loc:_ ?attrs:_ items = Fl.tuple (List.map conv items)
@@ -191,13 +191,13 @@ end = struct
     let pat' = Pat.conv pat in
     match arg_label with
     (* ~l or ~l:m *)
-    | Labelled l -> Fl.label ~optional:false l pat'
+    | Labelled l -> Fl.label l pat'
     | Optional l -> (
       match default with
       (* ?l or ?l:m *)
-      | None -> Fl.label ~optional:true l pat'
+      | None -> Fl.label_opt l pat'
       (* ?(l = v) or ?l:(m = v) *)
-      | Some x -> Fl.label ~optional:true l (Fl.binding pat' (conv x))
+      | Some x -> Fl.label_opt l (Fl.binding pat' (conv x))
     )
     | Nolabel -> pat'
 
@@ -344,8 +344,8 @@ end = struct
     let typ_2_syn = conv typ_2 in
     let typ_1_arg =
       match arg_label with
-      | Labelled l -> Fl.label ~optional:false l typ_1_syn
-      | Optional l -> Fl.label ~optional:true l typ_1_syn
+      | Labelled l -> Fl.label l typ_1_syn
+      | Optional l -> Fl.label_opt l typ_1_syn
       | Nolabel -> typ_1_syn
     in
     Fl.arrow typ_1_arg typ_2_syn
@@ -483,13 +483,13 @@ end = struct
     let pat' = Pat.conv pat in
     match arg_label with
     (* ~l or ~l:m *)
-    | Labelled l -> Fl.label ~optional:false l pat'
+    | Labelled l -> Fl.label l pat'
     | Optional l -> (
       match default with
       (* ?l or ?l:m *)
-      | None -> Fl.label ~optional:true l pat'
+      | None -> Fl.label_opt l pat'
       (* ?(l = v) or ?l:(m = v) *)
-      | Some x -> Fl.label ~optional:true l (Fl.binding pat' (Exp.conv x))
+      | Some x -> Fl.label_opt l (Fl.binding pat' (Exp.conv x))
     )
     | Nolabel -> pat'
 

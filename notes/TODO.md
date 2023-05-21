@@ -12,3 +12,4 @@
 - [ ] `a |> f` is ok, but `f a |> g` is not: undeclared infix operators use
   fallback infix rule wich is not triggered on juxt parsing.  
 - [ ] Err: check for `{, ...}` as an incorrect syntax for records.
+- [ ] `match a { _ }` where `_` is `_ -> raise Match_failure __LOC__`.

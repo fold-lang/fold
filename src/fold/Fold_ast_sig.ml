@@ -20,7 +20,8 @@ type 'r for' = down:bool -> fl -> fl -> fl -> 'r
 type 'r for_all = fl list -> fl -> 'r
 type 'r if_then = fl -> fl -> 'r
 type 'r if_then_else = fl -> fl -> fl -> 'r
-type 'r label = optional:bool -> string -> fl -> 'r
+type 'r label = string -> fl -> 'r
+type 'r label_opt = string -> fl -> 'r
 type 'r let' = fl -> 'r
 type 'r list' = ?spread:fl -> fl list -> 'r
 type 'r match' = fl -> fl list -> 'r
@@ -58,6 +59,7 @@ module type Cons = sig
   val if_then : fl if_then
   val if_then_else : fl if_then_else
   val label : fl label
+  val label_opt : fl label_opt
   val let' : fl let'
   val let_rec : fl let'
   val list : fl list'

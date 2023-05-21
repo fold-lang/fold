@@ -6,6 +6,8 @@ module C = Fold_ast.Cons
 module Prec = Fold_precedence
 open Prelude
 
+let ( let* ) = P.( let* )
+
 module Shaper_parser = struct
   let prefix (tok : L.token) =
     match tok with
@@ -37,8 +39,7 @@ module Shaper_parser = struct
   let infix (tok : L.token) =
     match tok with
     | Rparen | Rbrace | Rbracket -> Some P.infix_unbalanced
-    | Semi -> Some (P.infix_seq ~sep:(tok, Prec.semi) Shaper.semi)
-    (* | Semi -> Some (P.postfix_seq ~sep:(tok, Prec.semi) (Shaper.semi)) *)
+    | Semi -> Some (P.infix_seq_opt ~sep:(tok, Prec.semi) Shaper.semi)
     | Comma -> Some (P.infix_seq ~sep:(tok, Prec.comma) Shaper.comma)
     | Eof -> Some P.eof
     | _ -> None
@@ -52,8 +53,6 @@ module Shaper_parser = struct
     let l = L.for_string str in
     P.run grammar l
 end
-
-let ( let* ) = P.( let* )
 
 let check_is_operator_char x =
   match x with
@@ -76,19 +75,72 @@ let macro_call (left : fl) _g l =
     Ok shape
   | _ -> failwith "invalid macro call form, must be kwd!"
 
-let parse_infix_dot_seq left g l =
-  let dot_tok = L.Sym "." in
-  let* xs =
-    P.until
-      (fun tok -> L.equal_token tok dot_tok)
-      (fun l ->
-        let* () = P.consume dot_tok l in
-        P.parse_prefix g l
-      )
-      l
-  in
+let parse_infix_dot (left0 : fl) g l =
   let loc = L.loc l in
-  Ok (Shaper.shape ~loc "." (left :: xs))
+  let dot_tok = L.Sym "." in
+  let* () = P.consume dot_tok l in
+  let rec parse_ident path =
+    let* (x : fl) = P.parse_prefix g l in
+    let path = List.append path [ x ] in
+    let tok = L.pick l in
+    match x with
+    | Ident (Upper _) when L.equal_token tok dot_tok ->
+      let* () = P.consume dot_tok l in
+      parse_ident path
+    | Ident (Lower _) when L.equal_token tok dot_tok ->
+      let* () = P.consume dot_tok l in
+      let expr =
+        match path with
+        | [ a ] -> a
+        | _ -> Shaper.shape ~loc "ident" path
+      in
+      parse_field [ expr ]
+    | Ident _ -> Ok (Shaper.shape ~loc "ident" path)
+    | _ -> failwith "invalid dot component"
+  and parse_field path =
+    let* (x : fl) = P.parse_prefix g l in
+    match x with
+    | Ident (Upper id) -> Fmt.failwith "invalid field: %s" id
+    | Ident (Lower _) ->
+      let path = List.append path [ x ] in
+      let tok = L.pick l in
+      if L.equal_token tok dot_tok then
+        let* () = P.consume dot_tok l in
+        parse_field path
+      else Ok (Shaper.shape ~loc "field" path)
+    | Scope ("(", ident_fl, ")") ->
+      let expr =
+        match path with
+        | [ a ] -> a
+        | _ -> Shaper.shape ~loc "field" path
+      in
+      Ok (Shaper.shape ~loc "field" [ expr; ident_fl ])
+    | _ -> assert false
+  in
+  match left0 with
+  | Ident (Upper _) -> parse_ident [ left0 ]
+  | _ -> parse_field [ left0 ]
+
+let parse_label g l =
+  let* () = P.consume (L.Sym "~") l in
+  match L.pick l with
+  | Lower label -> (
+    L.move l;
+    match L.pick l with
+    | Sym ":" ->
+      L.move l;
+      let* x = P.parse_prefix g l in
+      Ok (C.label label x)
+    | Sym "?:" ->
+      L.move l;
+      let* x = P.parse_prefix g l in
+      Ok (C.label_opt label x)
+    | Sym "?" ->
+      L.move l;
+      Ok (C.label_opt_pun label)
+    | _ -> Ok (C.label_pun label)
+  )
+  | tok -> Fmt.failwith "invalid label: %a" L.pp_token tok
 
 let prefix (tok : L.token) =
   match tok with
@@ -102,7 +154,8 @@ let prefix (tok : L.token) =
         | x -> C.shape kwd [ x ]
         )
         )
-  | Lower (("let" | "module" | "open" | "do" | "type") as kwd) ->
+  | Lower (("let" | "module" | "mod" | "sig" | "open" | "do" | "type") as kwd)
+    ->
     Some
       (P.prefix_unary ~precedence:Fold_precedence.item tok (function
         | S.Seq items -> C.shape kwd items
@@ -110,7 +163,7 @@ let prefix (tok : L.token) =
         )
         )
   (* prefix tight *)
-  | Sym (("#" | "~" | "'") as kwd) ->
+  | Sym (("#" | "'") as kwd) ->
     let rule g l =
       let* () = P.consume tok l in
       let* x = P.parse_prefix g l in
@@ -126,6 +179,8 @@ let prefix (tok : L.token) =
       Ok (S.shape "@" [ attr; payload ])
     in
     Some rule
+  (* prefix label *)
+  | Sym "~" -> Some parse_label
   | _ -> Shaper_parser.prefix tok
 
 let infix (tok : L.token) =
@@ -140,6 +195,8 @@ let infix (tok : L.token) =
       | "let"
       | "fn"
       | "module"
+      | "mod"
+      | "sig"
       | "type"
       | "open"
       | "val" ) -> Some P.infix_delimiter
@@ -153,8 +210,10 @@ let infix (tok : L.token) =
   | Sym "=" -> Some (P.infix_right_binary Prec.equal (L.Sym "=") C.binding)
   | Sym "|" -> Some (P.infix_seq ~sep:(tok, Prec.pipe) C.alt)
   | Sym "->" -> Some (P.infix_binary Prec.arrow tok C.arrow)
+  | Lower "as" ->
+    Some (P.infix_binary Prec.as' tok (fun a b -> Shaper.shape "as" [ a; b ]))
   | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
-  | Sym "." -> Some (parse_infix_dot_seq, Prec.dot)
+  | Sym "." -> Some (parse_infix_dot, Prec.dot)
   | Sym "!" -> Some (macro_call, Prec.excl)
   | Sym s when check_is_operator_char s.[0] ->
     let precedence = Prec.get s in

@@ -7,10 +7,9 @@ x = quote (1 + 2);
 x = quote [1, 2, 3];
 x = quote ((42));
 x = quote (let x = 1);
-x = quote (let a = 42; a + 1);
+x = quote (let a = 42; a + 1;);
 
 // Code antiquoting
 int_code = quote 42;
 x = quote (1000 + unquote int_code);
-x = quote (2000 + unquote (quote 42))
-
+x = quote (2000 + unquote (quote 42));

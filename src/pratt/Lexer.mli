@@ -18,6 +18,8 @@ val pp_token : Format.formatter -> token -> unit
 val compare_token : token -> token -> int
 val equal_token : token -> token -> bool
 val is_eof : token -> bool
+val is_upper : token -> bool
+val is_lower : token -> bool
 
 type t
 

@@ -128,9 +128,10 @@ module Cons = struct
   (* open M *)
   (* open { ... } *)
   let open' mexp = shape "open" [ mexp ]
-
-  let label ~optional l v =
-    if optional then shape "~?" [] else shape "~" [ lower l; v ]
+  let label l v = shape "~" [ lower l; v ]
+  let label_opt l v = shape "~?" [ lower l; v ]
+  let label_pun l = shape "~" [ lower l ]
+  let label_opt_pun l = shape "~?" [ lower l ]
 
   (* while a do { ... } *)
   let while' cond body = shape "while" [ cond; body ]

@@ -56,10 +56,10 @@ let test_juxt_comma () =
 let test_seq_mixed () =
   begin
     Fmt.pr "[seq_mixed]@.";
-    rp "1,2;3,4";
-    rp "1;2,3;4";
-    rp "0 1;2,0 3 4;5,6";
-    rp "1,0 2;{0 3 4},0 {1,2;3},{1;2,3}"
+    rp "1,2;3,4;";
+    rp "1;2,3;4;";
+    rp "0 1;2,0 3 4;5,6;";
+    rp "1,0 2;{0 3 4},0 {1,2;3;},{1;2,3;};"
   end
 
 let test_whitespace () =
@@ -100,10 +100,11 @@ let test_ident () =
 let _test_complex () =
   begin
     Fmt.pr "[complex]@.";
-    rp {|
+    rp
+      {|
       let f x = {
         let y = x + 1;
-        y - 1
+        y - 1;
       };
     |}
   end

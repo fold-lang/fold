@@ -41,7 +41,7 @@ let () =
   rp "2";
   rp "2 + 2";
   rp "2 + 2, 2 - 2";
-  rp "{a, b; c, d}";
+  rp "{a, b; c, d;}";
 
   print_endline "\n[scoping]";
   rp "calc! (2; 1)";

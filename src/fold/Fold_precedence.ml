@@ -5,11 +5,14 @@ let comma = 20
 let equal = 30
 let pipe = 40
 let arrow = 50
+let as' = 55
 let colon = 60
 let excl = 210
 let juxt = 300
 let dot = 310
+let colon_colon = 320
 
+(* TODO left/right *)
 let get str =
   match str.[0] with
   | '=' -> 101

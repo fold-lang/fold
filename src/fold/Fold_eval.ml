@@ -35,6 +35,27 @@ end = struct
     | String x -> C.string x
     | Char x -> C.char x
 
+  let eval_expident (fl : fl) : Ident.t with_loc =
+    match fl with
+    | Ident (Upper id | Lower id) -> with_noloc (Ident.Lident id)
+    | Shape (loc, "ident", [ Ident (Upper id | Lower id) ]) ->
+      with_loc loc (Ident.Lident id)
+    | Shape (loc, "ident", Ident (Upper hd) :: rest) ->
+      let ident =
+        List.fold_left
+          (fun path (fl : fl) ->
+            match fl with
+            | Ident (Upper id | Lower id) -> Ident.Ldot (path, id)
+            | _ -> failwith "invalid longident component"
+          )
+          (Ident.Lident hd) rest
+      in
+      with_loc loc ident
+    | Shape (_, "ident", []) -> failwith "invalid ident: empty parts"
+    | _ ->
+      Fmt.epr ">>> %a@." Shaper.dump fl;
+      failwith "invalid ident"
+
   let rec quasiquote (syn : Shaper.syntax) =
     let open Fold_ast.Cons in
     let construct s = Fold_ast.Cons.construct (Ident.Lident s) in
@@ -51,8 +72,8 @@ end = struct
       construct "Seq" [ construct "None" []; list (List.map quasiquote items) ]
     | Scope (l, x, r) -> construct "Scope" [ string l; quasiquote x; string r ]
     | Shape (_loc, "unquote", [ code ]) -> code
-    | Shape (_loc, kwd, items) ->
-      let noloc = dot (upper "Shaper") (lower "noloc") in
+    | Shape (loc, kwd, items) ->
+      let noloc = Shaper.shape ~loc "ident" [ upper "Shaper"; lower "noloc" ] in
       construct "Shape" [ noloc; string kwd; list (List.map quasiquote items) ]
 
   module rec Expression : sig
@@ -61,17 +82,36 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       (* --- ident --- *)
+      (* x *)
       | Ident (Lower x) -> E.pexp_ident ~loc:noloc (with_noloc (Ident.Lident x))
+      (* TODO + *)
       | Sym x -> E.pexp_ident ~loc:noloc (with_noloc (Ident.Lident x))
-      (* M.x *)
-      | Shape (_loc, ".", [ Ident (Upper m); Ident (Lower v) ]) ->
-        E.pexp_ident ~loc:noloc (with_noloc (Ident.Ldot (Lident m, v)))
-      (* a.b *)
-      (* TODO: M.a.M.a.M.b *)
-      | Shape (loc, ".", [ a; Ident (Lower id) ]) ->
-        let a = eval a in
-        E.pexp_field ~loc a (with_noloc (Ident.Lident id))
-      (* -- let_in_unit -- *)
+      (* M.a.b *)
+      | Shape (loc, "ident", _) ->
+        let ident = eval_expident fl in
+        E.pexp_ident ~loc ident
+      (* --- field --- *)
+      (* err: !(field ) *)
+      | Shape (_loc, "field", []) ->
+        Fmt.failwith "invalid field syntax: empty shape"
+      (* err: !(field expr) *)
+      | Shape (_loc, "field", [ _ ]) ->
+        Fmt.failwith "invalid field syntax: missing field"
+      (* err: r.M *)
+      | Shape (_loc, "field", [ _; Ident (Upper id) ]) ->
+        Fmt.failwith "invalid field label: %s" id
+      (* r1.r2.r3.field *)
+      | Shape (loc, "field", expr0 :: id0 :: ids) ->
+        let expr = eval expr0 in
+        let id0 = eval_expident id0 in
+        let expr0 = E.pexp_field ~loc expr id0 in
+        List.fold_left
+          (fun expr id ->
+            let id = eval_expident id in
+            E.pexp_field ~loc expr id
+          )
+          expr0 ids
+      (* --- let_in_unit --- *)
       | Shape (loc, "let", [ Shape (_loc, ",", vbl) ]) ->
         eval_let_in_unit ~loc vbl
       | Shape (loc, "let", [ Scope ("(", Shape (_, ",", vbl), ")") ]) ->
@@ -235,11 +275,29 @@ end = struct
         Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl;
         assert false
 
+    and eval_apply_arg (fl : fl) =
+      match fl with
+      (* ~a *)
+      | Shape (loc, "~", [ Ident (Lower label) ]) ->
+        ( Asttypes.Labelled label
+        , E.pexp_ident ~loc (with_loc loc (Ident.Lident label))
+        )
+      (* ~a? *)
+      | Shape (loc, "~?", [ Ident (Lower label) ]) ->
+        ( Asttypes.Optional label
+        , E.pexp_ident ~loc (with_loc loc (Ident.Lident label))
+        )
+      (* ~a:_ *)
+      | Shape (_loc, "~", [ Ident (Lower label); arg_val ]) ->
+        (Asttypes.Labelled label, eval arg_val)
+      (* ~a?:_ *)
+      | Shape (_loc, "~?", [ Ident (Lower label); arg_val ]) ->
+        (Asttypes.Optional label, eval arg_val) (* _ *)
+      | _ -> (Asttypes.Nolabel, eval fl)
+
     and eval_apply f_fl args_fl =
       let f_ml = eval f_fl in
-      let args_ml =
-        List.map (fun arg_fl -> (Asttypes.Nolabel, eval arg_fl)) args_fl
-      in
+      let args_ml = List.map eval_apply_arg args_fl in
       E.pexp_apply ~loc:noloc f_ml args_ml
 
     and eval_variant ~loc label args_fl =
@@ -613,7 +671,9 @@ end = struct
       | Shape (loc, ",", vbl) -> eval_item_value ~loc vbl
       (* | Shape (_loc,"let", [ Shape (_, ",", vbl) ]) -> value vbl *)
       (* | Shape (_loc,"let", [ vb ]) -> value [ vb ] *)
-      | Shape (loc, "module", [ mb ]) -> eval_item_module ~loc mb
+      | Shape (loc, ("module" | "mod"), [ mb ]) -> eval_item_module ~loc mb
+      | Shape (loc, "sig", [ Shape (_, "=", [ Ident (Upper name); mod_ty ]) ])
+        -> eval_item_module_type ~loc ~name mod_ty
       | Shape (loc, "open", [ mexp ]) -> eval_item_open ~loc mexp
       | Shape (loc, "do", [ exp ]) ->
         let unit = Shaper.parens (Shaper.seq []) in
@@ -635,9 +695,17 @@ end = struct
       let vbl = List.map Value_binding.eval fl in
       E.pstr_value ~loc Asttypes.Nonrecursive vbl
 
-    and eval_item_module mb_fl =
+    and eval_item_module ~loc mb_fl =
       let mb_ml = Module_binding.eval mb_fl in
-      E.pstr_module mb_ml
+      E.pstr_module ~loc mb_ml
+
+    and eval_item_module_type ~loc ~name modty_fl =
+      let modty_ml = Module_type.eval modty_fl in
+      let mod_ty_decl =
+        E.module_type_declaration ~loc ~name:(with_loc loc name)
+          ~type_:(Some modty_ml)
+      in
+      E.pstr_modtype ~loc mod_ty_decl
 
     and eval_item_open ~loc expr =
       let expr = Module_expr.eval expr in
@@ -719,8 +787,8 @@ end = struct
       let name = with_noloc name in
       let kind, manifest =
         match rhs with
-        (* t = ... *)
-        | Some (Shape (loc, "=", [ manifest_t; kind ])) ->
+        (* t == ... *)
+        | Some (Seq [ Sym "=="; manifest_t; kind ]) ->
           let kind = eval_type_kind ~loc kind in
           let manifest = Core_type.eval manifest_t in
           (kind, Some manifest)
@@ -769,7 +837,9 @@ end = struct
       (* name : ... *)
       | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
         make_value ~loc ~name ~type'
-      | _ -> assert false
+      | _ ->
+        Fmt.epr "Eval.sig: %a@." Shaper.dump fl;
+        assert false
 
     and make_value ~loc ~name ~type' =
       let name = with_loc loc name in

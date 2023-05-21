@@ -326,23 +326,23 @@ let postfix_seq ~sep:(sep, precedence) f =
   in
   (rule, precedence)
 
+(* Infix seq with optional sep terminator *)
 let infix_seq_opt ~sep:(sep, precedence) f =
   let rule left g l =
     let* () = consume sep l in
-    let rec loop () =
+    let rec p l =
       let tok = Lexer.pick l in
-      match Grammar.get_infix tok g with
-      | None ->
+      if Grammar.has_prefix tok g then
         let* x = parse ~precedence g l in
         let tok = Lexer.pick l in
         if Lexer.equal_token tok sep then
           let* () = consume sep l in
-          let* xs = loop () in
+          let* xs = p l in
           Ok (x :: xs)
         else Ok [ x ]
-      | Some (_rule, _lbp) -> Ok []
+      else Ok []
     in
-    let* xs = loop () in
+    let* xs = p l in
     Ok (f (left :: xs))
   in
   (rule, precedence)

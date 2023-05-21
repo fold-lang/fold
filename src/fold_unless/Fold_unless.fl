@@ -5,10 +5,10 @@ unless = args -> {
     [ cond, body ] ->
       quote { if (not (unquote cond)) (unquote body) },
     _ -> failwith "unless: invalid args"
-  }
+  };
 };
 
 do {
   open Fold;
-  defmacro "unless" unless
-}
+  defmacro "unless" unless;
+};

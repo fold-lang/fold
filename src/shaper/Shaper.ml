@@ -42,6 +42,14 @@ let is_shape = function
   | Shape _ -> true
   | _ -> false
 
+let is_lower = function
+  | Ident (Lower _) -> true
+  | _ -> false
+
+let is_upper = function
+  | Ident (Upper _) -> true
+  | _ -> false
+
 let pp_ident f ident =
   let (Lower id | Upper id) = ident in
   Fmt.string f id
