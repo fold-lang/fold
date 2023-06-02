@@ -2,7 +2,9 @@ let f01 a = a
 let f02 a b = a
 let f03 a b c = a
 let f04 ~a = a
-let f05 ~a:b = a
+let f05 ~a:b = b
+let f05_1 ~a:(Some x) = a
+let f05_2 ~a:(Some x as b) = a
 let f06 ~(a : t) = a
 let f07 ~a:(b : t) = a
 let f08 ?a = a
@@ -11,6 +13,7 @@ let f10 ?(a = 1) = a
 let f11 ?a:(b = 1) = a
 let f12 ?(a : t = 42) = a
 let f13 ?a:(x : t = 42) = a
+let f13_1 ?a:(Some x as b : int option = Some 42) = a
 let a01 = f ~a
 let a02 = f ~a:b
 let a03 = f ~(a : t)

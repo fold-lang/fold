@@ -1,0 +1,226 @@
+module rec Typ : sig
+  type _ typ =
+    | Unit : unit typ
+    | Int : int typ
+    | Float : float typ
+    | Bool : bool typ
+    | Char : char typ
+    | String : string typ
+    | Record : ('record, 'fields) Typ.Record.t -> 'record typ
+    | Variant : 'variant Typ.Variant.t -> 'variant typ
+
+  module Field : sig
+    type ('record, 'a) t
+    type 'record any = Any : ('record, 'a) t -> 'record any
+
+    type ('record, 'fields) list =
+      | [] : ('record, 'record) list
+      | ( :: ) :
+          ('record, 'a) t * ('record, 'fields) list
+          -> ('record, 'a -> 'fields) list
+
+    val name : ('record, 'a) t -> string
+    val typ : ('record, 'a) t -> 'a typ
+    val get : 'record -> ('record, 'a) t -> 'a
+  end
+
+  module Record : sig
+    type ('record, 'fields) t
+
+    val name : ('record, 'fields) t -> string
+    val fields : ('record, 'fields) t -> ('record, 'fields) Typ.Field.list
+    val make : ('record, 'fields) t -> 'fields
+    val map : ('record Field.any -> 'a) -> ('record, 'make) t -> 'a list
+
+    val fold :
+      ('a -> 'record Field.any -> 'a) -> 'a -> ('record, 'make) t -> 'a
+
+    val to_list : ('record, 'fields) t -> 'record Typ.Field.any list
+  end
+
+  module Tag : sig
+    type ('variant, 'args) t
+
+    type ('variant, 'args) make =
+      | Const : 'variant -> ('variant, unit) make
+      | Apply : 'args typ * ('args -> 'variant) -> ('variant, 'args) make
+
+    type 'variant value =
+      | Value : ('variant, 'args) t * 'args -> 'variant value
+
+    type 'variant any = Any : ('variant, 'args) t -> 'variant any
+
+    type 'variant list =
+      | [] : 'variant list
+      | ( :: ) : ('variant, 'args) t * 'variant list -> 'variant list
+
+    val name : ('variant, 'args) t -> string
+    val make : ('variant, 'args) t -> ('variant, 'args) make
+  end
+
+  module Variant : sig
+    type 'variant t
+
+    val name : 'variant t -> string
+    val value : 'variant t -> 'variant -> 'variant Tag.value
+    val tags : 'variant t -> 'variant Tag.list
+    val map : ('variant Tag.any -> 'a) -> 'variant t -> 'a list
+    val fold : ('a -> 'variant Tag.any -> 'a) -> 'a -> 'variant t -> 'a
+    val to_list : 'variant t -> 'variant Tag.any list
+  end
+
+  val field : string -> 'a typ -> ('record -> 'a) -> ('record, 'a) Field.t
+
+  val record :
+    string -> ('record, 'fields) Field.list -> 'fields -> 'record typ
+
+  val tag : string -> ('variant, 'args) Tag.make -> ('variant, 'args) Tag.t
+
+  val variant :
+    string ->
+    'variant Tag.list ->
+    ('variant -> 'variant Tag.value) ->
+    'variant typ
+end = struct
+  type _ typ =
+    | Unit : unit typ
+    | Int : int typ
+    | Float : float typ
+    | Bool : bool typ
+    | Char : char typ
+    | String : string typ
+    | Record : ('record, 'fields) Typ.Record.t -> 'record typ
+    | Variant : 'variant Typ.Variant.t -> 'variant typ
+
+  module Field = struct
+    type ('record, 'a) t = {
+      name : string;
+      get : 'record -> 'a;
+      typ : 'a typ;
+    }
+
+    type ('record, 'fields) list =
+      | [] : ('record, 'record) list
+      | ( :: ) :
+          ('record, 'a) t * ('record, 'fields) list
+          -> ('record, 'a -> 'fields) list
+
+    type 'record any = Any : ('record, 'a) t -> 'record any
+
+    let name t = t.name
+    let typ t = t.typ
+    let get r (field : ('record, 'a) t) = field.get r
+  end
+
+  module Record = struct
+    type ('record, 'fields) t = {
+      name : string;
+      fields : ('record, 'fields) Field.list;
+      make : 'fields;
+      witness : 'record Witness.t;
+    }
+
+    let name t = t.name
+    let fields t = t.fields
+    let make t = t.make
+
+    let map f t =
+      let rec loop :
+          type record fields a.
+          (record Field.any -> a) -> (record, fields) Field.list -> a List.t =
+        fun f fields ->
+        match fields with
+        | [] -> []
+        | field :: fields -> f (Field.Any field) :: loop f fields
+      in
+      loop f t.fields
+
+    let fold f acc t =
+      let rec loop :
+          type record fields a.
+          (a -> record Field.any -> a) ->
+          a ->
+          (record, fields) Field.list ->
+          a =
+        fun f acc fields ->
+        match fields with
+        | [] -> acc
+        | field :: fields -> loop f (f acc (Field.Any field)) fields
+      in
+      loop f acc t.fields
+
+    let to_list t = map (fun any -> any) t
+  end
+
+  module Tag = struct
+    type ('variant, 'args) make =
+      | Const : 'variant -> ('variant, unit) make
+      | Apply : 'args typ * ('args -> 'variant) -> ('variant, 'args) make
+
+    type ('variant, 'args) t = {
+      name : string;
+      make : ('variant, 'args) make;
+    }
+
+    type 'variant value =
+      | Value : ('variant, 'args) t * 'args -> 'variant value
+
+    type 'variant any = Any : ('variant, 'args) t -> 'variant any
+
+    type 'variant list =
+      | [] : 'variant list
+      | ( :: ) : ('variant, 'args) t * 'variant list -> 'variant list
+
+    let name : type variant args. (variant, args) t -> string =
+      fun t -> t.name
+
+    let make t = t.make
+  end
+
+  module Variant = struct
+    type 'variant t = {
+      name : string;
+      tags : 'variant Tag.list;
+      value : 'variant -> 'variant Tag.value;
+      witness : 'variant Witness.t;
+    }
+
+    let name t = t.name
+    let value t = t.value
+    let tags variant = variant.tags
+
+    let map f t =
+      let rec loop :
+          type variant a.
+          (variant Tag.any -> a) -> variant Tag.list -> a List.t =
+        fun f tags ->
+        match tags with
+        | [] -> []
+        | tag :: tags' -> f (Tag.Any tag) :: loop f tags'
+      in
+      loop f t.tags
+
+    let fold f acc t =
+      let rec loop :
+          type variant a.
+          (a -> variant Tag.any -> a) -> a -> variant Tag.list -> a =
+        fun f acc tags ->
+        match tags with
+        | [] -> acc
+        | tag :: tags' -> loop f (f acc (Tag.Any tag)) tags'
+      in
+      loop f acc t.tags
+
+    let to_list t = map (fun any -> any) t
+  end
+
+  let field name typ get = { Field.name; typ; get }
+
+  let record name fields make =
+    Typ.Record { Record.name; fields; make; witness = Witness.make () }
+
+  let tag name make = { Tag.name; make }
+
+  let variant name tags value =
+    Typ.Variant { Variant.name; tags; value; witness = Witness.make () }
+end

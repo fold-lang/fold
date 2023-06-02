@@ -45,6 +45,8 @@ module Ast_eval = struct
     | Scope ("{", Shape (_, ";", items), "}") -> block ctx items
     | Scope ("(", Shape (_, ",", items), ")") -> parens ctx items
     | Scope ("{", Shape (_, ",", items), "}") -> braces ctx items
+    | Scope ("{", Seq [], "}") -> block ctx []
+    | Scope ("(", Seq [], ")") -> parens ctx []
     | _ -> ident ctx (Lower "$FMT")
 end
 
@@ -397,12 +399,12 @@ and labeled ctx l optional value =
     else
       P.string "~"
       ^^ P.string l
-      ^^ (if optional then P.string "?:" else P.string ":")
+      ^^ (if optional then P.string "?=" else P.string "=")
       ^^ P.parens_on enclose (fmt value)
   | _ ->
     P.string "~"
     ^^ P.string l
-    ^^ P.string (if optional then "?:" else ":")
+    ^^ P.string (if optional then "?=" else "=")
     ^^ P.parens_on enclose (fmt value)
 
 and field _ctx a b = fmt a ^^ P.string "." ^^ fmt b

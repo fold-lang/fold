@@ -1,41 +1,44 @@
 // @fold { version = "1.0" };
 
-do {
+do
   a;
   f a b;
   f a b c d e;
   42;
-  ();
-};
+  ()
 
 // Values
-x = 1;
-x = 1, y = 2;
+(val x 1)
+
+(val
+  [x 1
+   y 2])
+
 // rec {
 //   x = 1, y = 2
 // };
 
-a = (42 + 10 - 2) / 2;
-print_newline ();
-print_endline (string_of_int (a + b));
+val a = (42 + 10 - 2) / 2
+do print_newline ()
+do print_endline (string_of_int (a + b))
 
 // Constructors
-x = None;
-x = Some 1;
-x = Some [1, 2, 3];
-x = Two 1 2;
-x = Two 1 2 |> f;
+val x = None
+val x = Some 1
+val x = Some [1, 2, 3]
+val x = Two 1 2
+val x = Two 1 2 |> f
 
 // Polymorphic variants
-x = #A;
-x = #A #B;
-x = #A 42;
-x = #A (2 + a);
-x = #A a 42;
-x = #A (b, 43);
-x = #A |> f;
-x = f #A #B;
-x = f #A #B <| #C;
+val x = #A
+val x = #A #B
+val x = #A 42
+val x = #A (2 + a)
+val x = #A a 42
+val x = #A (b, 43)
+val x = #A |> f
+val x = f #A #B
+val x = f #A #B <| #C
 
 // Field and mod access.
 do {
@@ -131,71 +134,24 @@ do {
   // x1.(M2.x2.x3); // expected ident
 };
 
-
-// --- val ---
-
-val_1 = 1;
-val_2 = 1, x = 2;
-val_3 = 1, a = 2, b = c;
-rec val_4 = 1;
-rec val_4 = 1, a = 1;
-
+// Unit pattern, implicit let unit
 () = ();
-() = a;
-
-// --- let ---
-
-let_01 = {
+() = {
   let a = 1;
-  a + 1
+  a
 };
-
-let_02 = {
-  let a = 1;
-  let b = a + 1;
-  Ok b
-};
-
-let_03 = {
-  let
-    a = 1,
-    b = 2;
-  Ok (a + b)
-};
-
-let_04 = {
-  rec xs = [1 & xs];
-  Ok xs
-};
-
-let_05 = {
-  rec
-    a = 2 - b,
-    b = a + 1;
-  Ok (a + b)
-};
-
-let_06 = {
-  let x = 42;
-  rec
-    a = 2 - b,
-    b = a + 1;
-  Ok (a + b)
-};
-
-let_07 = {
+() = {
   let a = 1
 };
-
-let_08 = {
+() = {
   let a = 1, b = 2
 };
-
-let_09 = {
+() = {
   let a = 1;
   let b = 2;
 };
 
+do { let a = 1 };
 
 // Scopes
 // { }; // array? unit?
@@ -227,9 +183,6 @@ x = [1, 2 & xs];
 [1, 2 & xs] = x;
 [[], [1, 2] & xs] = x;
 
-// pattern constraint
-1 : int = x;
-
 // Arrays
 // x = {a};
 // x = {a, b, c};
@@ -257,53 +210,7 @@ record_update_single = { r & a = 1 };
 
 // Lambda
 f = a -> a + 1;
-f = a b -> a + b;
-f = (a : int) -> a + 1;
-f = ~a -> a;
-f = ~(a) -> a;
-f = ~(a : int) -> a;
-f = ~(a as b) -> b;
-f = ~(a = 1) b -> a + b;
-f = ~(a as b = 1) c -> b + c;
-f = ~(a as (Some b) = x) c -> b + c;
-f = ~(a as (Some b) : option int = x) c -> b + c;
-f = ~a? -> a;
-f = ~(a? as b) -> b;
-
-// apply labels
-do {
-  f ~a;
-  f ~(a);
-  f ~(a = 1);
-  f ~(a : int);
-  f ~(a : int = 1);
-  f ~a?;
-  f ~(a?);
-  f ~(a? = b);
-  f ~(a? : int option = b);
-
-  // errors
-  // f ~M;
-  // f ~2;
-};
-
-type f = a -> b;
-type f = a -> b -> c -> d;
-type f = ~(a : t) -> b;
-type f = x -> ~(a : t) -> b;
-type f = ~(a : t) -> b -> c;
-type f = ~(a? : t) -> b;
-type f = ~(a : t) -> ~(b? : t) -> c;
-
-sig S = {
-  v : a -> b;
-  v : a -> b -> c -> d;
-  v : ~(a : t) -> b;
-  v : x -> ~(a : t) -> b;
-  v : ~(a : t) -> b -> c;
-  v : ~(a? : t) -> b;
-  v : ~(a : t) -> ~(b? : t) -> c;
-};
+fn sum a b -> a + b
 
 // This matches on an singleton array
 // let f = fn {a} -> a + 1;
@@ -356,24 +263,35 @@ x = match (a + b) {
   1 -> 0,
   2 -> b
 };
-x = match a { 1 -> b, 2 -> c } + 100;
-x = match a {
-  1 -> {
-    print_endline "1";
-    a
-  },
-  2 -> b
-};
-x = match a {
-  1 -> 0,
-  x if x > 0 -> b,
-  _ -> 1
-};
+x = match a { 1 -> b | 2 -> c } + 100;
+x =
+    match a {
+    | 1 ->
+        print_endline "1";
+        a
+    | 2 -> b
+    };
+
+x =
+  match a {
+  | 1 -> 0
+  | x if x > 0 -> b
+  | _ -> 1
+  };
+
 // "lambda match"
-x = a |> {
-  1 -> 0,
-  2 -> b
-};
+x =
+  a
+  |> {
+    1 -> 0,
+    2 -> b
+  }
+  |> String.upper
+  |> {
+  | 1 -> 0
+  | 2 -> b
+  }
+
 
 // match refute?
 // x = match a { _ -> . };
@@ -386,12 +304,12 @@ x = try (f ()) {
 };
 
 // Module bindings
-mod M1 = X;
-mod M2 = {};
+mod M1 = X
+mod M2 = {}
 mod M3 = {
   a = 1;
   b = 2;
-};
+}
 
 // Module bindings with constraint
 mod M4 : {} = {};
@@ -402,20 +320,60 @@ mod M6 : { x : int; y : int; } = { x = 42; y = 2; };
 sig S1 = {
   a : int;
   b : bool;
-};
+}
 
 // open
-open M;
-x = {
-  let a = 1;
-  open M;
-  a;
-};
+open M
+let x =
+  let a = 1 in
+  open M in
+  a
 
-x = {
-  open M;
-  let a = 1;
-  a;
+let x =
+  open M in
+  let
+    a = 1,
+    b = 2
+  in
+    a
+
+// application labels
+{
+  f ~a:1;
+  f ~a;
+  f ~a?:b;
+  f ~a?;
+  f ~a:1 ~a ~a?:b ~a?;
+  f x ~a:1;
+  f ~a:1 x;
+  f w ~a:1 x ~a y ~a?:b z ~a?;
+  f ~a:(2 + 3);
+  f ~a?:None;
+
+  (f (~ a 1))
+  (f :a)
+  (f :[?a?:b)
+  f ~a?;
+  f ~a:1 ~a ~a?:b ~a?;
+  f x ~a:1;
+  f ~a:1 x;
+  f w ~a:1 x ~a y ~a?:b z ~a?;
+  f ~a:(2 + 3);
+  f ~a?:None;
+
+  // f w (a=1) x (=a) y (a=?b) z (=a?);
+  // f w, a=1, x, =a, y, a=?b, z, =a?;
+  // f w, a:1, x, :a, y, a:?b, z, :?a;
+  // f[w, a=1, x, =a, y, a=?b, z, =?a];
+
+  // f ~(a)
+  // f ~(a : int)
+  // f ~a:(b:int)
+
+  // errors
+  // f ~M;
+  // f ~2;
+  // f ~(a);
 };
 
 // type record
@@ -434,7 +392,7 @@ x = {
 //};
 //
 //x = {
-//  let* x = 2, y = (3, 'a')
+//  let* x = 2, y = (3, 'a')[
 //  let age = 30 - fst y;
 //  let person = { p & name = "Xavier"; age };
 //  Person.print person;

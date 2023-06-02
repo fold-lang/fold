@@ -22,7 +22,9 @@
  (action
   (with-stdout-to
    Lispy.fl.ml.actual
-   (run fold-fmt -i fl -o ml %{deps}))))
+   (pipe-stdout
+    (run fold-fmt -i fl -o ml %{deps})
+    (run %{bin:ocamlformat} --impl -)))))
 
 (rule
  (alias runtest)

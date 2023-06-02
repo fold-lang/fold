@@ -127,11 +127,11 @@ let parse_label g l =
   | Lower label -> (
     L.move l;
     match L.pick l with
-    | Sym ":" ->
+    | Sym "=" ->
       L.move l;
       let* x = P.parse_prefix g l in
       Ok (C.label label x)
-    | Sym "?:" ->
+    | Sym "?=" ->
       L.move l;
       let* x = P.parse_prefix g l in
       Ok (C.label_opt label x)
@@ -140,6 +140,10 @@ let parse_label g l =
       Ok (C.label_opt_pun label)
     | _ -> Ok (C.label_pun label)
   )
+  | Lparen ->
+    let* x = P.parse_prefix g l in
+    let loc = L.loc l in
+    Ok (Shaper.shape ~loc "~" [ x ])
   | tok -> Fmt.failwith "invalid label: %a" L.pp_token tok
 
 let prefix (tok : L.token) =
@@ -154,8 +158,10 @@ let prefix (tok : L.token) =
         | x -> C.shape kwd [ x ]
         )
         )
-  | Lower (("let" | "module" | "mod" | "sig" | "open" | "do" | "type") as kwd)
-    ->
+  | Lower
+      ( ("let" | "rec" | "module" | "mod" | "sig" | "open" | "do" | "type") as
+      kwd
+      ) ->
     Some
       (P.prefix_unary ~precedence:Fold_precedence.item tok (function
         | S.Seq items -> C.shape kwd items
@@ -193,6 +199,7 @@ let infix (tok : L.token) =
       | "else"
       | "match"
       | "let"
+      | "rec"
       | "fn"
       | "module"
       | "mod"
@@ -209,12 +216,14 @@ let infix (tok : L.token) =
     Some (P.infix_binary Prec.ampr tok (fun a b -> Shaper.shape "&" [ a; b ]))
   | Sym "=" -> Some (P.infix_right_binary Prec.equal (L.Sym "=") C.binding)
   | Sym "|" -> Some (P.infix_seq ~sep:(tok, Prec.pipe) C.alt)
-  | Sym "->" -> Some (P.infix_binary Prec.arrow tok C.arrow)
+  | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
+  | Sym "->" -> Some (P.infix_right_binary Prec.arrow tok C.arrow)
   | Lower "as" ->
     Some (P.infix_binary Prec.as' tok (fun a b -> Shaper.shape "as" [ a; b ]))
-  | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
   | Sym "." -> Some (parse_infix_dot, Prec.dot)
   | Sym "!" -> Some (macro_call, Prec.excl)
+  | Sym "?" ->
+    Some (P.postfix_unary Prec.dot tok (fun a -> Shaper.shape "?" [ a ]))
   | Sym s when check_is_operator_char s.[0] ->
     let precedence = Prec.get s in
     let rule =

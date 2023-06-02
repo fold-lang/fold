@@ -1,19 +1,25 @@
-;;a
-;;f a b
-;;f a b c d e
-;;42
-;;()
+let () =
+  a;
+  f a b;
+  f a b c d e;
+  42;
+  ()
+
 let x = 1
+
 let x = 1
 and y = 2
-let a = ((42 + 10) - 2) / 2
-;;print_newline ()
-;;print_endline (string_of_int (a + b))
+
+let a = (42 + 10 - 2) / 2;;
+
+print_newline ();;
+print_endline (string_of_int (a + b))
+
 let x = None
 let x = Some 1
-let x = Some [1; 2; 3]
+let x = Some [ 1; 2; 3 ]
 let x = Two (1, 2)
-let x = (Two (1, 2)) |> f
+let x = Two (1, 2) |> f
 let x = `A
 let x = `A `B
 let x = `A 42
@@ -22,13 +28,15 @@ let x = `A (a, 42)
 let x = `A (b, 43)
 let x = `A |> f
 let x = f `A `B
-let x = (f `A `B) <| `C
-;;M.x;
+let x = f `A `B <| `C
+
+let () =
+  M.x;
   M.x1.x2;
   M1.M2.x;
   M1.M2.x1.x2;
   M1.M2.M3.x;
-  (M1.M2.M3.x1.x2).x3;
+  M1.M2.M3.x1.x2.x3;
   M.C;
   M1.M2.C;
   M1.M2.M3.C;
@@ -37,10 +45,10 @@ let x = (f `A `B) <| `C
   M1.M2.r.fld;
   M1.M2.r.fld;
   M.r.fld;
-  ((M.x1.x2).x3).x4;
+  M.x1.x2.x3.x4;
   x1.M.x2;
   x1.M1.M2.x2;
-  (x1.x2).M1.x3;
+  x1.x2.M1.x3;
   C.fld;
   M.C.fld;
   M1.M2.C.fld;
@@ -66,46 +74,118 @@ let x = (f `A `B) <| `C
   M1.M2.f r.M3.M4.M5.fld;
   M.r.fld v;
   M.M.M.M.M;
-  (((x.x).x).x).x;
-  ((x1.x2).M1.M2.x4).M3.x5;
-  ((M1.M2.x1.x2).M3.M4.x4).M5.x6;
-  (M1.x1.x2).x3;
-  ((M1.x1.x2).x3).x4;
-  (((M1.x1.x2).x3).x4).M2.M3.x5;
-  ((x1.x2).x3).x4
+  x.x.x.x.x;
+  x1.x2.M1.M2.x4.M3.x5;
+  M1.M2.x1.x2.M3.M4.x4.M5.x6;
+  M1.x1.x2.x3;
+  M1.x1.x2.x3.x4;
+  M1.x1.x2.x3.x4.M2.M3.x5;
+  x1.x2.x3.x4
+
+let val_1 = 1
+
+let val_2 = 1
+and x = 2
+
+let val_3 = 1
+and a = 2
+and b = c
+
+let rec val_4 = 1
+
+let rec val_4 = 1
+and a = 1
+
 let () = ()
-let () = let a = 1 in a
-let () = let a = 1 in ()
-let () = let a = 1
-         and b = 2 in ()
-let () = let a = 1 in let b = 2 in ()
-let () = let a = 1 in ()
-;;a
-;;a
-;;a; b
-;;a; b
-;;a; b; c
-;;a; b; c
-;;f (); (let a = 1 in a)
+let () = a
+
+let let_01 =
+  let a = 1 in
+  a + 1
+
+let let_02 =
+  let a = 1 in
+  let b = a + 1 in
+  Ok b
+
+let let_03 =
+  let a = 1 and b = 2 in
+  Ok (a + b)
+
+let let_04 =
+  let rec xs = 1 :: xs in
+  Ok xs
+
+let let_05 =
+  let rec a = 2 - b and b = a + 1 in
+  Ok (a + b)
+
+let let_06 =
+  let x = 42 in
+  let rec a = 2 - b and b = a + 1 in
+  Ok (a + b)
+
+let let_07 =
+  let a = 1 in
+  ()
+
+let let_08 =
+  let a = 1 and b = 2 in
+  ()
+
+let let_09 =
+  let a = 1 in
+  let b = 2 in
+  ()
+;;
+
+a;;
+a;;
+
+a;
+b
+;;
+
+a;
+b
+;;
+
+a;
+b;
+c
+;;
+
+a;
+b;
+c
+;;
+
+f ();
+let a = 1 in
+a
+
 let x = []
-let x = [1]
-let x = [1; 2]
-let x = [1; 2; 3]
+let x = [ 1 ]
+let x = [ 1; 2 ]
+let x = [ 1; 2; 3 ]
 let x = 0 :: xs
 let x = 1 :: 2 :: xs
 let [] = x
-let 1::[] = x
-let 1::2::[] = x
-let 1::2::xs = x
-let []::(1::2::[])::xs = x
+let (1 :: []) = x
+let [ 1; 2 ] = x
+let (1 :: 2 :: xs) = x
+let ([] :: [ 1; 2 ] :: xs) = x
+let (1 : int) = x
 let record_create_triple = { a = "A"; b = 1; c = 2 }
 let record_create_single_pun = { a }
 let record_create_single = { a = 1 }
 let record_create_double_mixed_1 = { a; b = 1 }
 let record_create_double_mixed_2 = { a = 1; b }
 let record_create_triple = { a; b; c }
+
 let record_create_functions =
-  { a = 1; f = (fun x -> x + 1); g = (fun x -> fun y -> x - y) }
+  { a = 1; f = (fun x -> x + 1); g = (fun x y -> x - y) }
+
 let record_update_double = { r with a = 23; b = 1 }
 let record_update_double_mixed_1 = { r with a = 23; b }
 let record_update_double_mixed_2 = { r with a; b = 1 }
@@ -113,105 +193,224 @@ let record_update_single_pun = { r with a }
 let record_update_double_pun = { r with a; b }
 let record_update_single = { r with a = 1 }
 let f a = a + 1
-let sum a b = a + b
+let f a b = a + b
+let f (a : int) = a + 1
+let f ~a = a
+let f ~a = a
+let f ~(a : int) = a
+let f ?a:b = b
+let f ?(a = 1) b = a + b
+let f ?a:(b = 1) c = b + c
+let f ?a:(Some b = x) c = b + c
+let f ?a:(Some b : int option = x) c = b + c
+let f ?a = a
+let f ?a:b = b
+
+let () =
+  f ~a;
+  f ~a;
+  f ~a:1;
+  f ~a:(a : int);
+  f ~a:(1 : int);
+  f ?a;
+  f ?a;
+  f ?a:b;
+  f ?a:(b : option int)
+
+type f = a -> b
+type f = a -> b -> c -> d
+type f = a:t -> b
+type f = x -> a:t -> b
+type f = a:t -> b -> c
+type f = ?a:t -> b
+type f = a:t -> ?b:t -> c
+
 let f a = a + 1
 let f = (fun a -> a + 1) + 1
-let x = function | a -> 1 | b -> 2
-let x = xs |> (List.map (fun x -> x + 1))
+
+let x = function
+  | a -> 1
+  | b -> 2
+
+let x = xs |> List.map (fun x -> x + 1)
 let x = if a then b else c
-let x = if a then (x; b) else c
-let x = if a then (x; b) else (y; c)
-let x = if a then b else c; x
+
+let x =
+  if a then (
+    x;
+    b
+  )
+  else c
+
+let x =
+  if a then (
+    x;
+    b
+  )
+  else (
+    y;
+    c
+  )
+
+let x =
+  if a then b else c;
+  x
+
 let x = (if a then b else c) + 1
 let x = (if a then b else c) + 1
 let x = if a then b
-let x = if a then (print_newline (); b)
+
+let x =
+  if a then (
+    print_newline ();
+    b
+  )
+
 let x = if a then b + 1
 let x = (if a then b) + 1
 let x = (if a then b) + 1
-let x = match a with | 1 -> 0 | 2 -> b
-let x = match a with | 1 -> 0
-let x = match a + b with | 1 -> 0 | 2 -> b
-let x = (match a with | 1 -> b | 2 -> c) + 100
-let x = match a with | 1 -> (print_endline "1"; a) | 2 -> b
-let x = match a with | 1 -> 0 | x when x > 0 -> b | _ -> 1
-let x = a |> (function | 1 -> 0 | 2 -> b)
-let x = try f () with | a -> prerr_endline msg
-let x = try f () with | a -> prerr_endline msg | b -> bar
+
+let x =
+  match a with
+  | 1 -> 0
+  | 2 -> b
+
+let x =
+  match a with
+  | 1 -> 0
+
+let x =
+  match a + b with
+  | 1 -> 0
+  | 2 -> b
+
+let x =
+  ( match a with
+  | 1 -> b
+  | 2 -> c
+  )
+  + 100
+
+let x =
+  match a with
+  | 1 ->
+    print_endline "1";
+    a
+  | 2 -> b
+
+let x =
+  match a with
+  | 1 -> 0
+  | x when x > 0 -> b
+  | _ -> 1
+
+let x =
+  a |> function
+  | 1 -> 0
+  | 2 -> b
+
+let x = try f () with a -> prerr_endline msg
+
+let x =
+  try f () with
+  | a -> prerr_endline msg
+  | b -> bar
+
 module M1 = X
-module M2 = struct  end
-module M3 = struct let a = 1
-                   let b = 2 end
-module M4 : sig  end = struct  end 
-module M5 : sig val x : int end = struct let x = 42 end 
-module M6 : sig val x : int val y : int end = struct let x = 42
-                                                     let y = 2 end 
-module type S1  = sig val a : int val b : bool end
+module M2 = struct end
+
+module M3 = struct
+  let a = 1
+  let b = 2
+end
+
+module M4 : sig end = struct end
+
+module M5 : sig
+  val x : int
+end = struct
+  let x = 42
+end
+
+module M6 : sig
+  val x : int
+  val y : int
+end = struct
+  let x = 42
+  let y = 2
+end
+
+module type S1 = sig
+  val a : int
+  val b : bool
+end
+
 open M
-let x = let a = 1 in let open M in a
-let x = let open M in let a = 1 in a
-;;f ~a:1;
-  f ~a;
-  f ?a:b;
-  f ?a;
-  f ~a:1 ~a ?a:b ?a;
-  f x ~a:1;
-  f ~a:1 x;
-  f w ~a:1 x ~a y ?a:b z ?a;
-  f ~a:(2 + 3);
-  f ?a:None
-let () = while e1 do e2 done; while x > 1 do (print "hello"; f ()) done
+
+let x =
+  let a = 1 in
+  let open M in
+  a
+
+let x =
+  let open M in
+  let a = 1 in
+  a
+
 let () =
-  for i = e1 to e2 do e3 done;
-  for i = e1 downto e2 do e3 done;
-  for i = e1 to e2 do (print "hello"; f ()) done
-let () = (x : t); 2 + ((x : int) * 2); f (x : int) y; f (xs : int list)
+  while e1 do
+    e2
+  done;
+  while x > 1 do
+    print "hello";
+    f ()
+  done
+
+let () =
+  for i = e1 to e2 do
+    e3
+  done;
+  for i = e1 downto e2 do
+    e3
+  done;
+  for i = e1 to e2 do
+    print "hello";
+    f ()
+  done
+
+let () =
+  (x : t);
+  2 + ((x : int) * 2);
+  f (x : int) y;
+  f (xs : int list)
+
 let (v_constraint_1 : int) = 42
-let (v_constraint_2 : (string * int) list) = [("a", 2); ("b", 3)]
+let (v_constraint_2 : (string * int) list) = [ ("a", 2); ("b", 3) ]
+
 type t
 type nonrec t
 type t = int
 type t = int list
 type t = int list list
 type nonrec t = int
-type t = (int * bool)
-type t =
-  | A 
-type t =
-  | A of int 
-type t =
-  | A of int * string 
-type t =
-  | A 
-type t =
-  | A of int 
-type t =
-  | A of int * string 
-type t =
-  | A of (int * string) 
-type t =
-  | A 
-  | B 
-  | C 
-type t =
-  | A 
-  | B of int * bool 
-type t = u =
-  | A 
-type t = u =
-  | A 
-  | B of int 
-type t = {
-  a: int ;
-  b: bool list }
-type t = u = {
-  a: int ;
-  b: bool list }
-type t = {
-  mutable a: int ;
-  mutable b: bool list }
+type t = int * bool
+type t = A
+type t = A of int
+type t = A of int * string
+type t = A
+type t = A of int
+type t = A of int * string
+type t = A of (int * string)
+type t = A | B | C
+type t = A | B of int * bool
+type t = u = A
+type t = u = A | B of int
+type t = { a : int; b : bool list }
+type t = u = { a : int; b : bool list }
+type t = { mutable a : int; mutable b : bool list }
 type t = ..
+
 let x = [%fl.mc1 "( 2 )"]
-let x = ([%fl.mc2 "( 2 )"]) + 1
+let x = [%fl.mc2 "( 2 )"] + 1
 let x = [%fl.mc3 "{ < div > \"hello\" </ div > }"]
 let x = if a > 1 then "yes" else if a == 0 then "maybe" else "no"

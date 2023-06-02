@@ -113,13 +113,21 @@ end = struct
           expr0 ids
       (* --- let_in_unit --- *)
       | Shape (loc, "let", [ Shape (_loc, ",", vbl) ]) ->
-        eval_let_in_unit ~loc vbl
+        eval_let_in_unit ~loc Asttypes.Nonrecursive vbl
       | Shape (loc, "let", [ Scope ("(", Shape (_, ",", vbl), ")") ]) ->
-        eval_let_in_unit ~loc vbl
-      | Shape (loc, "let", [ vb ]) -> eval_let_in_unit ~loc [ vb ]
+        eval_let_in_unit ~loc Asttypes.Nonrecursive vbl
+      | Shape (loc, "let", [ vb ]) ->
+        eval_let_in_unit ~loc Asttypes.Nonrecursive [ vb ]
+      (* --- rec_in_unit --- *)
+      | Shape (loc, "rec", [ Shape (_loc, ",", vbl) ]) ->
+        eval_let_in_unit ~loc Asttypes.Recursive vbl
+      | Shape (loc, "rec", [ Scope ("(", Shape (_, ",", vbl), ")") ]) ->
+        eval_let_in_unit ~loc Asttypes.Recursive vbl
+      | Shape (loc, "rec", [ vb ]) ->
+        eval_let_in_unit ~loc Asttypes.Recursive [ vb ]
       (* --- const --- *)
       | Const const -> E.pexp_constant ~loc:noloc (conv_const const)
-      (* --- fn --- *)
+      (* --- lambda --- *)
       | Shape (_loc, "->", [ Seq args; body ]) -> eval_fn args body
       | Shape (_loc, "->", [ arg; body ]) -> eval_fn [ arg ] body
       | Scope ("{", Shape (_loc, "->", [ arg; body ]), "}") ->
@@ -256,8 +264,8 @@ end = struct
         match Fold_macros.getmacro kwd with
         | Some macro -> eval (macro args)
         | None ->
-          (* Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl;
-             Fmt.failwith "unknown macro %S" kwd *)
+          (* Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl; *)
+          (* Fmt.failwith "unknown macro %S" kwd *)
           let id = with_loc loc ("fl." ^ kwd) in
           let arg =
             match args with
@@ -277,22 +285,102 @@ end = struct
 
     and eval_apply_arg (fl : fl) =
       match fl with
-      (* ~a *)
+      (* ~a | ~(a) *)
+      | Shape (loc, "~", [ Scope ("(", Ident (Lower label), ")") ])
       | Shape (loc, "~", [ Ident (Lower label) ]) ->
         ( Asttypes.Labelled label
         , E.pexp_ident ~loc (with_loc loc (Ident.Lident label))
         )
-      (* ~a? *)
+      (* ~a? | ~(a?) *)
+      | Shape
+          ( loc
+          , "~"
+          , [ Scope ("(", Shape (_, "?", [ Ident (Lower label) ]), ")") ]
+          )
       | Shape (loc, "~?", [ Ident (Lower label) ]) ->
         ( Asttypes.Optional label
         , E.pexp_ident ~loc (with_loc loc (Ident.Lident label))
         )
-      (* ~a:_ *)
-      | Shape (_loc, "~", [ Ident (Lower label); arg_val ]) ->
-        (Asttypes.Labelled label, eval arg_val)
-      (* ~a?:_ *)
-      | Shape (_loc, "~?", [ Ident (Lower label); arg_val ]) ->
-        (Asttypes.Optional label, eval arg_val) (* _ *)
+      (* ~(a = _) *)
+      | Shape
+          ( _loc
+          , "~"
+          , [ Scope ("(", Shape (_, "=", [ Ident (Lower label); arg_val ]), ")")
+            ]
+          ) -> (Asttypes.Labelled label, eval arg_val)
+      (* ~(a : _) *)
+      | Shape
+          ( loc
+          , "~"
+          , [ Scope
+                ("(", Shape (cons_loc, ":", [ Ident (Lower label); typ ]), ")")
+            ]
+          ) ->
+        ( Asttypes.Labelled label
+        , E.pexp_constraint ~loc:cons_loc
+            (E.pexp_ident ~loc:cons_loc (with_loc loc (Ident.Lident label)))
+            (Core_type.eval typ)
+        )
+      (* ~(_ : _ = _) *)
+      | Shape
+          ( loc
+          , "~"
+          , [ Scope
+                ( "("
+                , Shape
+                    ( _eq_loc
+                    , "="
+                    , [ Shape (_cons_loc, ":", [ Ident (Lower label); typ ])
+                      ; arg_val
+                      ]
+                    )
+                , ")"
+                )
+            ]
+          ) ->
+        ( Asttypes.Labelled label
+        , E.pexp_constraint ~loc (eval arg_val) (Core_type.eval typ)
+        )
+      (* ~(_? = _) *)
+      | Shape
+          ( _loc
+          , "~"
+          , [ Scope
+                ( "("
+                , Shape
+                    ( _
+                    , "="
+                    , [ Shape (_, "?", [ Ident (Lower label) ]); arg_val ]
+                    )
+                , ")"
+                )
+            ]
+          ) -> (Asttypes.Optional label, eval arg_val)
+      (* ~(_? : _ = _) *)
+      | Shape
+          ( loc
+          , "~"
+          , [ Scope
+                ( "("
+                , Shape
+                    ( _eq_loc
+                    , "="
+                    , [ Shape
+                          ( _cons_loc
+                          , ":"
+                          , [ Shape (_, "?", [ Ident (Lower label) ]); typ ]
+                          )
+                      ; arg_val
+                      ]
+                    )
+                , ")"
+                )
+            ]
+          ) ->
+        ( Asttypes.Optional label
+        , E.pexp_constraint ~loc (eval arg_val) (Core_type.eval typ)
+        )
+      (* _ *)
       | _ -> (Asttypes.Nolabel, eval fl)
 
     and eval_apply f_fl args_fl =
@@ -325,23 +413,112 @@ end = struct
     and eval_fn (args_fl : fl list) (body_fl : fl) =
       let body_ml = eval body_fl in
       List.fold_left
-        (fun acc arg_fl ->
-          match (arg_fl : fl) with
-          | Ident (Lower _id) ->
-            let pat = Pattern.eval arg_fl in
-            let label = Asttypes.Nolabel in
+        (fun acc (arg_fl : fl) ->
+          match arg_fl with
+          (* ~a | (~a) *)
+          | Shape (loc, "~", [ Scope ("(", Ident (Lower label), ")") ])
+          | Shape (loc, "~", [ Ident (Lower label) ]) ->
+            let pat = E.ppat_var ~loc (with_loc loc label) in
             let default = None in
-            E.pexp_fun ~loc:noloc label default pat acc
-          | Shape (loc, "~", [ (Ident (Lower l) as arg_fl) ]) ->
-            let pat = Pattern.eval arg_fl in
-            let label = Asttypes.Labelled l in
-            let default = None in
+            let label = Asttypes.Labelled label in
             E.pexp_fun ~loc label default pat acc
+          (* ~a? *)
+          | Shape (loc, "~?", [ Ident (Lower label) ]) ->
+            let pat = E.ppat_var ~loc (with_loc loc label) in
+            let default = None in
+            let label = Asttypes.Optional label in
+            E.pexp_fun ~loc label default pat acc
+          (* ~(_ = _) *)
+          | Shape
+              ( _
+              , "~"
+              , [ Scope
+                    ( "("
+                    , Shape (loc, "=", [ Ident (Lower label); default ])
+                    , ")"
+                    )
+                ]
+              ) ->
+            let pat = E.ppat_var ~loc (with_loc loc label) in
+            let default = Some (Expression.eval default) in
+            let label = Asttypes.Optional label in
+            E.pexp_fun ~loc label default pat acc
+          (* ~(_ : _) *)
+          | Shape
+              ( loc
+              , "~"
+              , [ Scope
+                    ( "("
+                    , Shape (typ_loc, ":", [ Ident (Lower label); typ ])
+                    , ")"
+                    )
+                ]
+              ) ->
+            let pat = E.ppat_var ~loc (with_loc loc label) in
+            let typ = Core_type.eval typ in
+            let pat = E.ppat_constraint ~loc:typ_loc pat typ in
+            let default = None in
+            let label = Asttypes.Labelled label in
+            E.pexp_fun ~loc label default pat acc
+          (* ~(_ as _) *)
+          | Shape
+              ( loc
+              , "~"
+              , [ Scope ("(", Shape (_, "as", [ Ident (Lower label); pat ]), ")")
+                ]
+              ) ->
+            let pat = Pattern.eval pat in
+            let default = None in
+            let label = Asttypes.Optional label in
+            E.pexp_fun ~loc label default pat acc
+          (* ~(_ as _ = _) *)
+          | Shape
+              ( loc
+              , "~"
+              , [ Scope
+                    ( "("
+                    , Shape
+                        ( _
+                        , "="
+                        , [ Shape (_, "as", [ Ident (Lower label); pat ])
+                          ; default
+                          ]
+                        )
+                    , ")"
+                    )
+                ]
+              ) ->
+            let pat = Pattern.eval pat in
+            let default = Some (Expression.eval default) in
+            let label = Asttypes.Optional label in
+            E.pexp_fun ~loc label default pat acc
+          (* ~(_? as _) *)
+          | Shape
+              ( loc
+              , "~"
+              , [ Scope
+                    ( "("
+                    , Shape
+                        ( _as_loc
+                        , "as"
+                        , [ Shape (_opt_loc, "?", [ Ident (Lower label) ])
+                          ; pat
+                          ]
+                        )
+                    , ")"
+                    )
+                ]
+              ) ->
+            let pat = Pattern.eval pat in
+            let default = None in
+            let label = Asttypes.Optional label in
+            E.pexp_fun ~loc label default pat acc
+          (* _ *)
           | _ ->
-            Fmt.epr "@.args=%a@.body=%a@.@."
-              (Fmt.Dump.list Shaper.dump)
-              args_fl Shaper.dump body_fl;
-            assert false
+            let pat = Pattern.eval arg_fl in
+            let default = None in
+            let label = Asttypes.Nolabel in
+            E.pexp_fun ~loc:noloc label default pat acc
         )
         body_ml (List.rev args_fl)
 
@@ -452,24 +629,37 @@ end = struct
       match xs with
       | [] -> pexp_unit ~loc
       | [ x ] -> eval x
+      (* "let" ... "," ... *)
       | Shape (loc, "let", [ Scope ("(", Shape (_, ",", vbl), ")") ]) :: xs
       | Shape (loc, "let", [ Shape (_, ",", vbl) ]) :: xs ->
         let vbl_ml = List.map Value_binding.eval vbl in
         let body_ml = eval_block ~loc xs in
         E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml body_ml
+      (* let _ *)
       | Shape (loc, "let", [ vb ]) :: xs ->
         let vbl_ml = [ Value_binding.eval vb ] in
         let body_ml = eval_block ~loc xs in
         E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml body_ml
+      (* "let" "rec" ... "," ... *)
+      | Shape (loc, "rec", [ Scope ("(", Shape (_, ",", vbl), ")") ]) :: xs
+      | Shape (loc, "rec", [ Shape (_, ",", vbl) ]) :: xs ->
+        let vbl_ml = List.map Value_binding.eval vbl in
+        let body_ml = eval_block ~loc xs in
+        E.pexp_let ~loc Asttypes.Recursive vbl_ml body_ml
+      (* rec _ *)
+      | Shape (loc, "rec", [ vb ]) :: xs ->
+        let vbl_ml = [ Value_binding.eval vb ] in
+        let body_ml = eval_block ~loc xs in
+        E.pexp_let ~loc Asttypes.Recursive vbl_ml body_ml
       | Shape (loc, "open", [ mexpr ]) :: items ->
         let mexpr = Module_expr.eval mexpr in
         let decl = E.open_infos ~loc ~expr:mexpr ~override:Asttypes.Fresh in
         E.pexp_open ~loc decl (eval_block ~loc items)
       | item :: items -> E.pexp_sequence ~loc (eval item) (eval_block ~loc items)
 
-    and eval_let_in_unit ~loc vbl_fl =
+    and eval_let_in_unit ~loc rec_flag vbl_fl =
       let vbl_ml = List.map Value_binding.eval vbl_fl in
-      E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml (pexp_unit ~loc)
+      E.pexp_let ~loc rec_flag vbl_ml (pexp_unit ~loc)
 
     and eval_list ~loc ?spread:tl xs =
       match xs with
@@ -492,6 +682,13 @@ end = struct
       (* --- tuple --- *)
       | Scope ("(", Shape (_, ",", items), ")") ->
         E.ppat_tuple ~loc:noloc (List.map eval items)
+      (* (_) *)
+      | Scope ("(", x, ")") -> eval x
+      (* p : t *)
+      | Shape (loc, ":", [ pat; typ ]) ->
+        let typ = Core_type.eval typ in
+        let pat = Pattern.eval pat in
+        E.ppat_constraint ~loc pat typ
       (* --- const --- *)
       | Const const -> E.ppat_constant ~loc:noloc (conv_const const)
       (* --- list --- *)
@@ -513,6 +710,11 @@ end = struct
       (* A ... *)
       | Seq (Ident (Upper a) :: args) ->
         pat_construct (with_noloc (Ident.Lident a)) args
+      | Shape (loc, _, _) ->
+        (* FIXME *)
+        Fmt.epr "todo pat: %a: %a@." Location.print_loc (Obj.magic loc)
+          Shaper.dump fl;
+        assert false
       | _ ->
         Fmt.epr "todo pat: %a@." Shaper.dump fl;
         assert false
@@ -591,6 +793,52 @@ end = struct
       | Seq (Ident (Lower id) :: args) ->
         let args = List.map eval args in
         E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) args
+      (* ~(a : t) -> _ *)
+      | Shape
+          ( loc
+          , "->"
+          , [ Shape
+                ( _
+                , "~"
+                , [ Scope
+                      ("(", Shape (_, ":", [ Ident (Lower label); arg ]), ")")
+                  ]
+                )
+            ; ret
+            ]
+          ) ->
+        let arg = eval arg in
+        let ret = eval ret in
+        E.ptyp_arrow ~loc (Asttypes.Labelled label) arg ret
+      (* ~(a? : t) -> _ *)
+      | Shape
+          ( loc
+          , "->"
+          , [ Shape
+                ( _
+                , "~"
+                , [ Scope
+                      ( "("
+                      , Shape
+                          ( _
+                          , ":"
+                          , [ Shape (_, "?", [ Ident (Lower label) ]); arg ]
+                          )
+                      , ")"
+                      )
+                  ]
+                )
+            ; ret
+            ]
+          ) ->
+        let arg = eval arg in
+        let ret = eval ret in
+        E.ptyp_arrow ~loc (Asttypes.Optional label) arg ret
+      (* _ -> _ *)
+      | Shape (loc, "->", [ arg; ret ]) ->
+        let arg = eval arg in
+        let ret = eval ret in
+        E.ptyp_arrow ~loc Asttypes.Nolabel arg ret
       | _ ->
         Fmt.epr "%a@." Shaper.dump fl;
         failwith "todo: core type"
@@ -667,10 +915,18 @@ end = struct
   end = struct
     let rec eval (fl : fl) =
       match fl with
-      | Shape (loc, "=", [ _lhs; _rhs ]) -> eval_item_value ~loc [ fl ]
-      | Shape (loc, ",", vbl) -> eval_item_value ~loc vbl
-      (* | Shape (_loc,"let", [ Shape (_, ",", vbl) ]) -> value vbl *)
-      (* | Shape (_loc,"let", [ vb ]) -> value [ vb ] *)
+      (* _ = _ *)
+      | Shape (loc, "=", [ _lhs; _rhs ]) ->
+        eval_item_value ~loc Asttypes.Nonrecursive [ fl ]
+      (* _ = _, _ = _ *)
+      | Shape (loc, ",", vbl) -> eval_item_value ~loc Asttypes.Nonrecursive vbl
+      (* rec _ = _ *)
+      | Shape (loc, "rec", [ (Shape (_loc, "=", [ _lhs; _rhs ]) as vb) ]) ->
+        eval_item_value ~loc Asttypes.Recursive [ vb ]
+      (* rec _ = _, _ = _ *)
+      | Shape (loc, "rec", [ Shape (_loc, ",", vbl) ]) ->
+        eval_item_value ~loc Asttypes.Recursive vbl
+      (* mod _ = _ *)
       | Shape (loc, ("module" | "mod"), [ mb ]) -> eval_item_module ~loc mb
       | Shape (loc, "sig", [ Shape (_, "=", [ Ident (Upper name); mod_ty ]) ])
         -> eval_item_module_type ~loc ~name mod_ty
@@ -678,7 +934,7 @@ end = struct
       | Shape (loc, "do", [ exp ]) ->
         let unit = Shaper.parens (Shaper.seq []) in
         let vb = Shaper.shape "=" [ unit; exp ] in
-        eval_item_value ~loc [ vb ]
+        eval_item_value ~loc Asttypes.Nonrecursive [ vb ]
       (* --- type --- *)
       | Shape (loc, "type", args) ->
         eval_type ~loc ~private_flag:Asttypes.Public args
@@ -691,9 +947,9 @@ end = struct
         Fmt.epr "Eval.str: %a@." Shaper.dump fl;
         assert false
 
-    and eval_item_value ~loc fl =
+    and eval_item_value ~loc rec_flag fl =
       let vbl = List.map Value_binding.eval fl in
-      E.pstr_value ~loc Asttypes.Nonrecursive vbl
+      E.pstr_value ~loc rec_flag vbl
 
     and eval_item_module ~loc mb_fl =
       let mb_ml = Module_binding.eval mb_fl in

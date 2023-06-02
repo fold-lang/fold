@@ -1,0 +1,109 @@
+// ocaml
+type t = A
+
+type rec t1 = A
+and t2 = B
+and t3 = C
+
+module M = struct end
+
+module rec M1 = struct end
+and M2 = struct end
+and M3 = struct end
+
+let v = a
+
+let rec v1 = a
+and v2 = b
+and v3 = c
+
+let v1 = a
+and v2 = b
+and v3 = c
+
+// sexp
+(type t A)
+
+(type*
+  [t1 A
+   t2 B
+   t3 C])
+
+(mod M ())
+
+(mod*
+  [M1 ()
+   M2 ()
+   M3 ()])
+
+(val v a)
+
+(val*
+  [v1 a
+   v2 b
+   v3 c])
+
+(val
+  [v1 a
+   v2 b
+   v3 c])
+
+
+// fl1
+type t = A
+
+type*
+  t1 = A,
+  t2 = B,
+  t3 = C
+
+mod M = {}
+
+mod*
+  M1 = {},
+  M2 = {},
+  M3 = {}
+
+val v = a
+
+val*
+  v1 = a,
+  v2 = b,
+  v3 = c
+
+val
+  v1 = a,
+  v2 = b,
+  v3 = c
+
+
+// fl2
+type t = A
+
+type* {
+  t1 = A,
+  t2 = B,
+  t3 = C
+}
+
+mod M = {}
+
+mod* {
+  M1 = {},
+  M2 = {},
+  M3 = {}
+}
+
+val v = a
+
+val* {
+  v1 = a,
+  v2 = b,
+  v3 = c
+}
+
+val {
+  v1 = a,
+  v2 = b,
+  v3 = c
+}
