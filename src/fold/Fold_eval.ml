@@ -790,6 +790,16 @@ end = struct
         E.ptyp_tuple ~loc (List.map eval items)
       | Scope ("(", fl, ")") -> eval fl
       | Ident (Lower id) -> E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) []
+      (* M.a.b *)
+      | Shape (loc, "ident", _) ->
+        let ident = eval_expident fl in
+        E.ptyp_constr ~loc ident []
+      (* M.a.b ... *)
+      | Seq ((Shape (loc, "ident", _) as ident) :: args) ->
+        let ident = eval_expident ident in
+        let args = List.map eval args in
+        E.ptyp_constr ~loc ident args
+      (* a ... *)
       | Seq (Ident (Lower id) :: args) ->
         let args = List.map eval args in
         E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) args
@@ -879,6 +889,10 @@ end = struct
       match fl with
       | Ident (Upper id) ->
         E.pmod_ident ~loc:noloc (with_noloc (Ident.Lident id))
+      (* M.M.M *)
+      | Shape (loc, "ident", _) ->
+        let ident = eval_expident fl in
+        E.pmod_ident ~loc ident
       | Scope ("{", Seq [], "}") -> E.pmod_structure ~loc:noloc []
       | Scope ("{", Shape (loc, ";", items), "}") ->
         let items = List.map Structure_item.eval items in

@@ -96,7 +96,7 @@ let parse_infix_dot (left0 : fl) g l =
       in
       parse_field [ expr ]
     | Ident _ -> Ok (Shaper.shape ~loc "ident" path)
-    | _ -> failwith "invalid dot component"
+    | _ -> Fmt.failwith "invalid dot component: %a" Shaper.dump x
   and parse_field path =
     let* (x : fl) = P.parse_prefix g l in
     match x with
@@ -216,10 +216,10 @@ let infix (tok : L.token) =
     Some (P.infix_binary Prec.ampr tok (fun a b -> Shaper.shape "&" [ a; b ]))
   | Sym "=" -> Some (P.infix_right_binary Prec.equal (L.Sym "=") C.binding)
   | Sym "|" -> Some (P.infix_seq ~sep:(tok, Prec.pipe) C.alt)
-  | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
-  | Sym "->" -> Some (P.infix_right_binary Prec.arrow tok C.arrow)
   | Lower "as" ->
     Some (P.infix_binary Prec.as' tok (fun a b -> Shaper.shape "as" [ a; b ]))
+  | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
+  | Sym "->" -> Some (P.infix_right_binary Prec.arrow tok C.arrow)
   | Sym "." -> Some (parse_infix_dot, Prec.dot)
   | Sym "!" -> Some (macro_call, Prec.excl)
   | Sym "?" ->

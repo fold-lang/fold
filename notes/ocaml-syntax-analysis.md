@@ -121,6 +121,9 @@ Error: Syntax error
 
 ```
 let x = b = 1
+let x = b == 1
+
+type t = b = int
 ```
 
 ## Minor issues
@@ -130,13 +133,16 @@ let x = b = 1
   - same as ppx attributes.
 - The `@` operator:
   - ok, but append for lists should be discouraged.
+    - Use List.append
   - should be used for ppx attributes only.
 - `let???` operators:
   - cryptic for newcomers.
   - no way to add identifiers for easier mixing.
   - `let* () = ... in` is too much (vs eg `do* ... in`).
+  - `await f()` in ocaml `let* () = await f () in`
+  - `let%lwt () = f () in ...` or `f ();%lwt ...`
 - Reversed type arguments: `('a, int list) t` vs `t 'a (list int)`.
-- Field path syntax: `M.x.M.x.y` vs `M.x.(M.x.y)`.
+- Field path syntax: `M.x.M.y` vs `M.x.(M.y)`.
 - List cons syntax: `x :: xs` vs `[x :: xs]`.
 - Required () around functor arguments.
 - Product syntax for types and expressions is different.

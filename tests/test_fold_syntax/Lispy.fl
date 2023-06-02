@@ -124,6 +124,9 @@ do {
   M1.x1.x2.x3.(x4);
   M1.x1.(x2).x3.(x4).(M2.M3.x5);
   x1.(x2).(x3).(x4);
+  //M1.M2.f a M3.b (g M4.c d e);
+  //f M.a b;
+
   
   // errors
   // r.M;
@@ -257,6 +260,7 @@ record_update_single = { r & a = 1 };
 
 // Lambda
 f = a -> a + 1;
+f = () -> ();
 f = a b -> a + b;
 f = (a : int) -> a + 1;
 f = ~a -> a;
@@ -387,6 +391,7 @@ x = try (f ()) {
 
 // Module bindings
 mod M1 = X;
+mod M1 = M2.M3.X;
 mod M2 = {};
 mod M3 = {
   a = 1;
@@ -418,40 +423,6 @@ x = {
   a;
 };
 
-// type record
-//type person = { name : string, age : int, profession : option string };
-
-
-//mod Person = {
-//  print = p -> print_endline (p.name ^ " " ^ string_of_int p.age)
-//};
-//
-//p = { name = "Anonymous"; age = 0; profession = None };
-//
-//f ~a ?(opt = 0) ?use ~name x = {
-//  ignore (a, opt, use, name, x);
-//  opt
-//};
-//
-//x = {
-//  let* x = 2, y = (3, 'a')
-//  let age = 30 - fst y;
-//  let person = { p & name = "Xavier"; age };
-//  Person.print person;
-//  let result = {
-//    let a, opt, foo = (1, None, Some (if age > 30 then 0 else 10));
-//    f ~a ?opt ?use:foo ~name:"hello" x
-//  };
-//  let* map : ('a -> 'b) -> 'a list -> 'b list =
-//    f l ->
-//      match l {
-//        [] -> [],
-//        [x & xs] -> [f x & map f xs]
-//      };
-//  x + result - { let z = p.age; z * 2 }
-//}
-
-
 
 // PPX
 
@@ -474,7 +445,6 @@ x = {
   // [%sigy: val x : int;; val y : bool]
   //pp! "HOME"
 //};
-
 
 // while
 do {
@@ -518,6 +488,8 @@ type t = int;
 type t = list int;
 type t = list (list int);
 type nonrec t = int;
+//type t = x a b (y c d e);
+//type t = M1.M2.x a M3.b (y M4.c d e);
 
 // type tuple
 type t = (int, bool);

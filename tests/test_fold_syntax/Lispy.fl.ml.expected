@@ -193,6 +193,7 @@ let record_update_single_pun = { r with a }
 let record_update_double_pun = { r with a; b }
 let record_update_single = { r with a = 1 }
 let f a = a + 1
+let f () = ()
 let f a b = a + b
 let f (a : int) = a + 1
 let f ~a = a
@@ -224,6 +225,16 @@ type f = x -> a:t -> b
 type f = a:t -> b -> c
 type f = ?a:t -> b
 type f = a:t -> ?b:t -> c
+
+module type S = sig
+  val v : a -> b
+  val v : a -> b -> c -> d
+  val v : a:t -> b
+  val v : x -> a:t -> b
+  val v : a:t -> b -> c
+  val v : ?a:t -> b
+  val v : a:t -> ?b:t -> c
+end
 
 let f a = a + 1
 let f = (fun a -> a + 1) + 1
@@ -317,6 +328,7 @@ let x =
   | b -> bar
 
 module M1 = X
+module M1 = M2.M3.X
 module M2 = struct end
 
 module M3 = struct

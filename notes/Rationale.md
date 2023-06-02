@@ -3,6 +3,7 @@
 
 Pro:
 - Moving bindings between local and global scope is easy.
+- Easy navigation in vim with `f;`.
 
 
 ## Using `,` instead of `|`
@@ -45,3 +46,13 @@ let f = fn a -> a + 1;
 let f = fn a -> { a } + 1;
 let f = fn { a -> a } + 1;
 ```
+
+
+## Swap order of `as` in patterns
+
+```
+xs as Some [1, 2]
+```
+
+- Easier to see the variable name.
+- Consistent with label renaming `(xs as Some [1, 2]) -> ...`.
