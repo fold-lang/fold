@@ -60,6 +60,32 @@ _. _. _
 ```
 
 
+```
+{a}
+[a]
+(a)
+
+{a, b}
+[a, b]
+(a, b)
+
+{a; b}
+[a; b]
+(a; b)
+
+f{a}
+f[a]
+f(a)
+
+List = {}
+
+{}
+- struct
+- sig
+- record
+```
+
+
 ## OCaml Parsetree types
 
 ```

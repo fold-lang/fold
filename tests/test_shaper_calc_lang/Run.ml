@@ -76,6 +76,6 @@ let () =
   rp "calc! (2 + ()";
   rp "calc! (2 + 2(";
   rp "calc! (2 + 2}";
-  rp "calc! (2 + 2}";
+  rp "calc! (2 + 2]";
 
   rp "math! ((2 + 2) * 2)"

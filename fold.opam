@@ -30,6 +30,7 @@ depends: [
   "cmdliner"
   "pprint"
   "odoc" {with-doc}
+  "utop" {with-dev-setup}
   "ocaml-lsp-server" {with-dev-setup}
   "ocamlformat" {with-dev-setup}
 ]

@@ -82,6 +82,8 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       (* --- ident --- *)
+      | Ident (Lower "true") | Ident (Lower "false") ->
+        failwith "True and False must be start with a capital letter"
       (* x *)
       | Ident (Lower x) -> E.pexp_ident ~loc:noloc (with_noloc (Ident.Lident x))
       (* TODO + *)
@@ -193,6 +195,9 @@ end = struct
       (* match { _ } *)
       | Shape (loc, "match", [ a; Scope ("{", single_case, "}") ]) ->
         eval_match ~loc a [ single_case ]
+      | Shape (loc, "match", _) ->
+        Fmt.failwith "invalid match syntax: %a" Location.print_loc
+          (Obj.magic loc)
       (* -- try --- *)
       (* try _ { _, ... } *)
       | Shape (loc, "try", [ a; Scope ("{", Shape (_, ",", b), "}") ]) ->
@@ -201,6 +206,10 @@ end = struct
       | Shape (loc, "try", [ a; Scope ("{", b, "}") ]) -> eval_try ~loc a [ b ]
       (* --- construct --- *)
       (* TODO: explicit arity *)
+      | Ident (Upper "True") ->
+        eval_construct ~loc:noloc (Ident.Lident "true") []
+      | Ident (Upper "False") ->
+        eval_construct ~loc:noloc (Ident.Lident "false") []
       | Ident (Upper id) -> eval_construct ~loc:noloc (Ident.Lident id) []
       (* () *)
       | Scope ("(", Seq [], ")") ->
@@ -217,6 +226,8 @@ end = struct
       | Shape (loc, "#", [ Ident (Upper id) ]) -> eval_variant ~loc id []
       | Shape (_loc, "#", _) -> failwith "invalid polyvar syntax"
       (* --- apply or macro --- *)
+      | Seq (Sym "-" :: [ x ]) -> eval_apply (Shaper.sym "~-") [ x ]
+      | Seq (Sym "+" :: [ x ]) -> eval_apply (Shaper.sym "~+") [ x ]
       | Seq (f :: args) -> eval_apply f args
       (* --- a; b; b --- *)
       | Shape (loc, ";", xs) -> eval_block ~loc xs
@@ -272,7 +283,7 @@ end = struct
             | [ x ] -> x
             | _ -> Shaper.seq args
           in
-          let arg = Shaper.String (Fmt.str "%a" Shaper.pp arg) in
+          let arg = Shaper.String (Fmt.str "%a" Shaper.pp_sexp arg) in
           let arg = E.pexp_constant ~loc (conv_const arg) in
           let item = E.pstr_eval ~loc arg [] in
           let payload = E.pstr [ item ] in
@@ -387,6 +398,10 @@ end = struct
       let f_ml = eval f_fl in
       let args_ml = List.map eval_apply_arg args_fl in
       E.pexp_apply ~loc:noloc f_ml args_ml
+
+    and eval_apply' a b =
+      let a = eval a in
+      E.pexp_apply ~loc:noloc a [ eval_apply_arg b ]
 
     and eval_variant ~loc label args_fl =
       match args_fl with
@@ -675,6 +690,9 @@ end = struct
   end = struct
     let rec eval (fl : fl) =
       match fl with
+      (* _ *)
+      | Ident (Lower "_") -> E.ppat_any ~loc:noloc
+      (* a *)
       | Ident (Lower id) -> eval_var ~loc:noloc id
       (* --- unit --- *)
       | Scope ("(", Shape (_, ",", []), ")") | Scope ("(", Seq [], ")") ->
@@ -710,6 +728,17 @@ end = struct
       (* A ... *)
       | Seq (Ident (Upper a) :: args) ->
         pat_construct (with_noloc (Ident.Lident a)) args
+      (* _ as _ *)
+      | Shape (loc, "as", [ pat; Ident (Lower alias) ]) ->
+        let pat = eval pat in
+        let alias = with_loc loc alias in
+        E.ppat_alias ~loc pat alias
+      (* _ | _ *)
+      | Shape (loc, "_|_", [ a; b ]) ->
+        let a = eval a in
+        let b = eval b in
+        E.ppat_or ~loc a b
+      (* other *)
       | Shape (loc, _, _) ->
         (* FIXME *)
         Fmt.epr "todo pat: %a: %a@." Location.print_loc (Obj.magic loc)
@@ -789,7 +818,10 @@ end = struct
       | Scope ("(", Shape (_, ",", items), ")") ->
         E.ptyp_tuple ~loc (List.map eval items)
       | Scope ("(", fl, ")") -> eval fl
+      (* a *)
       | Ident (Lower id) -> E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) []
+      (* 'a *)
+      | Shape (loc, "'", [ Ident (Lower id) ]) -> E.ptyp_var ~loc id
       (* M.a.b *)
       | Shape (loc, "ident", _) ->
         let ident = eval_expident fl in
@@ -1040,7 +1072,7 @@ end = struct
         in
         E.ptype_variant [ cd ]
       (* { ... | ... } *)
-      | Scope ("{", Shape (loc, "|", cds_fl), "}") ->
+      | Scope ("{", Shape (loc, "_|_", cds_fl), "}") ->
         let cdl = List.map (eval_constructor_declaration ~loc) cds_fl in
         E.ptype_variant cdl
       (* { ... , ... } *)

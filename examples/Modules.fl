@@ -1,4 +1,0 @@
-module M01 = {};
-
-module M02 : {} = {};
-

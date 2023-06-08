@@ -11,4 +11,10 @@ shell:
 all:
 	nix build -f default.nix -j auto -v
 
+.PHONY: watch-test
+watch-test:
+	dune runtest -w --terminal-persistence=clear-on-rebuild-and-flush-history
 
+.PHONY: watch
+watch:
+	dune build -w --terminal-persistence=clear-on-rebuild-and-flush-history

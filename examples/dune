@@ -1,0 +1,35 @@
+(library
+ (name examples)
+ (modules Either))
+
+; Either
+
+(rule
+ (deps Either.fl)
+ (action
+  (with-stdout-to
+   Either.fl.ml.actual
+   (pipe-stdout
+    (run fold-fmt -i fl -o ml %{deps})
+    (run %{bin:ocamlformat} --impl -)))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Either.fl.ml.expected Either.fl.ml.actual)))
+
+; Effect
+
+(rule
+ (deps Effect.fl)
+ (action
+  (with-stdout-to
+   Effect.fl.ml.actual
+   (pipe-stdout
+    (run fold-fmt -i fl -o ml %{deps})
+    (run %{bin:ocamlformat} --impl -)))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Effect.fl.ml.expected Effect.fl.ml.actual)))

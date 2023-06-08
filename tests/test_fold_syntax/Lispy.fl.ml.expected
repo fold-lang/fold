@@ -5,16 +5,6 @@ let () =
   42;
   ()
 
-let x = 1
-
-let x = 1
-and y = 2
-
-let a = (42 + 10 - 2) / 2;;
-
-print_newline ();;
-print_endline (string_of_int (a + b))
-
 let x = None
 let x = Some 1
 let x = Some [ 1; 2; 3 ]
@@ -80,7 +70,10 @@ let () =
   M1.x1.x2.x3;
   M1.x1.x2.x3.x4;
   M1.x1.x2.x3.x4.M2.M3.x5;
-  x1.x2.x3.x4
+  x1.x2.x3.x4;
+  M1.M2.f a M3.b (g M4.c d e);
+  f a (M3.g 2) (f2 M4.M5.x) (h M6.c d e);
+  f M.a b
 
 let val_1 = 1
 
@@ -96,8 +89,25 @@ let rec val_4 = 1
 let rec val_4 = 1
 and a = 1
 
+let a = (42 + 10 - 2) / 2
 let () = ()
 let () = a
+let l01 = [ [] ]
+let l02 = [ [ [] ] ]
+let l03 = [ [ 1 ]; [ 2 ]; []; [ 3; 4 ]; [ 5 ] ]
+let l04 = []
+let l05 = [ 1 ]
+let l06 = [ 1; 2 ]
+let l07 = [ 1; 2; 3 ]
+let l08 = 0 :: xs
+let l09 = 1 :: 2 :: xs
+let l10 = [ 1; 2 ]
+let l11 = [ 1; 2; 3; 4 ]
+let l12 = [ 1; 2; 3; 4; 5; 6 ];;
+
+();;
+print_newline ();;
+print_endline (string_of_int (a + b))
 
 let let_01 =
   let a = 1 in
@@ -164,34 +174,26 @@ f ();
 let a = 1 in
 a
 
-let x = []
-let x = [ 1 ]
-let x = [ 1; 2 ]
-let x = [ 1; 2; 3 ]
-let x = 0 :: xs
-let x = 1 :: 2 :: xs
 let [] = x
 let (1 :: []) = x
 let [ 1; 2 ] = x
 let (1 :: 2 :: xs) = x
 let ([] :: [ 1; 2 ] :: xs) = x
 let (1 : int) = x
-let record_create_triple = { a = "A"; b = 1; c = 2 }
-let record_create_single_pun = { a }
-let record_create_single = { a = 1 }
-let record_create_double_mixed_1 = { a; b = 1 }
-let record_create_double_mixed_2 = { a = 1; b }
-let record_create_triple = { a; b; c }
-
-let record_create_functions =
-  { a = 1; f = (fun x -> x + 1); g = (fun x y -> x - y) }
-
-let record_update_double = { r with a = 23; b = 1 }
-let record_update_double_mixed_1 = { r with a = 23; b }
-let record_update_double_mixed_2 = { r with a; b = 1 }
-let record_update_single_pun = { r with a }
-let record_update_double_pun = { r with a; b }
-let record_update_single = { r with a = 1 }
+let (A | B) = x
+let r01 = { a = "A"; b = 1; c = 2 }
+let r02 = { a }
+let r03 = { a = 1 }
+let r04 = { a; b = 1 }
+let r05 = { a = 1; b }
+let r06 = { a; b; c }
+let r07 = { a = 1; f = (fun x -> x + 1); g = (fun x y -> x - y) }
+let r08 = { r with a = 23; b = 1 }
+let r09 = { r with a = 23; b }
+let r10 = { r with a; b = 1 }
+let r11 = { r with a }
+let r12 = { r with a; b }
+let r13 = { r with a = 1 }
 let f a = a + 1
 let f () = ()
 let f a b = a + b
@@ -239,9 +241,13 @@ end
 let f a = a + 1
 let f = (fun a -> a + 1) + 1
 
-let x = function
+let f = function
   | a -> 1
   | b -> 2
+
+let f = function
+  | a -> 1
+  | A | B -> 2
 
 let x = xs |> List.map (fun x -> x + 1)
 let x = if a then b else c
@@ -422,7 +428,7 @@ type t = u = { a : int; b : bool list }
 type t = { mutable a : int; mutable b : bool list }
 type t = ..
 
-let x = [%fl.mc1 "( 2 )"]
-let x = [%fl.mc2 "( 2 )"] + 1
-let x = [%fl.mc3 "{ < div > \"hello\" </ div > }"]
+let x = [%fl.mc1 "(2)"]
+let x = [%fl.mc2 "(2)"] + 1
+let x = [%fl.mc3 "{(< div > \"hello\" </ div >)}"]
 let x = if a > 1 then "yes" else if a == 0 then "maybe" else "no"

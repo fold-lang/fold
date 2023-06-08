@@ -1,0 +1,66 @@
+let () =
+  let printer = function
+    | Unhandled x ->
+      let msg =
+        Printf.sprintf "Stdlib.Effect.Unhandled(%s)"
+          (Printexc.string_of_extension_constructor @@ Obj.repr x)
+      in
+      Some msg
+    | _ -> None
+  in
+  Printexc.register_printer printer
+
+let _ =
+  Callback.register_exception "Effect.Unhandled"
+    (Unhandled Should_not_see_this__)
+
+let _ =
+  Callback.register_exception "Effect.Continuation_already_resumed"
+    Continuation_already_resumed
+
+module Deep = struct
+  type last_fiber
+
+  let continue k v = resume (take_cont_noexc k) (fun x -> x) v
+  let discontinue k e = resume (take_cont_noexc k) (fun e -> raise e) e
+
+  let discontinue_with_backtrace k e bt =
+    resume (take_cont_noexc k) (fun e -> Printexc.raise_with_backtrace e bt) e
+
+  let match_with comp arg handler =
+    let effc eff k last_fiber =
+      match handler.effc eff with
+      | Some f -> f k
+      | None -> reperform eff k last_fiber
+    in
+    let s = alloc_stack handler.retc handler.exnc effc in
+    runstack s comp arg
+
+  let try_with comp arg handler =
+    let effc' eff k last_fiber =
+      match handler.effc eff with
+      | Some f -> f k
+      | None -> reperform eff k last_fiber
+    in
+    let s = alloc_stack (fun x -> x) (fun e -> raise e) effc' in
+    runstack s comp arg
+end
+
+module Shallow = struct
+  type last_fiber
+
+  let continue_gen k resume_fun v handler =
+    let effc eff k last_fiber =
+      match handler.effc eff with
+      | Some f -> f k
+      | None -> reperform eff k last_fiber
+    in
+    let stack = update_handler k handler.retc handler.exnc effc in
+    resume stack resume_fun v
+
+  let continue_with k v handler = continue_gen k (fun x -> x) v handler
+  let discontinue_with k v handler = continue_gen k (fun e -> raise e) v handler
+
+  let discontinue_with_backtrace k v bt handler =
+    continue_gen k (fun e -> Printexc.raise_with_backtrace e bt) v handler
+end

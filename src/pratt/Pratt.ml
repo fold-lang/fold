@@ -69,7 +69,7 @@ type 'a grammar =
   ; prefix : token -> ('a grammar -> 'a parser) option
   ; infix : token -> (('a -> 'a grammar -> 'a parser) * int) option
   ; default_prefix : 'a grammar -> 'a parser
-  ; default_infix : 'a -> 'a grammar -> 'a parser
+  ; default_infix : ('a -> 'a grammar -> 'a parser) * int
   }
 
 module Grammar = struct
@@ -77,9 +77,13 @@ module Grammar = struct
     let tok = Lexer.pick l in
     invalid_prefix ~ctx:g.name tok
 
-  let default_infix_err _left g l =
-    let tok = Lexer.pick l in
-    invalid_infix ~ctx:g.name tok
+  let default_infix_err =
+    let rule _left g : 'a parser =
+     fun l ->
+      let tok = Lexer.pick l in
+      invalid_infix ~ctx:g.name tok
+    in
+    (rule, 0)
 
   let make ?(default_prefix = default_prefix_err)
       ?(default_infix = default_infix_err) ~prefix ~infix name =
@@ -133,26 +137,26 @@ let parse_prefix g : 'a parser =
     | None -> g.default_prefix g l
     | Some rule -> rule g l
 
-let rec parse_infix ?(use_default_infix = true) rbp left g : 'a parser =
+let rec parse_infix' rbp left g : 'a parser =
  fun l ->
   let tok = Lexer.pick l in
-  if Lexer.is_eof tok then Ok left
-  else
+  (* XXX *)
+  (* if Lexer.is_eof tok then Ok left *)
+  (* else *)
+  let rule, lbp =
     match Grammar.get_infix tok g with
-    | Some (rule, lbp) ->
-      if lbp > rbp then
-        let* left' = rule left g l in
-        parse_infix rbp left' g l
-      else Ok left
-    | None when use_default_infix ->
-      let* left' = g.default_infix left g l in
-      parse_infix rbp left' g l
-    | None -> Ok left
+    | Some infix -> infix
+    | None -> g.default_infix
+  in
+  if lbp > rbp then
+    let* left' = rule left g l in
+    parse_infix' rbp left' g l
+  else Ok left
 
-let parse ?(use_default_infix = true) ?precedence:(rbp = 0) g : 'a parser =
+let parse ?precedence:(rbp = 0) g : 'a parser =
  fun l ->
   let* left = parse_prefix g l in
-  parse_infix ~use_default_infix rbp left g l
+  parse_infix' rbp left g l
 
 let run g l =
   match parse g l with
@@ -166,10 +170,7 @@ let run g l =
 
 let parse_infix_juxt ~precedence f left g l =
   let* xs =
-    until
-      (fun tok -> not (Grammar.has_infix tok g))
-      (parse ~use_default_infix:false ~precedence g)
-      l
+    until (fun tok -> not (Grammar.has_infix tok g)) (parse ~precedence g) l
   in
   Ok (f (left :: xs))
 

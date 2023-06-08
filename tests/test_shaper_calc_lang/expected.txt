@@ -49,7 +49,7 @@ err: run: invalid syntax: parser halted at }
 err: shaper: invalid syntax: unexpected end of file
 err: calc: invalid syntax: ')' cannot be used in prefix position
 err: calc: invalid syntax: ')' cannot be used in prefix position
-err: calc: invalid syntax: '(' cannot be used in infix postion
-err: calc: invalid syntax: '}' cannot be used in infix postion
-err: calc: invalid syntax: '}' cannot be used in infix postion
+err: consume: invalid syntax: expected ')' but got '('
+err: consume: invalid syntax: expected ')' but got '}'
+err: consume: invalid syntax: expected ')' but got ']'
 err: no such macro: math

@@ -27,6 +27,22 @@ let ( ^^ ) = PPrint.( ^^ )
 let ( !^ ) = PPrint.( !^ )
 let ( ^/^ ) = PPrint.( ^/^ )
 
+let is_infix_bin (fl : fl) =
+  match fl with
+  | Shape (_, kwd, [ _; _ ])
+    when String.length kwd > 3
+         && Char.equal (String.get kwd 0) '_'
+         && Char.equal (String.get kwd (String.length kwd - 1)) '_' -> true
+  | _ -> false
+
+let classify_kwd kwd =
+  if
+    String.length kwd >= 3
+    && Char.equal (String.get kwd 0) '_'
+    && Char.equal (String.get kwd (String.length kwd - 1)) '_'
+  then Some (String.sub kwd 1 (String.length kwd - 2))
+  else None
+
 module Ast_eval = struct
   let eval ~ident ~const ~apply ~seq_semi ~seq_comma ~arrow ~constraint_
       ~binding ~cases ~field ~shape ~block ~parens ~braces ctx (fl : fl) =
@@ -39,7 +55,6 @@ module Ast_eval = struct
     | Shape (_, "->", [ a; b ]) -> arrow ctx a b
     | Shape (_, ":", [ v; t ]) -> constraint_ ctx v t
     | Shape (_, "=", [ lhs; rhs ]) -> binding ctx lhs rhs
-    | Shape (_, "|", items) -> cases ctx items
     | Shape (_, ".", [ a; b ]) -> field ctx a b
     | Shape (_, kwd, items) -> shape ctx kwd items
     | Scope ("{", Shape (_, ";", items), "}") -> block ctx items
@@ -87,7 +102,7 @@ and binding ctx (lhs : fl) (rhs : fl) =
       ^^ P.nest 2 (P.break 1 ^^ (fmt ~ctx:{ ctx with enclose = false }) rhs)
       )
 
-and arrow ctx a b =
+and arrow ctx (a : fl) (b : fl) =
   match (a, b) with
   | Shape (_, "fn", args), body -> arrow_fn ctx args body
   | _, Scope ("{", _, "}") ->
@@ -271,86 +286,92 @@ and apply ({ enclose; inline } as ctx) f args =
     P.parens_on enclose
     <| P.group (fmt f ^^ P.nest 2 (P.space ^^ juxt ~inline args))
 
-and shape_ ctx items =
-  P.group (P.flow_map (P.break 1) (fmt ~ctx:{ ctx with enclose = false }) items)
-
 and shape ctx kwd items =
-  match (kwd, items) with
-  | _, [] -> P.string kwd
-  (* let *)
-  | "let", bindings ->
-    P.group
-      (!^"let"
-      ^^ P.concat_map
-           (function
-             | x -> (if Fl.is_binding x then P.space else P.break 1) ^^ fmt x
-             )
-           bindings
-      )
-    |> P.parens_on ctx.enclose
-  (* val|module *)
-  | (("let" | "module") as kwd), (shape :: _ as bindings)
-    when Fl.is_binding shape ->
-    (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
-    P.group
-      (!^kwd
-      ^^ P.concat_map
-           (function
-             | x ->
-               (if Fl.is_binding x then P.space else P.twice P.hardline)
-               ^^ fmt x
-             )
-           bindings
-      )
-    |> P.parens_on ctx.enclose
-  | "if", [ cond; Scope ("{", if_true, "}") ] ->
-    P.group
-      (!^"if"
-      ^^ P.space
-      ^^ fmt ~ctx:{ ctx with enclose = false } cond
-      ^^ P.space
-      ^^ !^"then"
-      ^^ begin
-           if C.is_scope if_true then
-             P.space ^^ fmt ~ctx:{ ctx with enclose = false } if_true
-           else
-             P.nest 2
-               (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } if_true)
-         end
-      )
-    |> P.parens_on ctx.enclose
-  | "if", [ a; b; c ] ->
-    P.group
-      (!^"if"
-      ^^ P.space
-      ^^ fmt ~ctx:{ ctx with enclose = false } a
-      ^^ P.space
-      ^^ !^"then"
-      ^^ begin
-           if C.is_scope b then
-             P.space ^^ fmt ~ctx:{ ctx with enclose = false } b
-           else P.nest 2 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } b)
-         end
-      ^^ P.break 1
-      ^^ !^"else"
-      ^^ begin
-           if C.is_scope b then
-             P.space ^^ fmt ~ctx:{ ctx with enclose = false } b
-           else P.nest 2 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } b)
-         end
-      )
-    |> P.parens_on ctx.enclose
-  | ".", items ->
-    P.flow_map (P.string kwd) (fmt ~ctx:{ ctx with enclose = false }) items
-  | "~", [ Ident (Lower l); value ] -> labeled ctx l false value
-  | "~?", [ Ident (Lower l); value ] -> labeled ctx l true value
-  | _ ->
-    P.group
-      (P.string kwd
-      ^^ P.space
-      ^^ P.flow_map P.space (fmt ~ctx:{ ctx with enclose = false }) items
-      )
-    |> P.parens_on ctx.enclose
+  match classify_kwd kwd with
+  | Some op -> (
+    match items with
+    | [] | [ _ ] -> failwith "invalid infix kwd"
+    | [ a; b ] ->
+      P.group (fmt ~ctx a ^^ P.space ^^ !^op ^^ P.space ^^ fmt ~ctx b)
+  )
+  | None -> (
+    match (kwd, items) with
+    | _, [] -> P.string kwd
+    (* let *)
+    | "let", bindings ->
+      P.group
+        (!^"let"
+        ^^ P.concat_map
+             (function
+               | x -> (if Fl.is_binding x then P.space else P.break 1) ^^ fmt x
+               )
+             bindings
+        )
+      |> P.parens_on ctx.enclose
+    (* val|module *)
+    | (("let" | "module") as kwd), (shape :: _ as bindings)
+      when Fl.is_binding shape ->
+      (* :: (Syntax.Binding _ :: _ as bindings)) -> *)
+      P.group
+        (!^kwd
+        ^^ P.concat_map
+             (function
+               | x ->
+                 (if Fl.is_binding x then P.space else P.twice P.hardline)
+                 ^^ fmt x
+               )
+             bindings
+        )
+      |> P.parens_on ctx.enclose
+    | "if", [ cond; Scope ("{", if_true, "}") ] ->
+      P.group
+        (!^"if"
+        ^^ P.space
+        ^^ fmt ~ctx:{ ctx with enclose = false } cond
+        ^^ P.space
+        ^^ !^"then"
+        ^^ begin
+             if C.is_scope if_true then
+               P.space ^^ fmt ~ctx:{ ctx with enclose = false } if_true
+             else
+               P.nest 2
+                 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } if_true)
+           end
+        )
+      |> P.parens_on ctx.enclose
+    | "if", [ a; b; c ] ->
+      P.group
+        (!^"if"
+        ^^ P.space
+        ^^ fmt ~ctx:{ ctx with enclose = false } a
+        ^^ P.space
+        ^^ !^"then"
+        ^^ begin
+             if C.is_scope b then
+               P.space ^^ fmt ~ctx:{ ctx with enclose = false } b
+             else P.nest 2 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } b)
+           end
+        ^^ P.break 1
+        ^^ !^"else"
+        ^^ begin
+             if C.is_scope b then
+               P.space ^^ fmt ~ctx:{ ctx with enclose = false } b
+             else P.nest 2 (P.break 1 ^^ fmt ~ctx:{ ctx with enclose = false } b)
+           end
+        )
+      |> P.parens_on ctx.enclose
+    | ".", items ->
+      P.flow_map (P.string kwd) (fmt ~ctx:{ ctx with enclose = false }) items
+    | "~", [ Ident (Lower l); value ] -> labeled ctx l false value
+    | "~?", [ Ident (Lower l); value ] -> labeled ctx l true value
+    | _ ->
+      P.group
+        (P.string kwd
+        ^^ P.space
+        ^^ P.flow_map P.space (fmt ~ctx:{ ctx with enclose = false }) items
+        )
+      |> P.parens_on ctx.enclose
+  )
 
 and record r0 fields =
   let fields_doc = P.flow_map (P.comma ^^ P.hardline) fmt fields in

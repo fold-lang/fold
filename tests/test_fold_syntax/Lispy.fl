@@ -8,17 +8,6 @@ do {
   ();
 };
 
-// Values
-x = 1;
-x = 1, y = 2;
-// rec {
-//   x = 1, y = 2
-// };
-
-a = (42 + 10 - 2) / 2;
-print_newline ();
-print_endline (string_of_int (a + b));
-
 // Constructors
 x = None;
 x = Some 1;
@@ -124,10 +113,10 @@ do {
   M1.x1.x2.x3.(x4);
   M1.x1.(x2).x3.(x4).(M2.M3.x5);
   x1.(x2).(x3).(x4);
-  //M1.M2.f a M3.b (g M4.c d e);
-  //f M.a b;
+  M1.M2.f a M3.b (g M4.c d e);
+  f a (M3.g 2) (f2 M4.M5.x) (h M6.c d e);
+  f M.a b;
 
-  
   // errors
   // r.M;
   // r.M.x;
@@ -142,9 +131,35 @@ val_2 = 1, x = 2;
 val_3 = 1, a = 2, b = c;
 rec val_4 = 1;
 rec val_4 = 1, a = 1;
+a = (42 + 10 - 2) / 2;
 
 () = ();
 () = a;
+
+
+// --- expr ---
+
+
+l01 = [[]];
+l02 = [[[]]];
+l03 = [[1], [2], [], [3, 4], [5]];
+l04 = [];
+l05 = [1];
+l06 = [1, 2];
+l07 = [1, 2, 3];
+l08 = [0 & xs];
+l09 = [1, 2 & xs];
+l10 = [1 & [2]];
+l11 = [1 & [2 & [3, 4]]];
+l12 = [1, 2 & [3, 4 & [5, 6]]];
+
+
+// --- eval item ---
+
+();
+print_newline ();
+print_endline (string_of_int (a + b));
+
 
 // --- let ---
 
@@ -215,14 +230,6 @@ let_09 = {
   a
 };
 
-// List expressions
-x = [];
-x = [1];
-x = [1, 2];
-x = [1, 2, 3];
-x = [0 & xs];
-x = [1, 2 & xs];
-
 // List patterns
 [] = x;
 [1] = x;
@@ -233,30 +240,33 @@ x = [1, 2 & xs];
 // pattern constraint
 1 : int = x;
 
+// or pattern
+A | B = x;
+
 // Arrays
 // x = {a};
 // x = {a, b, c};
 
 // create record
-record_create_triple = { a = "A", b = 1, c = 2 };
-record_create_single_pun = { ~a };
-record_create_single = { a = 1 };
-record_create_double_mixed_1 = { ~a, b = 1 };
-record_create_double_mixed_2 = { a = 1, ~b };
-record_create_triple = { ~a, ~b, ~c };
-record_create_functions = {
+r01 = { a = "A", b = 1, c = 2 };
+r02 = { ~a };
+r03 = { a = 1 };
+r04 = { ~a, b = 1 };
+r05 = { a = 1, ~b };
+r06 = { ~a, ~b, ~c };
+r07 = {
   a = 1,
   f = x -> x + 1,
   g = x y -> x - y
 };
 
 // update record
-record_update_double = { r & a = 23, b = 1 };
-record_update_double_mixed_1 = { r & a = 23, ~b };
-record_update_double_mixed_2 = { r & ~a, b = 1 };
-record_update_single_pun = { r & ~a };
-record_update_double_pun = { r & ~a, ~b };
-record_update_single = { r & a = 1 };
+r08 = { r & a = 23, b = 1 };
+r09 = { r & a = 23, ~b };
+r10 = { r & ~a, b = 1 };
+r11 = { r & ~a };
+r12 = { r & ~a, ~b };
+r13 = { r & a = 1 };
 
 // Lambda
 f = a -> a + 1;
@@ -270,7 +280,8 @@ f = ~(a as b) -> b;
 f = ~(a = 1) b -> a + b;
 f = ~(a as b = 1) c -> b + c;
 f = ~(a as (Some b) = x) c -> b + c;
-f = ~(a as (Some b) : option int = x) c -> b + c;
+//f = ~(a as (Some b) : option int = x) c -> b + c;
+f = ~(a as (Some b : option int) = x) c -> b + c;
 f = ~a? -> a;
 f = ~(a? as b) -> b;
 
@@ -290,6 +301,9 @@ do {
   // f ~M;
   // f ~2;
 };
+
+
+// --- core type arrow ---
 
 type f = a -> b;
 type f = a -> b -> c -> d;
@@ -317,13 +331,9 @@ sig S = {
 
 // This wraps a single case.
 f = { a -> a + 1 };
-//let f = fn {
-//  | a -> a + 1
-//  };
 f = { a -> a + 1 } + 1;
-
-// Lambda with cases
-x = { a -> 1, b -> 2 };
+f = { a -> 1, b -> 2 };
+f = { a -> 1, (A | B) -> 2 };
 
 // Lambda argument
 x = xs |> List.map { x -> x + 1 };
@@ -604,3 +614,11 @@ x = if {
 
 // lambda with holes
 // List.map (f _ x)
+
+
+//do {
+//  match (Some 2) {
+//    Some x -> f 2
+//    None -> ()
+//  }
+//}
