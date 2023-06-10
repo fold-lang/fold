@@ -1,4 +1,4 @@
-val x = (42 + 10 - 2) / 2;
-val y = 1000 + 1;
+let x = (42 + 10 - 2) / 2;
+let y = 1000 + 1;
 print_newline ();
 print_endline (string_of_int (x + y));

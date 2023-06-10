@@ -973,14 +973,14 @@ end = struct
   end = struct
     let rec eval (fl : fl) =
       match fl with
-      (* val _ = _ *)
-      | Shape (loc, "val", [ (Shape (_, "=", [ _lhs; _rhs ]) as vb) ])
+      (* let _ = _ *)
+      | Shape (loc, "let", [ (Shape (_, "=", [ _lhs; _rhs ]) as vb) ])
       (* _ = _ *)
       (* | Shape (loc, "=", [ _lhs; _rhs ])  *) ->
         eval_item_value ~loc Asttypes.Nonrecursive [ vb ]
       (* _ = _, _ = _ *)
       (* | Shape (loc, "val", [ Shape (_, "=", [ _lhs; _rhs ]) ]) *)
-      | Shape (loc, "val", [ Shape (_loc, ",", vbl) ]) ->
+      | Shape (loc, "let", [ Shape (_loc, ",", vbl) ]) ->
         eval_item_value ~loc Asttypes.Nonrecursive vbl
       (* rec _ = _ *)
       | Shape (loc, "rec", [ (Shape (_loc, "=", [ _lhs; _rhs ]) as vb) ]) ->
@@ -1153,7 +1153,7 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       (* val _ : _ *)
-      | Shape (loc, "val", [ Shape (_, ":", [ Ident (Lower name); type' ]) ]) ->
+      | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
         make_value ~loc ~name ~type'
       | _ ->
         Fmt.epr "Eval.sig: %a@." Shaper.dump fl;

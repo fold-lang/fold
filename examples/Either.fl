@@ -5,60 +5,60 @@
 
 open Stdlib.Either;
 
-val left = fn v -> Left v;
-val right = fn v -> Right v;
+let left = fn v -> Left v;
+let right = fn v -> Right v;
 
-val is_left = fn {
+let is_left = fn {
   Left _ -> True,
   Right _ -> False
 };
 
-val is_right = fn {
+let is_right = fn {
   Left _ -> False,
   Right _ -> True
 };
 
-val find_left = fn {
+let find_left = fn {
   Left v -> Some v,
   Right _ -> None
 };
 
-val find_right = fn {
+let find_right = fn {
   Left _ -> None,
   Right v -> Some v
 };
 
-val map_left = fn f -> fn {
+let map_left = fn f -> fn {
   Left v -> Left (f v),
   Right _ as e -> e
 };
 
-val map_right = fn f -> fn {
+let map_right = fn f -> fn {
   Left _ as e -> e,
   Right v -> Right (f v)
 };
 
-val map = fn ~left ~right -> fn {
+let map = fn ~left ~right -> fn {
   Left v -> Left (left v),
   Right v -> Right (right v)
 };
 
-val fold = fn ~left ~right -> fn {
+let fold = fn ~left ~right -> fn {
   Left v -> left v,
   Right v -> right v
 };
 
-val iter = fold;
-val for_all = fold;
+let iter = fold;
+let for_all = fold;
 
-val equal = fn ~left ~right e1 e2 ->
+let equal = fn ~left ~right e1 e2 ->
   match (e1, e2) {
     (Left v1, Left v2) -> left v1 v2,
     (Right v1, Right v2) -> right v1 v2,
     (Left _, Right _) | (Right _, Left _) -> False
   };
 
-val compare = fn ~left ~right e1 e2 ->
+let compare = fn ~left ~right e1 e2 ->
   match (e1, e2) {
     (Left v1, Left v2) -> left v1 v2,
     (Right v1, Right v2) -> right v1 v2,
