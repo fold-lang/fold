@@ -280,10 +280,26 @@ let f = fn ~(a as b) -> b;
 let f = fn ~(a = 1) b -> a + b;
 let f = fn ~(a as b = 1) c -> b + c;
 let f = fn ~(a as (Some b) = x) c -> b + c;
-//f = ~(a as (Some b) : option int = x) c -> b + c;
+//let f = fn ~(a as (Some b) : option int = x) c -> b + c;
 let f = fn ~(a as (Some b : option int) = x) c -> b + c;
 let f = fn ~a? -> a;
 let f = fn ~(a? as b) -> b;
+
+let f a = a + 1;
+let f () = ();
+let f a b = a + b;
+let f (a : int) = a + 1;
+let f ~a = a;
+let f ~(a) = a;
+let f ~(a : int) = a;
+let f ~(a as b) = b;
+let f ~(a = 1) b = a + b;
+let f ~(a as b = 1) c = b + c;
+let f ~(a as (Some b) = x) c = b + c;
+//let f ~(a as (Some b) : option int = x) c = b + c;
+let f ~(a as (Some b : option int) = x) c = b + c;
+let f ~a? = a;
+let f ~(a? as b) = b;
 
 // apply labels
 do {

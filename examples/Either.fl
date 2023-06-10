@@ -5,8 +5,8 @@
 
 open Stdlib.Either;
 
-let left = fn v -> Left v;
-let right = fn v -> Right v;
+let left v = Left v;
+let right v = Right v;
 
 let is_left = fn {
   Left _ -> True,
@@ -28,22 +28,22 @@ let find_right = fn {
   Right v -> Some v
 };
 
-let map_left = fn f -> fn {
+let map_left f = fn {
   Left v -> Left (f v),
   Right _ as e -> e
 };
 
-let map_right = fn f -> fn {
+let map_right f = fn {
   Left _ as e -> e,
   Right v -> Right (f v)
 };
 
-let map = fn ~left ~right -> fn {
+let map ~left ~right = fn {
   Left v -> Left (left v),
   Right v -> Right (right v)
 };
 
-let fold = fn ~left ~right -> fn {
+let fold ~left ~right = fn {
   Left v -> left v,
   Right v -> right v
 };
@@ -51,14 +51,14 @@ let fold = fn ~left ~right -> fn {
 let iter = fold;
 let for_all = fold;
 
-let equal = fn ~left ~right e1 e2 ->
+let equal~left ~right e1 e2 =
   match (e1, e2) {
     (Left v1, Left v2) -> left v1 v2,
     (Right v1, Right v2) -> right v1 v2,
     (Left _, Right _) | (Right _, Left _) -> False
   };
 
-let compare = fn ~left ~right e1 e2 ->
+let compare ~left ~right e1 e2 =
   match (e1, e2) {
     (Left v1, Left v2) -> left v1 v2,
     (Right v1, Right v2) -> right v1 v2,

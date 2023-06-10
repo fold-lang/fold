@@ -133,6 +133,7 @@ let parse_label g l =
   | Lower label -> (
     L.move l;
     match L.pick l with
+    (*
     | Sym "=" ->
       L.move l;
       let* x = P.parse_prefix g l in
@@ -140,7 +141,7 @@ let parse_label g l =
     | Sym "?=" ->
       L.move l;
       let* x = P.parse_prefix g l in
-      Ok (C.label_opt label x)
+      Ok (C.label_opt label x) *)
     | Sym "?" ->
       L.move l;
       Ok (C.label_opt_pun label)

@@ -78,6 +78,7 @@ end = struct
 
   module rec Expression : sig
     val eval : fl -> E.expression
+    val eval_fn : ?loc:loc -> fl list -> fl -> E.expression
   end = struct
     let rec eval (fl : fl) =
       match fl with
@@ -662,6 +663,29 @@ end = struct
         let vbl_ml = List.map Value_binding.eval vbl in
         let body_ml = eval_block ~loc xs in
         E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml body_ml
+      (* let ... = _; ... *)
+      | Shape
+          ( loc
+          , "let"
+          , [ Shape
+                ( _
+                , "="
+                , [ Seq
+                      ((Ident (Lower ident) | Scope ("(", Sym ident, ")"))
+                      :: args
+                      )
+                  ; body
+                  ]
+                )
+            ]
+          )
+        :: xs ->
+        let pat = E.ppat_var ~loc (with_loc loc ident) in
+        let expr = Expression.eval_fn args body in
+        let vbl_ml = [ E.value_binding ~loc ~pat ~expr ] in
+        (* let vbl_ml = [ Value_binding.eval vb ] in *)
+        let body_ml = eval_block ~loc xs in
+        E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml body_ml
       (* let _ *)
       | Shape (loc, "let", [ vb ]) :: xs ->
         let vbl_ml = [ Value_binding.eval vb ] in
@@ -973,6 +997,23 @@ end = struct
   end = struct
     let rec eval (fl : fl) =
       match fl with
+      (* let f ... = _ *)
+      (* let (+) ... = _ *)
+      | Shape
+          ( loc
+          , "let"
+          , [ Shape
+                ( _
+                , "="
+                , [ Seq
+                      ((Ident (Lower ident) | Scope ("(", Sym ident, ")"))
+                      :: args
+                      )
+                  ; body
+                  ]
+                )
+            ]
+          ) -> eval_item_value_fn ~loc Asttypes.Nonrecursive ident args body
       (* let _ = _ *)
       | Shape (loc, "let", [ (Shape (_, "=", [ _lhs; _rhs ]) as vb) ])
       (* _ = _ *)
@@ -1011,6 +1052,12 @@ end = struct
 
     and eval_item_value ~loc rec_flag fl =
       let vbl = List.map Value_binding.eval fl in
+      E.pstr_value ~loc rec_flag vbl
+
+    and eval_item_value_fn ~loc rec_flag ident args body =
+      let pat = E.ppat_var ~loc (with_loc loc ident) in
+      let expr = Expression.eval_fn args body in
+      let vbl = [ E.value_binding ~loc ~pat ~expr ] in
       E.pstr_value ~loc rec_flag vbl
 
     and eval_item_module ~loc mb_fl =

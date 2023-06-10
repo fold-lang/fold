@@ -42,11 +42,11 @@ mod Deep = {
 //    ('c t -> ('c, 'b) continuation -> last_fiber -> 'b) ->
 //    ('a, 'b) stack = "caml_alloc_stack"
 
-  let continue = fn k v -> resume (take_cont_noexc k) (fn x -> x) v;
+  let continue k v = resume (take_cont_noexc k) (fn x -> x) v;
 
-  let discontinue = fn k e -> resume (take_cont_noexc k) (fn e -> raise e) e;
+  let discontinue k e = resume (take_cont_noexc k) (fn e -> raise e) e;
 
-  let discontinue_with_backtrace = fn k e bt ->
+  let discontinue_with_backtrace k e bt =
     resume (take_cont_noexc k) (fn e -> Printexc.raise_with_backtrace e bt) e;
 
 //  type ('a,'b) handler =
@@ -57,8 +57,8 @@ mod Deep = {
 //  external reperform :
 //    'a t -> ('a, 'b) continuation -> last_fiber -> 'b = "%reperform"
 
-  let match_with = fn comp arg handler -> {
-    let effc = fn eff k last_fiber ->
+  let match_with comp arg handler = {
+    let effc eff k last_fiber =
       match (handler.effc eff) {
         Some f -> f k,
         None -> reperform eff k last_fiber
@@ -70,8 +70,8 @@ mod Deep = {
 //  type 'a effect_handler =
 //    { effc: 'b. 'b t -> (('b,'a) continuation -> 'a) option }
 
-  let try_with = fn comp arg handler -> {
-    let effc' = fn eff k last_fiber ->
+  let try_with comp arg handler = {
+    let effc' eff k last_fiber =
       match (handler.effc eff) {
         Some f -> f k,
         None -> reperform eff k last_fiber
@@ -125,8 +125,8 @@ mod Shallow = {
 //  external reperform :
 //    'a t -> ('a, 'b) continuation -> last_fiber -> 'c = "%reperform"
 
-  let continue_gen = fn k resume_fun v handler -> {
-    let effc = fn eff k last_fiber ->
+  let continue_gen k resume_fun v handler = {
+    let effc eff k last_fiber =
       match (handler.effc eff) {
         Some f -> f k,
         None -> reperform eff k last_fiber
@@ -135,13 +135,13 @@ mod Shallow = {
     resume stack resume_fun v
   };
 
-  let continue_with = fn k v handler ->
+  let continue_with k v handler =
     continue_gen k (fn x -> x) v handler;
 
-  let discontinue_with = fn k v handler ->
+  let discontinue_with k v handler =
     continue_gen k (fn e -> raise e) v handler;
 
-  let discontinue_with_backtrace = fn k v bt handler ->
+  let discontinue_with_backtrace k v bt handler =
     continue_gen k (fn e -> Printexc.raise_with_backtrace e bt) v handler;
 
 //  external get_callstack :
