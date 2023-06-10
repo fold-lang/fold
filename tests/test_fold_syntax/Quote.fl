@@ -1,15 +1,15 @@
 // Code quoting
-x = quote a;
-x = quote 1;
-x = quote ("abc");
-x = quote (f x);
-x = quote (1 + 2);
-x = quote [1, 2, 3];
-x = quote ((42));
-x = quote (let x = 1);
-x = quote (let a = 42; a + 1;);
+val x = quote a;
+val x = quote 1;
+val x = quote ("abc");
+val x = quote (f x);
+val x = quote (1 + 2);
+val x = quote [1, 2, 3];
+val x = quote ((42));
+val x = quote (let x = 1);
+val x = quote (let a = 42; a + 1;);
 
 // Code antiquoting
-int_code = quote 42;
-x = quote (1000 + unquote int_code);
-x = quote (2000 + unquote (quote 42));
+val int_code = quote 42;
+val x = quote (1000 + unquote int_code);
+val x = quote (2000 + unquote (quote 42));

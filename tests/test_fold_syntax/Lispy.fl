@@ -9,22 +9,22 @@ do {
 };
 
 // Constructors
-x = None;
-x = Some 1;
-x = Some [1, 2, 3];
-x = Two 1 2;
-x = Two 1 2 |> f;
+val x = None;
+val x = Some 1;
+val x = Some [1, 2, 3];
+val x = Two 1 2;
+val x = Two 1 2 |> f;
 
 // Polymorphic variants
-x = #A;
-x = #A #B;
-x = #A 42;
-x = #A (2 + a);
-x = #A a 42;
-x = #A (b, 43);
-x = #A |> f;
-x = f #A #B;
-x = f #A #B <| #C;
+val x = #A;
+val x = #A #B;
+val x = #A 42;
+val x = #A (2 + a);
+val x = #A a 42;
+val x = #A (b, 43);
+val x = #A |> f;
+val x = f #A #B;
+val x = f #A #B <| #C;
 
 // Field and mod access.
 do {
@@ -126,32 +126,32 @@ do {
 
 // --- val ---
 
-val_1 = 1;
-val_2 = 1, x = 2;
-val_3 = 1, a = 2, b = c;
+val val_1 = 1;
+val val_2 = 1, x = 2;
+val val_3 = 1, a = 2, b = c;
 rec val_4 = 1;
 rec val_4 = 1, a = 1;
-a = (42 + 10 - 2) / 2;
+val a = (42 + 10 - 2) / 2;
 
-() = ();
-() = a;
+val () = ();
+val () = a;
 
 
 // --- expr ---
 
 
-l01 = [[]];
-l02 = [[[]]];
-l03 = [[1], [2], [], [3, 4], [5]];
-l04 = [];
-l05 = [1];
-l06 = [1, 2];
-l07 = [1, 2, 3];
-l08 = [0 & xs];
-l09 = [1, 2 & xs];
-l10 = [1 & [2]];
-l11 = [1 & [2 & [3, 4]]];
-l12 = [1, 2 & [3, 4 & [5, 6]]];
+val l01 = [[]];
+val l02 = [[[]]];
+val l03 = [[1], [2], [], [3, 4], [5]];
+val l04 = [];
+val l05 = [1];
+val l06 = [1, 2];
+val l07 = [1, 2, 3];
+val l08 = [0 & xs];
+val l09 = [1, 2 & xs];
+val l10 = [1 & [2]];
+val l11 = [1 & [2 & [3, 4]]];
+val l12 = [1, 2 & [3, 4 & [5, 6]]];
 
 
 // --- eval item ---
@@ -163,37 +163,37 @@ print_endline (string_of_int (a + b));
 
 // --- let ---
 
-let_01 = {
+val let_01 = {
   let a = 1;
   a + 1
 };
 
-let_02 = {
+val let_02 = {
   let a = 1;
   let b = a + 1;
   Ok b
 };
 
-let_03 = {
+val let_03 = {
   let
     a = 1,
     b = 2;
   Ok (a + b)
 };
 
-let_04 = {
+val let_04 = {
   rec xs = [1 & xs];
   Ok xs
 };
 
-let_05 = {
+val let_05 = {
   rec
     a = 2 - b,
     b = a + 1;
   Ok (a + b)
 };
 
-let_06 = {
+val let_06 = {
   let x = 42;
   rec
     a = 2 - b,
@@ -201,15 +201,15 @@ let_06 = {
   Ok (a + b)
 };
 
-let_07 = {
+val let_07 = {
   let a = 1
 };
 
-let_08 = {
+val let_08 = {
   let a = 1, b = 2
 };
 
-let_09 = {
+val let_09 = {
   let a = 1;
   let b = 2;
 };
@@ -231,59 +231,59 @@ let_09 = {
 };
 
 // List patterns
-[] = x;
-[1] = x;
-[1, 2] = x;
-[1, 2 & xs] = x;
-[[], [1, 2] & xs] = x;
+val [] = x;
+val [1] = x;
+val [1, 2] = x;
+val [1, 2 & xs] = x;
+val [[], [1, 2] & xs] = x;
 
 // pattern constraint
-1 : int = x;
+val 1 : int = x;
 
 // or pattern
-A | B = x;
+val A | B = x;
 
 // Arrays
 // x = {a};
 // x = {a, b, c};
 
 // create record
-r01 = { a = "A", b = 1, c = 2 };
-r02 = { ~a };
-r03 = { a = 1 };
-r04 = { ~a, b = 1 };
-r05 = { a = 1, ~b };
-r06 = { ~a, ~b, ~c };
-r07 = {
+val r01 = { a = "A", b = 1, c = 2 };
+val r02 = { ~a };
+val r03 = { a = 1 };
+val r04 = { ~a, b = 1 };
+val r05 = { a = 1, ~b };
+val r06 = { ~a, ~b, ~c };
+val r07 = {
   a = 1,
-  f = x -> x + 1,
-  g = x y -> x - y
+  f = fn x -> x + 1,
+  g = fn x y -> x - y
 };
 
 // update record
-r08 = { r & a = 23, b = 1 };
-r09 = { r & a = 23, ~b };
-r10 = { r & ~a, b = 1 };
-r11 = { r & ~a };
-r12 = { r & ~a, ~b };
-r13 = { r & a = 1 };
+val r08 = { r & a = 23, b = 1 };
+val r09 = { r & a = 23, ~b };
+val r10 = { r & ~a, b = 1 };
+val r11 = { r & ~a };
+val r12 = { r & ~a, ~b };
+val r13 = { r & a = 1 };
 
 // Lambda
-f = a -> a + 1;
-f = () -> ();
-f = a b -> a + b;
-f = (a : int) -> a + 1;
-f = ~a -> a;
-f = ~(a) -> a;
-f = ~(a : int) -> a;
-f = ~(a as b) -> b;
-f = ~(a = 1) b -> a + b;
-f = ~(a as b = 1) c -> b + c;
-f = ~(a as (Some b) = x) c -> b + c;
+val f = fn a -> a + 1;
+val f = fn () -> ();
+val f = fn a b -> a + b;
+val f = fn (a : int) -> a + 1;
+val f = fn ~a -> a;
+val f = fn ~(a) -> a;
+val f = fn ~(a : int) -> a;
+val f = fn ~(a as b) -> b;
+val f = fn ~(a = 1) b -> a + b;
+val f = fn ~(a as b = 1) c -> b + c;
+val f = fn ~(a as (Some b) = x) c -> b + c;
 //f = ~(a as (Some b) : option int = x) c -> b + c;
-f = ~(a as (Some b : option int) = x) c -> b + c;
-f = ~a? -> a;
-f = ~(a? as b) -> b;
+val f = fn ~(a as (Some b : option int) = x) c -> b + c;
+val f = fn ~a? -> a;
+val f = fn ~(a? as b) -> b;
 
 // apply labels
 do {
@@ -314,13 +314,13 @@ type f = ~(a? : t) -> b;
 type f = ~(a : t) -> ~(b? : t) -> c;
 
 sig S = {
-  v : a -> b;
-  v : a -> b -> c -> d;
-  v : ~(a : t) -> b;
-  v : x -> ~(a : t) -> b;
-  v : ~(a : t) -> b -> c;
-  v : ~(a? : t) -> b;
-  v : ~(a : t) -> ~(b? : t) -> c;
+  val v : a -> b;
+  val v : a -> b -> c -> d;
+  val v : ~(a : t) -> b;
+  val v : x -> ~(a : t) -> b;
+  val v : ~(a : t) -> b -> c;
+  val v : ~(a? : t) -> b;
+  val v : ~(a : t) -> ~(b? : t) -> c;
 };
 
 // This matches on an singleton array
@@ -330,30 +330,31 @@ sig S = {
 //let f = fn {~a} -> a + 1;
 
 // This wraps a single case.
-f = { a -> a + 1 };
-f = { a -> a + 1 } + 1;
-f = { a -> 1, b -> 2 };
-f = { a -> 1, (A | B) -> 2 };
+val f = fn { a -> a + 1 };
+val f = fn { a -> a + 1 } + 1;
+val f = fn { a -> 1, b -> 2 };
+val f = fn { a -> 1, (A | B) -> 2 };
 
 // Lambda argument
-x = xs |> List.map { x -> x + 1 };
+val x = xs |> List.map (fn { x -> x + 1 });
+//val x = xs |> List.map (fn { 1 -> a, 2 -> b });
 
 // if else
-x = if a b c;
-x = if a { x; b } { c };
-x = if a { x; b; } { y; c; };
-x = { if a { b } { c }; x; };
-x = if a { b } { c } + 1;
-x = if a b c + 1;
+val x = if a b c;
+val x = if a { x; b } { c };
+val x = if a { x; b; } { y; c; };
+val x = { if a { b } { c }; x; };
+val x = if a { b } { c } + 1;
+val x = if a b c + 1;
 // err
 //let x = if a { b } else c + 1;
 
 // if
-x = if a { b };
-x = if a { print_newline (); b; };
-x = if a { b + 1 };
-x = if a { b } + 1;
-x = if a b + 1;
+val x = if a { b };
+val x = if a { print_newline (); b; };
+val x = if a { b + 1 };
+val x = if a { b } + 1;
+val x = if a b + 1;
 
 // Syntax errors
 //let x = if a; x then b else c;
@@ -361,30 +362,30 @@ x = if a b + 1;
 // let + 1;
 
 // match
-x = match a {
+val x = match a {
   1 -> 0,
   2 -> b
 };
-x = match a { 1 -> 0 };
-x = match (a + b) {
+val x = match a { 1 -> 0 };
+val x = match (a + b) {
   1 -> 0,
   2 -> b
 };
-x = match a { 1 -> b, 2 -> c } + 100;
-x = match a {
+val x = match a { 1 -> b, 2 -> c } + 100;
+val x = match a {
   1 -> {
     print_endline "1";
     a
   },
   2 -> b
 };
-x = match a {
+val x = match a {
   1 -> 0,
   x if x > 0 -> b,
   _ -> 1
 };
 // "lambda match"
-x = a |> {
+val m = a |> fn {
   1 -> 0,
   2 -> b
 };
@@ -393,8 +394,8 @@ x = a |> {
 // x = match a { _ -> . };
 
 // try
-x = try (f ()) { a -> prerr_endline msg };
-x = try (f ()) {
+val x = try (f ()) { a -> prerr_endline msg };
+val x = try (f ()) {
   a -> prerr_endline msg,
   b -> bar
 };
@@ -404,30 +405,30 @@ mod M1 = X;
 mod M1 = M2.M3.X;
 mod M2 = {};
 mod M3 = {
-  a = 1;
-  b = 2;
+  val a = 1;
+  val b = 2;
 };
 
 // Module bindings with constraint
 mod M4 : {} = {};
-mod M5 : { x : int } = { x = 42 };
-mod M6 : { x : int; y : int; } = { x = 42; y = 2; };
+mod M5 : { val x : int } = { val x = 42 };
+mod M6 : { val x : int; val y : int; } = { val x = 42; val y = 2; };
 
 // Module type
 sig S1 = {
-  a : int;
-  b : bool;
+  val a : int;
+  val b : bool;
 };
 
 // open
 open M;
-x = {
+val x = {
   let a = 1;
   open M;
   a;
 };
 
-x = {
+val x = {
   open M;
   let a = 1;
   a;
@@ -486,8 +487,8 @@ do {
 };
 
 // value constraint
-v_constraint_1 : int = 42;
-v_constraint_2 : list (string, int) = [("a", 2), ("b", 3)];
+val v_constraint_1 : int = 42;
+val v_constraint_2 : list (string, int) = [("a", 2), ("b", 3)];
 // v_constraint_3 : type a . a = a;
 // v_constraint_4 : 'a . 'a  = a;
 
@@ -584,9 +585,9 @@ type t = ..;
 
 // Macro calls
 
-x = mc1! (2);
-x = mc2! (2) + 1;
-x = mc3! { <div> "hello" </div> };
+val x = mc1! (2);
+val x = mc2! (2) + 1;
+val x = mc3! { <div> "hello" </div> };
 //x = mc1! a b;
 //x = mc1! a b + 1;
 
@@ -606,7 +607,7 @@ x = mc3! { <div> "hello" </div> };
 // use String.Map as Smap { ... };
 
 // if cases
-x = if {
+val x = if {
   a > 1 -> "yes",
   a == 0 -> "maybe",
   else -> "no"

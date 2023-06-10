@@ -321,7 +321,7 @@ let x =
   | x when x > 0 -> b
   | _ -> 1
 
-let x =
+let m =
   a |> function
   | 1 -> 0
   | 2 -> b

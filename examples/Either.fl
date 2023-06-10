@@ -5,60 +5,60 @@
 
 open Stdlib.Either;
 
-left = v -> Left v;
-right = v -> Right v;
+val left = fn v -> Left v;
+val right = fn v -> Right v;
 
-is_left = {
+val is_left = fn {
   Left _ -> True,
   Right _ -> False
 };
 
-is_right = {
+val is_right = fn {
   Left _ -> False,
   Right _ -> True
 };
 
-find_left = {
+val find_left = fn {
   Left v -> Some v,
   Right _ -> None
 };
 
-find_right = {
+val find_right = fn {
   Left _ -> None,
   Right v -> Some v
 };
 
-map_left = f -> {
+val map_left = fn f -> fn {
   Left v -> Left (f v),
   Right _ as e -> e
 };
 
-map_right = f -> {
+val map_right = fn f -> fn {
   Left _ as e -> e,
   Right v -> Right (f v)
 };
 
-map = ~left ~right -> {
+val map = fn ~left ~right -> fn {
   Left v -> Left (left v),
   Right v -> Right (right v)
 };
 
-fold = ~left ~right -> {
+val fold = fn ~left ~right -> fn {
   Left v -> left v,
   Right v -> right v
 };
 
-iter = fold;
-for_all = fold;
+val iter = fold;
+val for_all = fold;
 
-equal = ~left ~right e1 e2 ->
+val equal = fn ~left ~right e1 e2 ->
   match (e1, e2) {
     (Left v1, Left v2) -> left v1 v2,
     (Right v1, Right v2) -> right v1 v2,
     (Left _, Right _) | (Right _, Left _) -> False
   };
 
-compare = ~left ~right e1 e2 ->
+val compare = fn ~left ~right e1 e2 ->
   match (e1, e2) {
     (Left v1, Left v2) -> left v1 v2,
     (Right v1, Right v2) -> right v1 v2,

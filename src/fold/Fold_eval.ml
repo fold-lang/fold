@@ -130,14 +130,26 @@ end = struct
       (* --- const --- *)
       | Const const -> E.pexp_constant ~loc:noloc (conv_const const)
       (* --- lambda --- *)
-      | Shape (_loc, "->", [ Seq args; body ]) -> eval_fn args body
-      | Shape (_loc, "->", [ arg; body ]) -> eval_fn [ arg ] body
-      | Scope ("{", Shape (_loc, "->", [ arg; body ]), "}") ->
-        eval_fn [ arg ] body
+      (* "fn" args... "->" body *)
+      | Shape (loc, "->", [ Shape (_, "fn", args); body ]) ->
+        eval_fn ~loc args body
+      (* "fn" arg "->" body *)
+      | Shape (loc, "->", [ Shape (_, "fn", [ arg; body ]) ]) ->
+        eval_fn ~loc [ arg ] body
+      (* "fn" "{" arg "->" body "}" *)
+      | Shape (loc, "fn", [ Scope ("{", Shape (_, "->", [ arg; body ]), "}") ])
+        -> eval_fn ~loc [ arg ] body
       (* --- fn_match --- *)
-      | Scope
-          ("{", Shape (_, ",", (Shape (_, "->", [ _; _ ]) :: _ as cases)), "}")
-        -> eval_fn_match cases
+      | Shape
+          ( loc
+          , "fn"
+          , [ Scope
+                ( "{"
+                , Shape (_, ",", (Shape (_, "->", [ _; _ ]) :: _ as cases))
+                , "}"
+                )
+            ]
+          ) -> eval_fn_match ~loc cases
       (* -- record -- *)
       (* `{ ~l, ...}` or `{ l = e, ... }` *)
       | Scope
@@ -425,7 +437,7 @@ end = struct
         let arg_ml = E.pexp_tuple ~loc (List.map eval args_fl) in
         E.pexp_construct ~loc (with_noloc id) (Some arg_ml)
 
-    and eval_fn (args_fl : fl list) (body_fl : fl) =
+    and eval_fn ?loc:_ (args_fl : fl list) (body_fl : fl) =
       let body_ml = eval body_fl in
       List.fold_left
         (fun acc (arg_fl : fl) ->
@@ -537,9 +549,9 @@ end = struct
         )
         body_ml (List.rev args_fl)
 
-    and eval_fn_match (cases_fl : fl list) =
+    and eval_fn_match ~loc (cases_fl : fl list) =
       let cases = List.map eval_case cases_fl in
-      E.pexp_function ~loc:noloc cases
+      E.pexp_function ~loc cases
 
     and eval_match ~loc exp_fl cases_fl =
       let exp_ml = eval exp_fl in
@@ -961,11 +973,15 @@ end = struct
   end = struct
     let rec eval (fl : fl) =
       match fl with
+      (* val _ = _ *)
+      | Shape (loc, "val", [ (Shape (_, "=", [ _lhs; _rhs ]) as vb) ])
       (* _ = _ *)
-      | Shape (loc, "=", [ _lhs; _rhs ]) ->
-        eval_item_value ~loc Asttypes.Nonrecursive [ fl ]
+      (* | Shape (loc, "=", [ _lhs; _rhs ])  *) ->
+        eval_item_value ~loc Asttypes.Nonrecursive [ vb ]
       (* _ = _, _ = _ *)
-      | Shape (loc, ",", vbl) -> eval_item_value ~loc Asttypes.Nonrecursive vbl
+      (* | Shape (loc, "val", [ Shape (_, "=", [ _lhs; _rhs ]) ]) *)
+      | Shape (loc, "val", [ Shape (_loc, ",", vbl) ]) ->
+        eval_item_value ~loc Asttypes.Nonrecursive vbl
       (* rec _ = _ *)
       | Shape (loc, "rec", [ (Shape (_loc, "=", [ _lhs; _rhs ]) as vb) ]) ->
         eval_item_value ~loc Asttypes.Recursive [ vb ]
@@ -1136,8 +1152,8 @@ end = struct
   end = struct
     let rec eval (fl : fl) =
       match fl with
-      (* name : ... *)
-      | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
+      (* val _ : _ *)
+      | Shape (loc, "val", [ Shape (_, ":", [ Ident (Lower name); type' ]) ]) ->
         make_value ~loc ~name ~type'
       | _ ->
         Fmt.epr "Eval.sig: %a@." Shaper.dump fl;

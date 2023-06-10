@@ -7,7 +7,7 @@
 //exception Continuation_already_resumed
 
 do {
-  let printer = {
+  let printer = fn {
     Unhandled x -> {
       let msg = Printf.sprintf "Stdlib.Effect.Unhandled(%s)"
           (Printexc.string_of_extension_constructor @@ Obj.repr x);
@@ -20,9 +20,9 @@ do {
 
 // Register the exceptions so that the runtime can access it
 //type _ t += Should_not_see_this__ : unit t
-_ = Callback.register_exception "Effect.Unhandled"
+val _ = Callback.register_exception "Effect.Unhandled"
           (Unhandled Should_not_see_this__);
-_ = Callback.register_exception "Effect.Continuation_already_resumed"
+val _ = Callback.register_exception "Effect.Continuation_already_resumed"
           Continuation_already_resumed;
 
 //type ('a, 'b) stack
@@ -42,12 +42,12 @@ mod Deep = {
 //    ('c t -> ('c, 'b) continuation -> last_fiber -> 'b) ->
 //    ('a, 'b) stack = "caml_alloc_stack"
 
-  continue = k v -> resume (take_cont_noexc k) (x -> x) v;
+  val continue = fn k v -> resume (take_cont_noexc k) (fn x -> x) v;
 
-  discontinue = k e -> resume (take_cont_noexc k) (e -> raise e) e;
+  val discontinue = fn k e -> resume (take_cont_noexc k) (fn e -> raise e) e;
 
-  discontinue_with_backtrace = k e bt ->
-    resume (take_cont_noexc k) (e -> Printexc.raise_with_backtrace e bt) e;
+  val discontinue_with_backtrace = fn k e bt ->
+    resume (take_cont_noexc k) (fn e -> Printexc.raise_with_backtrace e bt) e;
 
 //  type ('a,'b) handler =
 //    { retc: 'a -> 'b;
@@ -57,8 +57,8 @@ mod Deep = {
 //  external reperform :
 //    'a t -> ('a, 'b) continuation -> last_fiber -> 'b = "%reperform"
 
-  match_with = comp arg handler -> {
-    let effc = eff k last_fiber ->
+  val match_with = fn comp arg handler -> {
+    let effc = fn eff k last_fiber ->
       match (handler.effc eff) {
         Some f -> f k,
         None -> reperform eff k last_fiber
@@ -70,13 +70,13 @@ mod Deep = {
 //  type 'a effect_handler =
 //    { effc: 'b. 'b t -> (('b,'a) continuation -> 'a) option }
 
-  try_with = comp arg handler -> {
-    let effc' = eff k last_fiber ->
+  val try_with = fn comp arg handler -> {
+    let effc' = fn eff k last_fiber ->
       match (handler.effc eff) {
         Some f -> f k,
         None -> reperform eff k last_fiber
       };
-    let s = alloc_stack (x -> x) (e -> raise e) effc';
+    let s = alloc_stack (fn x -> x) (fn e -> raise e) effc';
     runstack s comp arg
   };
 
@@ -125,8 +125,8 @@ mod Shallow = {
 //  external reperform :
 //    'a t -> ('a, 'b) continuation -> last_fiber -> 'c = "%reperform"
 
-  continue_gen = k resume_fun v handler -> {
-    let effc = eff k last_fiber ->
+  val continue_gen = fn k resume_fun v handler -> {
+    let effc = fn eff k last_fiber ->
       match (handler.effc eff) {
         Some f -> f k,
         None -> reperform eff k last_fiber
@@ -135,14 +135,14 @@ mod Shallow = {
     resume stack resume_fun v
   };
 
-  continue_with = k v handler ->
-    continue_gen k (x -> x) v handler;
+  val continue_with = fn k v handler ->
+    continue_gen k (fn x -> x) v handler;
 
-  discontinue_with = k v handler ->
-    continue_gen k (e -> raise e) v handler;
+  val discontinue_with = fn k v handler ->
+    continue_gen k (fn e -> raise e) v handler;
 
-  discontinue_with_backtrace = k v bt handler ->
-    continue_gen k (e -> Printexc.raise_with_backtrace e bt) v handler;
+  val discontinue_with_backtrace = fn k v bt handler ->
+    continue_gen k (fn e -> Printexc.raise_with_backtrace e bt) v handler;
 
 //  external get_callstack :
 //    ('a,'b) continuation -> int -> Printexc.raw_backtrace =

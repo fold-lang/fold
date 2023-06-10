@@ -172,8 +172,15 @@ let prefix (tok : L.token) =
       as kwd
       ) -> Some (parse_prefix_kwd ~precedence:(Prec.juxt - 1) kwd)
   | Lower
-      ( ("let" | "rec" | "module" | "mod" | "sig" | "open" | "do" | "type") as
-      kwd
+      ( ( "let"
+        | "rec"
+        | "val"
+        | "module"
+        | "mod"
+        | "sig"
+        | "open"
+        | "do"
+        | "type" ) as kwd
       ) -> Some (parse_prefix_kwd ~precedence:Prec.item kwd)
   (* prefix tight *)
   | Sym (("#" | "'") as kwd) ->
@@ -207,6 +214,7 @@ let infix (tok : L.token) =
       | "match"
       | "let"
       | "rec"
+      | "val"
       | "fn"
       | "module"
       | "mod"
