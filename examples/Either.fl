@@ -55,7 +55,7 @@ let equal~left ~right e1 e2 =
   match (e1, e2) {
     (Left v1, Left v2) -> left v1 v2,
     (Right v1, Right v2) -> right v1 v2,
-    (Left _, Right _) | (Right _, Left _) -> False
+    ((Left _, Right _) | (Right _, Left _)) -> False
   };
 
 let compare ~left ~right e1 e2 =

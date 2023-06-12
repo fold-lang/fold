@@ -6,7 +6,7 @@ module Eval (E : Fold_ast_builder.S) : sig
   val core_type : fl -> E.core_type
   val value_binding : fl -> E.value_binding
   val module_binding : fl -> E.module_binding
-  val structure_item : fl -> E.structure_item
+  val structure_item : ?attrs:E.attributes -> fl -> E.structure_item
   val structure : fl -> E.structure_item list
 end = struct
   open struct
@@ -683,7 +683,6 @@ end = struct
         let pat = E.ppat_var ~loc (with_loc loc ident) in
         let expr = Expression.eval_fn args body in
         let vbl_ml = [ E.value_binding ~loc ~pat ~expr ] in
-        (* let vbl_ml = [ Value_binding.eval vb ] in *)
         let body_ml = eval_block ~loc xs in
         E.pexp_let ~loc Asttypes.Nonrecursive vbl_ml body_ml
       (* let _ *)
@@ -702,10 +701,38 @@ end = struct
         let vbl_ml = [ Value_binding.eval vb ] in
         let body_ml = eval_block ~loc xs in
         E.pexp_let ~loc Asttypes.Recursive vbl_ml body_ml
+      (* "mod" upper "=" mexpr ... *)
+      | Shape
+          ( loc
+          , "mod"
+          , [ Shape
+                ( eq_loc
+                , "="
+                , [ Ident (Upper mname | Lower ("_" as mname)); mexp ]
+                )
+            ]
+          )
+        :: items ->
+        let mname =
+          with_loc eq_loc (if String.equal mname "_" then None else Some mname)
+        in
+        let mexp = Module_expr.eval mexp in
+        E.pexp_letmodule ~loc mname mexp (eval_block ~loc items)
+      (* "open" mexpr ... *)
       | Shape (loc, "open", [ mexpr ]) :: items ->
         let mexpr = Module_expr.eval mexpr in
         let decl = E.open_infos ~loc ~expr:mexpr ~override:Asttypes.Fresh in
         E.pexp_open ~loc decl (eval_block ~loc items)
+      (* TODO: incomplete *)
+      (* "exception" upper ... *)
+      | Shape (loc, "exception", Ident (Upper name) :: args) :: items ->
+        let kind =
+          E.pext_decl [] (E.pcstr_tuple (List.map Core_type.eval args)) None
+        in
+        let ext_cons =
+          E.extension_constructor ~loc ~name:(with_loc loc name) ~kind
+        in
+        E.pexp_letexception ~loc ext_cons (eval_block ~loc items)
       | item :: items -> E.pexp_sequence ~loc (eval item) (eval_block ~loc items)
 
     and eval_let_in_unit ~loc rec_flag vbl_fl =
@@ -764,11 +791,26 @@ end = struct
       (* A ... *)
       | Seq (Ident (Upper a) :: args) ->
         pat_construct (with_noloc (Ident.Lident a)) args
+      (* M.A *)
+      | Shape (_loc, "ident", _) ->
+        let ident = eval_expident fl in
+        pat_construct ident []
+      (* M.A ... *)
+      | Seq ((Shape (_loc, "ident", _) as id) :: args) ->
+        let ident = eval_expident id in
+        pat_construct ident args
       (* _ as _ *)
       | Shape (loc, "as", [ pat; Ident (Lower alias) ]) ->
         let pat = eval pat in
         let alias = with_loc loc alias in
         E.ppat_alias ~loc pat alias
+      (* exception ... *)
+      | Shape (loc, "exception", Ident (Upper name) :: args) ->
+        let pat = pat_construct (with_noloc (Ident.Lident name)) args in
+        E.ppat_exception ~loc pat
+      | Shape (loc, "exception", [ Ident (Lower name) ]) ->
+        let pat = eval_var ~loc name in
+        E.ppat_exception ~loc pat
       (* _ | _ *)
       | Shape (loc, "_|_", [ a; b ]) ->
         let a = eval a in
@@ -813,6 +855,48 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       | Scope ("(", fl, ")") -> eval fl
+      (* pat ":" new var "::" t "=" expr *)
+      | Shape
+          ( loc
+          , "="
+          , [ Shape
+                ( constraint_loc
+                , ":"
+                , [ pat
+                  ; Shape
+                      ( colon_colon_loc
+                      , "::"
+                      , [ Seq (Ident (Lower "new") :: vars); typ ]
+                      )
+                  ]
+                )
+            ; exp
+            ]
+          ) ->
+        let vars =
+          List.map
+            (function
+              | (Ident (Lower id) : fl) -> with_loc colon_colon_loc id
+              | _ -> failwith "invalid type variable in type constraint"
+              )
+            vars
+        in
+        let typ = Core_type.eval typ in
+        let pat =
+          let pat_base = Pattern.eval pat in
+          let typ_poly = E.ptyp_poly ~loc:colon_colon_loc vars typ in
+          E.ppat_constraint ~loc:constraint_loc pat_base typ_poly
+        in
+        let expr =
+          let exp_base = Expression.eval exp in
+          let exp_constraint =
+            E.pexp_constraint ~loc:constraint_loc exp_base typ
+          in
+          List.fold_left
+            (fun acc t -> E.pexp_newtype ~loc:colon_colon_loc t acc)
+            exp_constraint (List.rev vars)
+        in
+        E.value_binding ~loc ~pat ~expr
       (* (_ : _) = _ *)
       | Shape (loc, "=", [ Shape (constraint_loc, ":", [ pat; typ ]); expr ]) ->
         let typ = Core_type.eval typ in
@@ -831,15 +915,29 @@ end = struct
   end
 
   and Value_description : sig
-    val eval : fl -> E.value_description
+    val eval : ?attrs:E.attributes -> fl -> E.value_description
   end = struct
-    let eval (fl : fl) =
+    let eval ?(attrs = []) (fl : fl) =
       match fl with
       (* name : ... *)
       | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
         let name = with_loc loc name in
         let type' = Core_type.eval type' in
-        E.value_description ~loc ~name ~type_:type' ~prim:[]
+        E.value_description ~attrs ~loc ~name ~type_:type' ~prim:[] ()
+      | Shape
+          ( loc
+          , "="
+          , [ Shape
+                ( _
+                , ":"
+                , [ (Ident (Lower name) | Scope ("(", Sym name, ")")); typ ]
+                )
+            ; Const (String str)
+            ]
+          ) ->
+        let name = with_loc loc name in
+        let type' = Core_type.eval typ in
+        E.value_description ~attrs ~loc ~name ~type_:type' ~prim:[ str ] ()
       | _ ->
         Fmt.epr "not a vb: %a@." Shaper.dump fl;
         assert false
@@ -856,8 +954,10 @@ end = struct
       | Scope ("(", fl, ")") -> eval fl
       (* a *)
       | Ident (Lower id) -> E.ptyp_constr ~loc (with_noloc (Ident.Lident id)) []
-      (* 'a *)
+      (* 'a, TODO: decide *)
       | Shape (loc, "'", [ Ident (Lower id) ]) -> E.ptyp_var ~loc id
+      (* A *)
+      | Ident (Upper id) -> E.ptyp_var ~loc (String.lowercase_ascii id)
       (* M.a.b *)
       | Shape (loc, "ident", _) ->
         let ident = eval_expident fl in
@@ -917,6 +1017,30 @@ end = struct
         let arg = eval arg in
         let ret = eval ret in
         E.ptyp_arrow ~loc Asttypes.Nolabel arg ret
+      (* vars... "::" t *)
+      | Shape (loc, "::", [ Seq vars; t ]) ->
+        let vars =
+          List.map
+            (* TODO: decide which one *)
+              (function
+              | (Shape (loc, "'", [ Ident (Lower v) ]) : fl) -> with_loc loc v
+              | (Ident (Upper v) : fl) -> with_loc loc (String.lowercase_ascii v)
+              | _ -> failwith "invalid poly var in type"
+              )
+            vars
+        in
+        let t = eval t in
+        E.ptyp_poly ~loc vars t
+      (* var "::" t, TODO: decide *)
+      | Shape (loc, "::", [ Shape (v_loc, "'", [ Ident (Lower v) ]); t ]) ->
+        let vars = [ with_loc v_loc v ] in
+        let t = eval t in
+        E.ptyp_poly ~loc vars t
+      (* var "::" t *)
+      | Shape (loc, "::", [ Ident (Upper v); t ]) ->
+        let vars = [ with_loc loc (String.lowercase_ascii v) ] in
+        let t = eval t in
+        E.ptyp_poly ~loc vars t
       | _ ->
         Fmt.epr "%a@." Shaper.dump fl;
         failwith "todo: core type"
@@ -993,9 +1117,9 @@ end = struct
   end
 
   and Structure_item : sig
-    val eval : fl -> E.structure_item
+    val eval : ?attrs:E.attributes -> fl -> E.structure_item
   end = struct
-    let rec eval (fl : fl) =
+    let rec eval ?(attrs = []) (fl : fl) =
       match fl with
       (* let f ... = _ *)
       (* let (+) ... = _ *)
@@ -1015,12 +1139,8 @@ end = struct
             ]
           ) -> eval_item_value_fn ~loc Asttypes.Nonrecursive ident args body
       (* let _ = _ *)
-      | Shape (loc, "let", [ (Shape (_, "=", [ _lhs; _rhs ]) as vb) ])
-      (* _ = _ *)
-      (* | Shape (loc, "=", [ _lhs; _rhs ])  *) ->
+      | Shape (loc, "let", [ (Shape (_, "=", [ _lhs; _rhs ]) as vb) ]) ->
         eval_item_value ~loc Asttypes.Nonrecursive [ vb ]
-      (* _ = _, _ = _ *)
-      (* | Shape (loc, "val", [ Shape (_, "=", [ _lhs; _rhs ]) ]) *)
       | Shape (loc, "let", [ Shape (_loc, ",", vbl) ]) ->
         eval_item_value ~loc Asttypes.Nonrecursive vbl
       (* rec _ = _ *)
@@ -1029,20 +1149,40 @@ end = struct
       (* rec _ = _, _ = _ *)
       | Shape (loc, "rec", [ Shape (_loc, ",", vbl) ]) ->
         eval_item_value ~loc Asttypes.Recursive vbl
+      (* "external" lower ":" t "=" string *)
+      | Shape (loc, "external", [ vd ]) ->
+        E.pstr_primitive ~loc (Value_description.eval ~attrs vd)
       (* mod _ = _ *)
       | Shape (loc, ("module" | "mod"), [ mb ]) -> eval_item_module ~loc mb
       | Shape (loc, "sig", [ Shape (_, "=", [ Ident (Upper name); mod_ty ]) ])
         -> eval_item_module_type ~loc ~name mod_ty
+      (* "open" mexp *)
       | Shape (loc, "open", [ mexp ]) -> eval_item_open ~loc mexp
+      (* "do" _ *)
       | Shape (loc, "do", [ exp ]) ->
         let unit = Shaper.parens (Shaper.seq []) in
         let vb = Shaper.shape "=" [ unit; exp ] in
         eval_item_value ~loc Asttypes.Nonrecursive [ vb ]
       (* --- type --- *)
       | Shape (loc, "type", args) ->
-        eval_type ~loc ~private_flag:Asttypes.Public args
-      (* --- type attributes --- *)
+        eval_type ~attrs ~loc ~private_flag:Asttypes.Public args
+      (* --- attributes --- *)
+      | Shape (loc, "@", [ Ident (Lower name); item ]) ->
+        let attr =
+          E.attribute ~loc ~name:(with_loc loc name) ~payload:(E.pstr [])
+        in
+        eval ~attrs:[ attr ] item
+      (* --- TODO type attributes --- *)
       (* | Shape (loc, "@", []) *)
+      (* "exception" upper ... *)
+      | Shape (loc, "exception", Ident (Upper name) :: args) ->
+        let kind =
+          E.pext_decl [] (E.pcstr_tuple (List.map Core_type.eval args)) None
+        in
+        let ext_cons =
+          E.extension_constructor ~loc ~name:(with_loc loc name) ~kind
+        in
+        E.pstr_exception ~loc (E.type_exception ~loc ext_cons)
       (* --- *)
       | Ident _ | Const _ | Sym _ | Seq (_ :: _) | Scope _ | Seq _ ->
         eval_eval ~loc:noloc fl
@@ -1079,18 +1219,33 @@ end = struct
 
     and eval_eval ~loc fl = E.pstr_eval ~loc (Expression.eval fl) []
 
-    and eval_constructor_declaration ~loc (fl : fl) =
+    and eval_constructor_declaration ~loc (fl : fl) : E.constructor_declaration
+        =
       match fl with
       (* A *)
       | Ident (Upper a) ->
         E.constructor_declaration ~loc ~name:(with_noloc a)
           ~args:(E.pcstr_tuple []) ~res:None
+      (* A : t -> r *)
+      | Shape (loc, ":", [ Ident (Upper name); Shape (_, "->", [ arg; res ]) ])
+        ->
+        let arg = Core_type.eval arg in
+        let res = Core_type.eval res in
+        E.constructor_declaration ~loc ~name:(with_noloc name)
+          ~args:(E.pcstr_tuple [ arg ]) ~res:(Some res)
+      (* A : t *)
+      | Shape (loc, ":", [ Ident (Upper a); res ]) ->
+        let res = Core_type.eval res in
+        E.constructor_declaration ~loc ~name:(with_noloc a)
+          ~args:(E.pcstr_tuple []) ~res:(Some res)
       (* A ... *)
       | Seq (Ident (Upper a) :: args) ->
         let args = List.map Core_type.eval args in
         E.constructor_declaration ~loc ~name:(with_noloc a)
           ~args:(E.pcstr_tuple args) ~res:None
-      | _ -> assert false
+      | _ ->
+        Fmt.epr ">>> %a@." Shaper.dump fl;
+        assert false
 
     and eval_label_declaration ~loc (fl : fl) =
       match fl with
@@ -1112,35 +1267,41 @@ end = struct
         let type' = Core_type.eval type' in
         E.label_declaration ~loc ~name:(with_loc loc name)
           ~mutable_:Asttypes.Immutable ~type_:type'
-      | _ -> assert false
+      | _ ->
+        Fmt.epr ">>> %a@." Shaper.dump fl;
+        assert false
 
-    and eval_type_kind ~loc (fl : fl) =
+    and eval_type_kind ~loc (fl : fl) : E.type_kind =
+      (* TODO: make sure that there's no conflict between { A ... } and { a = ... } *)
       match fl with
       (* A *)
       (* { A } *)
-      | Ident (Upper a) | Scope ("{", Ident (Upper a), "}") ->
-        let cd =
-          E.constructor_declaration ~loc ~name:(with_noloc a)
-            ~args:(E.pcstr_tuple []) ~res:None
-        in
+      | (Ident (Upper _) as cd) | Scope ("{", (Ident (Upper _) as cd), "}") ->
+        let cd = eval_constructor_declaration ~loc cd in
+        E.ptype_variant [ cd ]
+      (* A : t *)
+      (* { A : t } *)
+      | (Shape (loc, ":", [ Ident (Upper _); _ ]) as cd)
+      | Scope ("{", (Shape (loc, ":", [ Ident (Upper _); _ ]) as cd), "}") ->
+        let cd = eval_constructor_declaration ~loc cd in
         E.ptype_variant [ cd ]
       (* A ... *)
       (* { A ... } *)
-      | Seq (Ident (Upper a) :: args)
-      | Scope ("{", Seq (Ident (Upper a) :: args), "}") ->
-        let cd =
-          let args = List.map Core_type.eval args in
-          E.constructor_declaration ~loc ~name:(with_noloc a)
-            ~args:(E.pcstr_tuple args) ~res:None
-        in
+      | (Seq (Ident (Upper _) :: _) as cd)
+      | Scope ("{", (Seq (Ident (Upper _) :: _) as cd), "}") ->
+        let cd = eval_constructor_declaration ~loc cd in
         E.ptype_variant [ cd ]
       (* { ... | ... } *)
       | Scope ("{", Shape (loc, "_|_", cds_fl), "}") ->
         let cdl = List.map (eval_constructor_declaration ~loc) cds_fl in
         E.ptype_variant cdl
       (* { ... , ... } *)
-      | Scope ("{", Shape (loc, ",", cds_fl), "}") ->
-        let ldl = List.map (eval_label_declaration ~loc) cds_fl in
+      | Scope ("{", Shape (loc, ",", ldl_fl), "}") ->
+        let ldl = List.map (eval_label_declaration ~loc) ldl_fl in
+        E.ptype_record ldl
+      (* { _ }, _ non Upper *)
+      | Scope ("{", ld_fl, "}") ->
+        let ldl = [ eval_label_declaration ~loc ld_fl ] in
         E.ptype_record ldl
       (* .. *)
       | Sym ".." -> E.ptype_open
@@ -1148,7 +1309,8 @@ end = struct
       (* a t *)
       | _ -> E.ptype_abstract
 
-    and make_type ~loc rec_flag name private_ (rhs : fl option) =
+    and make_type ~loc ?attrs rec_flag name private_ ?(params : fl list = [])
+        (rhs : fl option) =
       let name = with_noloc name in
       let kind, manifest =
         match rhs with
@@ -1165,30 +1327,107 @@ end = struct
         )
         | None -> (E.ptype_abstract, None)
       in
+      let params =
+        List.map
+          (function
+            | (Shape (loc, "'", [ Ident (Lower var) ]) : fl) ->
+              let t = E.ptyp_var ~loc var in
+              (t, (Asttypes.NoVariance, Asttypes.NoInjectivity))
+            | (Ident (Upper var) : fl) ->
+              let t = E.ptyp_var ~loc (String.lowercase_ascii var) in
+              (t, (Asttypes.NoVariance, Asttypes.NoInjectivity))
+            | (Ident (Lower "_") : fl) ->
+              let t = E.ptyp_any ~loc in
+              (t, (Asttypes.NoVariance, Asttypes.NoInjectivity))
+            | _ -> failwith "invalid type param"
+            )
+          params
+      in
       let td =
-        E.type_declaration ~loc:noloc ~name ~params:[] ~cstrs:[] ~kind ~private_
-          ~manifest
+        E.type_declaration ?attrs ~loc:noloc ~name ~params ~cstrs:[] ~kind
+          ~private_ ~manifest ()
       in
       E.pstr_type ~loc rec_flag [ td ]
 
-    and eval_type ~loc ~private_flag (args : fl list) =
+    and eval_extension_constructor ~loc (fl : fl) : E.extension_constructor =
+      match fl with
+      (* A *)
+      | Ident (Upper name) ->
+        let cons_args = E.pcstr_tuple [] in
+        let kind = E.pext_decl [] cons_args None in
+        E.extension_constructor ~loc ~name:(with_loc loc name) ~kind
+      (* A args... *)
+      | Seq (Ident (Upper name) :: args) ->
+        let cons_args = E.pcstr_tuple (List.map Core_type.eval args) in
+        let kind = E.pext_decl [] cons_args None in
+        E.extension_constructor ~loc ~name:(with_loc loc name) ~kind
+      (* A : t -> r *)
+      | Shape (loc, ":", [ Ident (Upper name); Shape (_, "->", [ arg; res ]) ])
+        ->
+        let cons_args = E.pcstr_tuple (List.map Core_type.eval [ arg ]) in
+        let kind = E.pext_decl [] cons_args (Some (Core_type.eval res)) in
+        E.extension_constructor ~loc ~name:(with_loc loc name) ~kind
+      (* A : t *)
+      | Shape (loc, ":", [ Ident (Upper name); res ]) ->
+        let cons_args = E.pcstr_tuple [] in
+        let kind = E.pext_decl [] cons_args (Some (Core_type.eval res)) in
+        E.extension_constructor ~loc ~name:(with_loc loc name) ~kind
+      | _ ->
+        Fmt.epr ">>> %a@." Shaper.dump fl;
+        assert false
+
+    and make_type_ext ~loc ~path private_ ?(params : fl list = []) (rhs : fl) =
+      let constructors = [ eval_extension_constructor ~loc rhs ] in
+      let params =
+        (* TODO: refactor into eval type var *)
+        List.map
+          (function
+            | (Shape (loc, "'", [ Ident (Lower var) ]) : fl) ->
+              let t = E.ptyp_var ~loc var in
+              (t, (Asttypes.NoVariance, Asttypes.NoInjectivity))
+            | (Ident (Lower "_") : fl) ->
+              let t = E.ptyp_any ~loc in
+              (t, (Asttypes.NoVariance, Asttypes.NoInjectivity))
+            | _ -> failwith "invalid type param"
+            )
+          params
+      in
+      let te =
+        E.type_extension ~loc
+          ~path:(with_noloc (Ident.Lident path))
+          ~params ~constructors ~private_
+      in
+      E.pstr_typext ~loc te
+
+    and eval_type ~loc ?attrs ~private_flag (args : fl list) =
       match args with
-      (* type t *)
-      | [ Ident (Lower name) ] ->
-        make_type ~loc Asttypes.Recursive name private_flag None
-      (* type nonrec t. *)
-      | [ Ident (Lower "nonrec"); Ident (Lower name) ] ->
-        make_type ~loc Nonrecursive name private_flag None
+      (* type nonrec t params... *)
+      | Ident (Lower "nonrec") :: Ident (Lower name) :: params ->
+        make_type ~loc ?attrs Nonrecursive name private_flag ~params None
+      (* type t params... *)
+      | Ident (Lower name) :: params ->
+        make_type ~loc ?attrs Asttypes.Recursive name private_flag ~params None
       (* type t = ...rhs *)
       | [ Shape (loc, "=", [ Ident (Lower name); rhs ]) ] ->
-        make_type ~loc Recursive name private_flag (Some rhs)
-      (* type nonrec t = ... *)
+        make_type ~loc ?attrs Recursive name private_flag (Some rhs)
+      (* type nonrec t ... = ... *)
       | [ Shape
             ( loc
             , "="
-            , [ Seq [ Ident (Lower "nonrec"); Ident (Lower name) ]; rhs ]
+            , [ Seq (Ident (Lower "nonrec") :: Ident (Lower name) :: params)
+              ; rhs
+              ]
             )
-        ] -> make_type ~loc Nonrecursive name private_flag (Some rhs)
+        ] -> make_type ~loc Nonrecursive name private_flag ~params (Some rhs)
+      (* type t ... = ...rhs *)
+      | [ Shape (loc, "=", [ Seq (Ident (Lower name) :: params); rhs ]) ] ->
+        make_type ~loc ?attrs Recursive name private_flag ~params (Some rhs)
+      (* "type" lower params... "+=" = _ *)
+      | [ Shape (loc, "+=", [ Seq (Ident (Lower path) :: params); rhs ]) ] ->
+        make_type_ext ~loc ~path private_flag ~params rhs
+      (* "type" lower "+=" = _ *)
+      | [ Shape (loc, "+=", [ Ident (Lower path); rhs ]) ] ->
+        make_type_ext ~loc ~path private_flag ~params:[] rhs
       | _ ->
         Fmt.epr "Eval.str: %a@." (Fmt.Dump.list Shaper.dump) args;
         assert false
@@ -1199,18 +1438,18 @@ end = struct
   end = struct
     let rec eval (fl : fl) =
       match fl with
-      (* val _ : _ *)
+      (* "val" _ ":" _ *)
       | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
-        make_value ~loc ~name ~type'
+        let name = with_loc loc name in
+        let type' = Core_type.eval type' in
+        let vd = E.value_description ~loc ~name ~type_:type' ~prim:[] () in
+        E.psig_value ~loc vd
+      (* "external" lower ":" t "=" string *)
+      | Shape (loc, "external", [ vd ]) ->
+        E.psig_value ~loc (Value_description.eval vd)
       | _ ->
         Fmt.epr "Eval.sig: %a@." Shaper.dump fl;
         assert false
-
-    and make_value ~loc ~name ~type' =
-      let name = with_loc loc name in
-      let type' = Core_type.eval type' in
-      let vd = E.value_description ~loc ~name ~type_:type' ~prim:[] in
-      E.psig_value ~loc vd
   end
 
   let structure (fl : fl) =

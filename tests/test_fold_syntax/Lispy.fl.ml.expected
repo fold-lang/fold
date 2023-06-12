@@ -75,6 +75,26 @@ let () =
   f a (M3.g 2) (f2 M4.M5.x) (h M6.c d e);
   f M.a b
 
+let l01 = [ [] ]
+let l02 = [ [ [] ] ]
+let l03 = [ [ 1 ]; [ 2 ]; []; [ 3; 4 ]; [ 5 ] ]
+let l04 = []
+let l05 = [ 1 ]
+let l06 = [ 1; 2 ]
+let l07 = [ 1; 2; 3 ]
+let l08 = 0 :: xs
+let l09 = 1 :: 2 :: xs
+let l10 = [ 1; 2 ]
+let l11 = [ 1; 2; 3; 4 ]
+let l12 = [ 1; 2; 3; 4; 5; 6 ];;
+
+();;
+1;;
+"abc";;
+print_newline ();;
+print_endline (string_of_int (a + b));;
+2 + 2
+
 let val_1 = 1
 
 let val_2 = 1
@@ -92,22 +112,18 @@ and a = 1
 let a = (42 + 10 - 2) / 2
 let () = ()
 let () = a
-let l01 = [ [] ]
-let l02 = [ [ [] ] ]
-let l03 = [ [ 1 ]; [ 2 ]; []; [ 3; 4 ]; [ 5 ] ]
-let l04 = []
-let l05 = [ 1 ]
-let l06 = [ 1; 2 ]
-let l07 = [ 1; 2; 3 ]
-let l08 = 0 :: xs
-let l09 = 1 :: 2 :: xs
-let l10 = [ 1; 2 ]
-let l11 = [ 1; 2; 3; 4 ]
-let l12 = [ 1; 2; 3; 4; 5; 6 ];;
 
-();;
-print_newline ();;
-print_endline (string_of_int (a + b))
+exception A
+exception A of t1
+exception A of t1 * t2
+
+external prim1 : t = "x"
+external prim2 : t1 -> 'a t2 = "x"
+
+module type S = sig
+  external prim1 : t = "x"
+  external prim2 : t1 -> 'a t2 = "x"
+end
 
 let let_01 =
   let a = 1 in
@@ -149,6 +165,30 @@ let let_09 =
   ()
 ;;
 
+let module X = struct
+  let x = 1
+end in
+X.x
+;;
+
+let module _ = struct
+  let x = 1
+end in
+2
+;;
+
+let exception My_error in
+1
+;;
+
+let exception My_error of int in
+1
+;;
+
+let exception My_error of int * bool in
+1
+;;
+
 a;;
 a;;
 
@@ -174,6 +214,16 @@ f ();
 let a = 1 in
 a
 
+let A = a
+let M.A = a
+let M1.M2.A = a
+let (A 1) = a
+let (M.A 1) = a
+let (M1.M2.A 1) = a
+let (A (1, 2)) = a
+let (M.A (1, 2)) = a
+let (M1.M2.A (1, 2)) = a
+let (M1.M2.A (M3.B 1, 2, M4.M5.C (3, "x"))) = a
 let [] = x
 let (1 :: []) = x
 let [ 1; 2 ] = x
@@ -194,6 +244,20 @@ let r10 = { r with a; b = 1 }
 let r11 = { r with a }
 let r12 = { r with a; b }
 let r13 = { r with a = 1 }
+let f a = a + 1
+let f () = ()
+let f a b = a + b
+let f (a : int) = a + 1
+let f ~a = a
+let f ~a = a
+let f ~(a : int) = a
+let f ?a:b = b
+let f ?(a = 1) b = a + b
+let f ?a:(b = 1) c = b + c
+let f ?a:(Some b = x) c = b + c
+let f ?a:(Some b : int option = x) c = b + c
+let f ?a = a
+let f ?a:b = b
 let f a = a + 1
 let f () = ()
 let f a b = a + b
@@ -326,6 +390,13 @@ let m =
   | 1 -> 0
   | 2 -> b
 
+let mexn01 =
+  match a with
+  | exception e -> 1
+  | exception My_error -> 1
+  | exception My_error (a, b, c) -> 1
+  | (exception My_error (a, b, c)) as x -> 1
+
 let x = try f () with a -> prerr_endline msg
 
 let x =
@@ -423,10 +494,50 @@ type t = A | B | C
 type t = A | B of int * bool
 type t = u = A
 type t = u = A | B of int
+type t = { a : int }
 type t = { a : int; b : bool list }
 type t = u = { a : int; b : bool list }
 type t = { mutable a : int; mutable b : bool list }
+type t = { a : 'a. int }
+type t = { a : 'a 'b. int }
+type t = { a : 'b. 'b t2 -> (('c, 'd) t3 -> 'd) option }
+type t = A : int
+type t = A : int -> t
+type t = A : (t1 * t2) -> t3
+type t = A : (t1 -> t2) -> t3
+type 'a t = A : int t
+type 'a t = A : int -> int t
+type 'a t = A : (t1 * t2) -> t2 t
+type 'a t = A : (t1 -> t2) -> (t1 -> t2) t
+type t = A : a | B : b
+type t = A : a | B : b | C : (c1 * c2) -> c3
+
+let v : type a. a -> int = x
+let v : type a b. a * b -> int = x
+
 type t = ..
+type t += A
+type t += A of int
+type t += A of int * bool
+type t += A of (int * bool)
+type 'a t += A
+type ('a, 'b) t += A
+type t += A : t
+type t += A : a -> t
+type 'a t
+type ('a, 'b) t
+type 'a t = A
+type ('a, 'b) t = A
+type nonrec 'a t
+type nonrec ('a, 'b) t
+type nonrec 'a t = A
+type nonrec ('a, 'b) t = A
+type _ t
+type _ t += A
+type ' a'b t
+type a [@@attr1]
+
+external a : t = "x" [@@attr2]
 
 let x = [%fl.mc1 "(2)"]
 let x = [%fl.mc2 "(2)"] + 1

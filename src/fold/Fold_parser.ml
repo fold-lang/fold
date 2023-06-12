@@ -161,21 +161,24 @@ let parse_prefix_kwd ~precedence kwd g l =
   | S.Seq items -> Ok (C.shape ~loc kwd items)
   | x -> Ok (C.shape ~loc kwd [ x ])
 
-(* let parse_fn g l =
-   let loc = L.loc l in
-   let* () = P.consume (Lower "fn") in
-   let *)
-
 let prefix (tok : L.token) =
   match tok with
   | Lower
-      ( ("fn" | "if" | "match" | "quote" | "unquote" | "for" | "while" | "try")
-      as kwd
+      ( ( "fn"
+        | "if"
+        | "match"
+        | "exception"
+        | "quote"
+        | "unquote"
+        | "for"
+        | "while"
+        | "try" ) as kwd
       ) -> Some (parse_prefix_kwd ~precedence:(Prec.juxt - 1) kwd)
   | Lower
       ( ( "let"
         | "rec"
         | "val"
+        | "external"
         | "module"
         | "mod"
         | "sig"
@@ -216,13 +219,14 @@ let infix (tok : L.token) =
       | "let"
       | "rec"
       | "val"
+      | "exception"
+      | "external"
       | "fn"
       | "module"
       | "mod"
       | "sig"
       | "type"
-      | "open"
-      | "val" ) -> Some P.infix_delimiter
+      | "open" ) -> Some P.infix_delimiter
   | Lower "if" ->
     Some (P.infix_binary 90 tok (fun a b -> Shaper.shape "_if_" [ a; b ]))
   | Lower (("to" | "downto") as kwd) ->
@@ -230,11 +234,25 @@ let infix (tok : L.token) =
   | Sym "#" -> None
   | Sym "&" ->
     Some (P.infix_binary Prec.ampr tok (fun a b -> Shaper.shape "&" [ a; b ]))
-  | Sym "=" -> Some (P.infix_right_binary Prec.equal (L.Sym "=") C.binding)
-  | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
-  | Sym "->" -> Some (P.infix_right_binary Prec.arrow tok C.arrow)
+  | Sym "=" -> Some (P.infix_right_binary Prec.equal tok C.binding)
+  | Sym "+=" ->
+    Some
+      (P.infix_right_binary Prec.equal tok (fun a b ->
+           Shaper.shape "+=" [ a; b ]
+       )
+      )
   | Sym "|" ->
     Some (P.infix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "_|_" xs))
+  | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
+  | Sym "::" ->
+    Some
+      (P.infix_binary Prec.colon_colon tok (fun a b ->
+           Shaper.shape "::" [ a; b ]
+       )
+      )
+  | Sym "->" -> Some (P.infix_right_binary Prec.arrow tok C.arrow)
+  (* | Sym "|" ->
+     Some (P.infix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "_|_" xs)) *)
   | Lower "as" ->
     Some (P.infix_binary Prec.as' tok (fun a b -> Shaper.shape "as" [ a; b ]))
   | Sym "." -> Some (parse_infix_dot, Prec.dot)

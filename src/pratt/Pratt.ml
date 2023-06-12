@@ -137,12 +137,9 @@ let parse_prefix g : 'a parser =
     | None -> g.default_prefix g l
     | Some rule -> rule g l
 
-let rec parse_infix' rbp left g : 'a parser =
+let rec parse_infix rbp left g : 'a parser =
  fun l ->
   let tok = Lexer.pick l in
-  (* XXX *)
-  (* if Lexer.is_eof tok then Ok left *)
-  (* else *)
   let rule, lbp =
     match Grammar.get_infix tok g with
     | Some infix -> infix
@@ -150,13 +147,13 @@ let rec parse_infix' rbp left g : 'a parser =
   in
   if lbp > rbp then
     let* left' = rule left g l in
-    parse_infix' rbp left' g l
+    parse_infix rbp left' g l
   else Ok left
 
 let parse ?precedence:(rbp = 0) g : 'a parser =
  fun l ->
   let* left = parse_prefix g l in
-  parse_infix' rbp left g l
+  parse_infix rbp left g l
 
 let run g l =
   match parse g l with

@@ -124,19 +124,6 @@ do {
 };
 
 
-// --- val ---
-
-let val_1 = 1;
-let val_2 = 1, x = 2;
-let val_3 = 1, a = 2, b = c;
-rec val_4 = 1;
-rec val_4 = 1, a = 1;
-let a = (42 + 10 - 2) / 2;
-
-let () = ();
-let () = a;
-
-
 // --- expr ---
 
 
@@ -154,12 +141,48 @@ let l11 = [1 & [2 & [3, 4]]];
 let l12 = [1, 2 & [3, 4 & [5, 6]]];
 
 
-// --- eval item ---
+// --- structure item: eval ---
 
 ();
+1;
+"abc";
 print_newline ();
 print_endline (string_of_int (a + b));
+2 + 2;
 
+
+// --- structure item: value ---
+
+let val_1 = 1;
+let val_2 = 1, x = 2;
+let val_3 = 1, a = 2, b = c;
+rec val_4 = 1;
+rec val_4 = 1, a = 1;
+let a = (42 + 10 - 2) / 2;
+
+let () = ();
+let () = a;
+
+
+// --- structure item: exception ---
+
+exception A;
+exception A t1;
+exception A t1 t2;
+
+
+// --- structure item: external ---
+
+external prim1 : t = "x";
+external prim2 : t1 -> t2 'a = "x";
+
+
+sig S = {
+  // --- signature item: external ---
+
+  external prim1 : t = "x";
+  external prim2 : t1 -> t2 'a = "x";
+};
 
 // --- let ---
 
@@ -214,6 +237,16 @@ let let_09 = {
   let b = 2;
 };
 
+// --- let module ---
+//{ mod X = { let x = 1 }; };
+{ mod X = { let x = 1 }; X.x };
+{ mod _ = { let x = 1 }; 2 };
+
+// let exception ---
+//{ exception My_error int string };
+{ exception My_error; 1 };
+{ exception My_error int; 1 };
+{ exception My_error int bool; 1 };
 
 // Scopes
 // { }; // array? unit?
@@ -229,6 +262,18 @@ let let_09 = {
   let a = 1;
   a
 };
+
+// pattern contruct
+let A = a;
+let M.A = a;
+let M1.M2.A = a;
+let A 1 = a;
+let M.A 1 = a;
+let M1.M2.A 1 = a;
+let A 1 2 = a;
+let M.A 1 2 = a;
+let M1.M2.A 1 2 = a;
+let M1.M2.A (M3.B 1) 2 (M4.M5.C (3, "x")) = a;
 
 // List patterns
 let [] = x;
@@ -406,6 +451,14 @@ let m = a |> fn {
   2 -> b
 };
 
+// match exception
+let mexn01 = match a {
+  exception e -> 1,
+  exception My_error -> 1,
+  exception My_error a b c -> 1,
+  exception My_error a b c as x -> 1
+};
+
 // match refute?
 // x = match a { _ -> . };
 
@@ -508,7 +561,7 @@ let v_constraint_2 : list (string, int) = [("a", 2), ("b", 3)];
 // v_constraint_3 : type a . a = a;
 // v_constraint_4 : 'a . 'a  = a;
 
-// type
+// type declaration
 type t;
 type nonrec t;
 type t = int;
@@ -537,14 +590,84 @@ type t = u == A;
 type t = u == { A | B int };
 
 // type record
+type t = { a : int };
 type t = { a : int, b : list bool };
 type t = u == { a : int, b : list bool };
 type t = { a : mutable int, b : mutable (list bool) };
+
+// type record polymorphic type
+type t = { a : 'a :: int };
+type t = { a : 'a 'b :: int };
+type t = { a : 'b :: t2 'b -> option (t3 'c 'd -> 'd) };
+
+// type gadt
+type t = A : int;
+type t = A : int -> t;
+type t = A : (t1, t2) -> t3;
+type t = A : (t1 -> t2) -> t3;
+
+type t 'a = A : t int;
+type t 'a = A : int -> t int;
+type t 'a = A : (t1, t2) -> t t2;
+type t 'a = A : (t1 -> t2) -> t (t1 -> t2);
+
+type t = { A : a | B : b };
+type t = { A : a | B : b | C : (c1, c2) -> c3 };
+
+// err
+//type t = A : t1 -> t2 -> t3;
+
+// new type
+let v : new a :: a -> int = x;
+let v : new a b :: (a, b) -> int = x;
+
+// type extensibe
 type t = ..;
+
+// type extension
+type t += A;
+type t += A int;
+type t += A int bool;
+type t += A (int, bool);
+type t 'a += A;
+type t 'a 'b += A;
+
+type t += A : t;
+type t += A : a -> t;
+
+
+// TODO
+//type t += { A | B };
 
 // type private
 // @private
 // type t = int;
+
+// type params
+type t 'a;
+type t 'a 'b;
+type t 'a = A;
+type t 'a 'b = A;
+type nonrec t 'a;
+type nonrec t 'a 'b;
+type nonrec t 'a = A;
+type nonrec t 'a 'b = A;
+
+type t _;
+type t _ += A;
+
+// edge cases
+type t 'a'b; // a'b is an id
+
+// TODO injectivity variance
+
+// --- structure item: attributes ---
+
+@attr1
+type a;
+
+@attr2
+external a : t = "x";
 
 // @(derive debug)
 // type t = int;
@@ -630,7 +753,16 @@ let x = if {
 };
 
 // lambda with holes
-// List.map (f _ x)
+// List.map (fn { f _ x })
+
+// lambda id
+// List.map (fn)
+
+// lambda const
+// List.map (fn 1)
+
+// lambda const
+// List.map (fn { 2 + 2 })
 
 
 //do {
@@ -639,3 +771,26 @@ let x = if {
 //    None -> ()
 //  }
 //}
+
+// fn template
+//f1 = fn { 2 + _ } 1;
+//f1 = 0 |> fn { List.fold_left _ (+) [1, 2, 3] };
+
+// bind
+//b1 = {
+//  let user <- await Db.get_user ();
+//  match <- await Db.get_user () {
+//    Some u -> u,
+//    None -> failwith "no"
+//  }
+//};
+
+// record fn
+//let rfn01 = {
+//  f x = x + 1,
+//  g x y = x - y
+//};
+
+// assoc list
+//[ "a" = 1, "b" = 2 ]
+//[ 2 = 1, 3 = 2 ]

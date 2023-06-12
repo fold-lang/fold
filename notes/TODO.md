@@ -14,3 +14,13 @@
 - [ ] Err: check for `{, ...}` as an incorrect syntax for records.
 - [ ] `match a { _ }` where `_` is `_ -> raise Match_failure __LOC__`.
 - [ ] Allow splicing ast calls.
+- [ ] Consider packaging fold as an ocaml-variants opam package.
+  - Preserve comments when parsing;
+  - Better formatting for errors;
+  - Implicit handling of ml and fl files;
+  - Easier to apply patches if necessary.
+- [ ] Special handling of keywords in parentheses:
+  - `(assert)` - fun a -> assert a
+  - `(if)` - fun a b c -> if a b c
+  - `(fn)` - identity function
+  - `(raise)`

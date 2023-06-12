@@ -1,10 +1,10 @@
 // https://github.com/ocaml/ocaml/blob/trunk/stdlib/effect.ml
 
-//type t 'a = ..;
-//external perform : 'a t -> 'a = "%perform"
+type t A = ..;
+external perform : t A -> A = "%perform";
 
-//type exn += Unhandled: 'a t -> exn
-//exception Continuation_already_resumed
+type exn += Unhandled : t A -> exn;
+exception Continuation_already_resumed;
 
 do {
   let printer = fn {
@@ -19,28 +19,29 @@ do {
 };
 
 // Register the exceptions so that the runtime can access it
-//type _ t += Should_not_see_this__ : unit t
+type t _ += Should_not_see_this__ : t unit;
 let _ = Callback.register_exception "Effect.Unhandled"
           (Unhandled Should_not_see_this__);
 let _ = Callback.register_exception "Effect.Continuation_already_resumed"
           Continuation_already_resumed;
 
-//type ('a, 'b) stack
+type stack A B;
 
-//external resume : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%resume"
-//external runstack : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%runstack"
+external resume : stack A B -> (C -> A) -> C -> B = "%resume";
+external runstack : stack A B -> (C -> A) -> C -> B = "%runstack";
 
 mod Deep = {
-//  type ('a,'b) continuation
+  type continuation A B;
   type last_fiber;
 
-//  external take_cont_noexc : ('a, 'b) continuation -> ('a, 'b) stack =
-//    "caml_continuation_use_noexc" [@@noalloc]
-//  external alloc_stack :
-//    ('a -> 'b) ->
-//    (exn -> 'b) ->
-//    ('c t -> ('c, 'b) continuation -> last_fiber -> 'b) ->
-//    ('a, 'b) stack = "caml_alloc_stack"
+  @noalloc
+  external take_cont_noexc : continuation A B  -> stack A B =
+    "caml_continuation_use_noexc";
+  external alloc_stack :
+    (A -> B) ->
+    (exn -> B) ->
+    (t C -> continuation C B -> last_fiber -> B) ->
+    stack A B  = "caml_alloc_stack";
 
   let continue k v = resume (take_cont_noexc k) (fn x -> x) v;
 
@@ -49,13 +50,14 @@ mod Deep = {
   let discontinue_with_backtrace k e bt =
     resume (take_cont_noexc k) (fn e -> Printexc.raise_with_backtrace e bt) e;
 
-//  type ('a,'b) handler =
-//    { retc: 'a -> 'b;
-//      exnc: exn -> 'b;
-//      effc: 'c.'c t -> (('c,'b) continuation -> 'b) option }
-//
-//  external reperform :
-//    'a t -> ('a, 'b) continuation -> last_fiber -> 'b = "%reperform"
+  type handler A B =  {
+    retc : A -> B,
+    exnc : exn -> B,
+    effc : C :: t C -> option (continuation C B -> B)
+  };
+
+  external reperform :
+    t A -> continuation A B -> last_fiber -> B = "%reperform";
 
   let match_with comp arg handler = {
     let effc eff k last_fiber =
@@ -67,8 +69,9 @@ mod Deep = {
     runstack s comp arg
   };
 
-//  type 'a effect_handler =
-//    { effc: 'b. 'b t -> (('b,'a) continuation -> 'a) option }
+  type effect_handler A = {
+    effc : B :: t B -> option (continuation B A -> A)
+  };
 
   let try_with comp arg handler = {
     let effc' eff k last_fiber =
@@ -80,50 +83,58 @@ mod Deep = {
     runstack s comp arg
   };
 
-//  external get_callstack :
-//    ('a,'b) continuation -> int -> Printexc.raw_backtrace =
-//    "caml_get_continuation_callstack"
+  external get_callstack :
+    continuation A B -> int -> Printexc.raw_backtrace =
+    "caml_get_continuation_callstack";
 };
 
 mod Shallow = {
-//  type ('a,'b) continuation
+  type continuation A B;
   type last_fiber;
 
-//  external alloc_stack :
-//    ('a -> 'b) ->
-//    (exn -> 'b) ->
-//    ('c t -> ('c, 'b) continuation -> last_fiber -> 'b) ->
-//    ('a, 'b) stack = "caml_alloc_stack"
+  external alloc_stack :
+    (A -> B) ->
+    (exn -> B) ->
+    (t C -> continuation C B -> last_fiber -> B) ->
+    stack A B = "caml_alloc_stack";
 
-//  let fiber : type a b. (a -> b) -> (a, b) continuation = fun f ->
-//    let module M = struct type _ t += Initial_setup__ : a t end in
-//    let exception E of (a,b) continuation in
-//    let f' () = f (perform M.Initial_setup__) in
-//    let error _ = failwith "impossible" in
-//    let effc eff k _last_fiber =
-//      match eff with
-//      | M.Initial_setup__ -> raise_notrace (E k)
-//      | _ -> error ()
-//    in
-//    let s = alloc_stack error error effc in
-//    match runstack s f' () with
-//    | exception E k -> k
-//    | _ -> error ()
+  let fiber : new a b :: (a -> b) -> continuation a b = fn f -> {
+    mod M = { type t _ += Initial_setup__ : t a };
+    exception E (continuation a b);
 
-//  type ('a,'b) handler =
-//    { retc: 'a -> 'b;
-//      exnc: exn -> 'b;
-//      effc: 'c.'c t -> (('c,'a) continuation -> 'b) option }
+    let f' () = f (perform M.Initial_setup__);
+    let error _ = failwith "impossible";
 
-//  external update_handler :
-//    ('a,'b) continuation ->
-//    ('b -> 'c) ->
-//    (exn -> 'c) ->
-//    ('d t -> ('d,'b) continuation -> last_fiber -> 'c) ->
-//    ('a,'c) stack = "caml_continuation_use_and_update_handler_noexc" [@@noalloc]
+    let effc eff k _last_fiber =
+      match eff {
+        M.Initial_setup__ -> raise_notrace (E k),
+        _ -> error ()
+      };
 
-//  external reperform :
-//    'a t -> ('a, 'b) continuation -> last_fiber -> 'c = "%reperform"
+    let s = alloc_stack error error effc;
+
+    match (runstack s f' ()) {
+      exception E k -> k,
+      _ -> error ()
+    }
+  };
+
+  type handler A B = {
+    retc : A -> B,
+    exnc : exn -> B,
+    effc : C :: t C -> option (continuation C A -> B)
+  };
+
+  @noalloc
+  external update_handler :
+    continuation A B ->
+    (B -> C) ->
+    (exn -> C) ->
+    (t D -> continuation D B -> last_fiber -> C) ->
+    stack A C = "caml_continuation_use_and_update_handler_noexc";
+
+  external reperform :
+    t A -> continuation A B -> last_fiber -> C = "%reperform";
 
   let continue_gen k resume_fun v handler = {
     let effc eff k last_fiber =
@@ -144,8 +155,8 @@ mod Shallow = {
   let discontinue_with_backtrace k v bt handler =
     continue_gen k (fn e -> Printexc.raise_with_backtrace e bt) v handler;
 
-//  external get_callstack :
-//    ('a,'b) continuation -> int -> Printexc.raw_backtrace =
-//    "caml_get_continuation_callstack"
+  external get_callstack :
+    continuation A B -> int -> Printexc.raw_backtrace =
+    "caml_get_continuation_callstack";
 };
 

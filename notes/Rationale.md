@@ -10,12 +10,16 @@ Pro:
 
 Pro:
 - The alignment for the line after `|` looks better:
+- Used in Haskell, Elm.
 ```
 match x {
+  Some 0 -> {
+    print "hello";
+    1
+  },
   Some x ->
     x + 1,
-  None ->
-    0
+  None -> 0
 }
 ```
 

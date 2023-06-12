@@ -436,12 +436,14 @@ module type S = sig
 
   val type_declaration :
        loc:loc
+    -> ?attrs:attributes
     -> name:string with_loc
     -> params:(core_type * (Asttypes.variance * Asttypes.injectivity)) list
     -> cstrs:(core_type * core_type * loc) list
     -> kind:type_kind
     -> private_:Asttypes.private_flag
     -> manifest:core_type option
+    -> unit
     -> type_declaration
 
   val type_exception : loc:loc -> extension_constructor -> type_exception
@@ -458,9 +460,11 @@ module type S = sig
 
   val value_description :
        loc:loc
+    -> ?attrs:attributes
     -> name:string with_loc
     -> type_:core_type
     -> prim:string list
+    -> unit
     -> value_description
 
   val ppat_construct : loc:loc -> ident with_loc -> pattern option -> pattern
@@ -490,4 +494,13 @@ module type S = sig
 
   (* Extra: attributes *)
   val pexp_with_attributes : attributes -> expression -> expression
+
+  (* Extra: extension_constructor_kind *)
+  val pext_decl :
+       string with_loc list
+    -> constructor_arguments
+    -> core_type option
+    -> extension_constructor_kind
+
+  val pext_rebind : Ident.t with_loc -> extension_constructor_kind
 end
