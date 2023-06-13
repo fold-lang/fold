@@ -174,14 +174,14 @@ exception A t1 t2;
 // --- structure item: external ---
 
 external prim1 : t = "x";
-external prim2 : t1 -> t2 'a = "x";
+external prim2 : t1 -> t2[A] = "x";
 
 
 sig S = {
   // --- signature item: external ---
 
   external prim1 : t = "x";
-  external prim2 : t1 -> t2 'a = "x";
+  external prim2 : t1 -> t2[A] = "x";
 };
 
 // --- let ---
@@ -326,7 +326,7 @@ let f = fn ~(a = 1) b -> a + b;
 let f = fn ~(a as b = 1) c -> b + c;
 let f = fn ~(a as (Some b) = x) c -> b + c;
 //let f = fn ~(a as (Some b) : option int = x) c -> b + c;
-let f = fn ~(a as (Some b : option int) = x) c -> b + c;
+let f = fn ~(a as (Some b : option[int]) = x) c -> b + c;
 let f = fn ~a? -> a;
 let f = fn ~(a? as b) -> b;
 
@@ -342,7 +342,7 @@ let f ~(a = 1) b = a + b;
 let f ~(a as b = 1) c = b + c;
 let f ~(a as (Some b) = x) c = b + c;
 //let f ~(a as (Some b) : option int = x) c = b + c;
-let f ~(a as (Some b : option int) = x) c = b + c;
+let f ~(a as (Some b : option[int]) = x) c = b + c;
 let f ~a? = a;
 let f ~(a? as b) = b;
 
@@ -356,7 +356,7 @@ do {
   f ~a?;
   f ~(a?);
   f ~(a? = b);
-  f ~(a? : int option = b);
+  f ~(a? : option[int] = b);
 
   // errors
   // f ~M;
@@ -450,6 +450,18 @@ let m = a |> fn {
   1 -> 0,
   2 -> b
 };
+
+// cases with |
+//let x =
+//  match a {
+//  | 1 -> {
+//      print_endline "1";
+//      a
+//    }
+//  | 2 -> b
+//  | 3 as x | x -> x
+//  };
+
 
 // match exception
 let mexn01 = match a {
@@ -552,24 +564,53 @@ do {
   2 + (x : int) * 2;
   // 2 + f x y : int * 2;
   f (x : int) y;
-  f (xs : list int);
+  f (xs : list[int]);
 };
 
 // value constraint
 let v_constraint_1 : int = 42;
-let v_constraint_2 : list (string, int) = [("a", 2), ("b", 3)];
+let v_constraint_2 : list[(string, int)] = [("a", 2), ("b", 3)];
 // v_constraint_3 : type a . a = a;
 // v_constraint_4 : 'a . 'a  = a;
 
 // type declaration
 type t;
+type t[A];
+type t[A, B];
+type t[A, B, C];
+type t = a;
+type t[A] = a;
+type t[A, B] = a;
+type t[A, B, C] = a;
+
 type nonrec t;
-type t = int;
-type t = list int;
-type t = list (list int);
-type nonrec t = int;
+type nonrec t[A];
+type nonrec t[A, B];
+type nonrec t[A, B, C];
+type nonrec t = a;
+type nonrec t[A] = a;
+type nonrec t[A, B]= a;
+type nonrec t[A, B, C]= a;
+
+// type declaration + core type
+type t = a;
+type t = list[a];
+type t = list[list[a]];
+type t = (a, b);
+type t = t[(a, b)];
+type t = t[(a, b), X];
+type t = t[A];
+type t = t[A, B];
+type t = t[A, B, C];
+type t = M.t[A];
+type t = M.t[A, B];
+type t = M.t[A, B, C];
+//type t = List.t (Stdlib.Option.t (Int.t, Result.t[A, B]));
+
 //type t = x a b (y c d e);
 //type t = M1.M2.x a M3.b (y M4.c d e);
+
+//let v : Option.t[A] -> list[B] = a;
 
 // type tuple
 type t = (int, bool);
@@ -591,14 +632,15 @@ type t = u == { A | B int };
 
 // type record
 type t = { a : int };
-type t = { a : int, b : list bool };
-type t = u == { a : int, b : list bool };
-type t = { a : mutable int, b : mutable (list bool) };
+type t = { a : int, b : list[bool] };
+type t = u == { a : int, b : list[bool] };
+type t = { a : mutable int, b : mutable (list[bool]) };
 
 // type record polymorphic type
-type t = { a : 'a :: int };
-type t = { a : 'a 'b :: int };
-type t = { a : 'b :: t2 'b -> option (t3 'c 'd -> 'd) };
+type t = { a : [A] :: int };
+type t = { a : [A, B] :: int };
+type t = { a : [A] :: int, b : [B, C, D] :: B };
+type t = { a : [B] :: t2[B] -> option[t3[C, D] -> D] };
 
 // type gadt
 type t = A : int;
@@ -606,10 +648,10 @@ type t = A : int -> t;
 type t = A : (t1, t2) -> t3;
 type t = A : (t1 -> t2) -> t3;
 
-type t 'a = A : t int;
-type t 'a = A : int -> t int;
-type t 'a = A : (t1, t2) -> t t2;
-type t 'a = A : (t1 -> t2) -> t (t1 -> t2);
+type t[A] = A : t[int];
+type t[A] = A : int -> t[int];
+type t[A] = A : (t1, t2) -> t[t2];
+type t[A] = A : (t1 -> t2) -> t[t1 -> t2];
 
 type t = { A : a | B : b };
 type t = { A : a | B : b | C : (c1, c2) -> c3 };
@@ -618,19 +660,19 @@ type t = { A : a | B : b | C : (c1, c2) -> c3 };
 //type t = A : t1 -> t2 -> t3;
 
 // new type
-let v : new a :: a -> int = x;
-let v : new a b :: (a, b) -> int = x;
+let v : new [a] :: a -> int = x;
+let v : new [a, b] :: (a, b) -> int = x;
 
 // type extensibe
-type t = ..;
+type t = {..};
 
 // type extension
 type t += A;
 type t += A int;
 type t += A int bool;
 type t += A (int, bool);
-type t 'a += A;
-type t 'a 'b += A;
+type t[A] += A;
+type t[A, B] += A;
 
 type t += A : t;
 type t += A : a -> t;
@@ -643,21 +685,11 @@ type t += A : a -> t;
 // @private
 // type t = int;
 
-// type params
-type t 'a;
-type t 'a 'b;
-type t 'a = A;
-type t 'a 'b = A;
-type nonrec t 'a;
-type nonrec t 'a 'b;
-type nonrec t 'a = A;
-type nonrec t 'a 'b = A;
-
-type t _;
-type t _ += A;
+type t[_];
+type t[_] += A;
 
 // edge cases
-type t 'a'b; // a'b is an id
+type t[A'b]; // 'a'b is ocaml
 
 // TODO injectivity variance
 

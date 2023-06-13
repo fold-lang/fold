@@ -1,9 +1,9 @@
-// https://github.com/ocaml/ocaml/blob/trunk/stdlib/effect.ml
 
-type t A = ..;
-external perform : t A -> A = "%perform";
+type t[A] = {..};
+external perform : t[A] -> A = "%perform";
 
-type exn += Unhandled : t A -> exn;
+type exn += Unhandled : t[A] -> exn;
+
 exception Continuation_already_resumed;
 
 do {
@@ -19,45 +19,44 @@ do {
 };
 
 // Register the exceptions so that the runtime can access it
-type t _ += Should_not_see_this__ : t unit;
+type t[_] += Should_not_see_this__ : t[unit];
+
 let _ = Callback.register_exception "Effect.Unhandled"
           (Unhandled Should_not_see_this__);
 let _ = Callback.register_exception "Effect.Continuation_already_resumed"
           Continuation_already_resumed;
 
-type stack A B;
+type stack[A, B];
 
-external resume : stack A B -> (C -> A) -> C -> B = "%resume";
-external runstack : stack A B -> (C -> A) -> C -> B = "%runstack";
+external resume : stack[A, B] -> (C -> A) -> C -> B = "%resume";
+external runstack : stack[A, B] -> (C -> A) -> C -> B = "%runstack";
 
-mod Deep = {
-  type continuation A B;
+module Deep = {
+  type continuation[A, B];
   type last_fiber;
 
   @noalloc
-  external take_cont_noexc : continuation A B  -> stack A B =
+  external take_cont_noexc : continuation[A, B] -> stack[A, B] =
     "caml_continuation_use_noexc";
-  external alloc_stack :
-    (A -> B) ->
-    (exn -> B) ->
-    (t C -> continuation C B -> last_fiber -> B) ->
-    stack A B  = "caml_alloc_stack";
+
+  external alloc_stack : (A -> B) -> (exn -> B)
+      -> (t[C] -> continuation[C, B] -> last_fiber -> B) -> stack[A, B] =
+    "caml_alloc_stack";
 
   let continue k v = resume (take_cont_noexc k) (fn x -> x) v;
-
   let discontinue k e = resume (take_cont_noexc k) (fn e -> raise e) e;
 
   let discontinue_with_backtrace k e bt =
     resume (take_cont_noexc k) (fn e -> Printexc.raise_with_backtrace e bt) e;
 
-  type handler A B =  {
+  type handler[A, B] =  {
     retc : A -> B,
     exnc : exn -> B,
-    effc : C :: t C -> option (continuation C B -> B)
+    effc : [C] :: t[C] -> option[continuation[C, B] -> B]
   };
 
-  external reperform :
-    t A -> continuation A B -> last_fiber -> B = "%reperform";
+  external reperform : t[A] -> continuation[A, B] -> last_fiber -> B =
+    "%reperform";
 
   let match_with comp arg handler = {
     let effc eff k last_fiber =
@@ -69,8 +68,8 @@ mod Deep = {
     runstack s comp arg
   };
 
-  type effect_handler A = {
-    effc : B :: t B -> option (continuation B A -> A)
+  type effect_handler[A] = {
+    effc : [B] :: t[B] -> option[continuation[B, A] -> A]
   };
 
   let try_with comp arg handler = {
@@ -83,24 +82,23 @@ mod Deep = {
     runstack s comp arg
   };
 
-  external get_callstack :
-    continuation A B -> int -> Printexc.raw_backtrace =
+  external get_callstack : continuation[A, B] -> int -> Printexc.raw_backtrace =
     "caml_get_continuation_callstack";
 };
 
 mod Shallow = {
-  type continuation A B;
+  type continuation[A, B];
   type last_fiber;
 
   external alloc_stack :
     (A -> B) ->
     (exn -> B) ->
-    (t C -> continuation C B -> last_fiber -> B) ->
-    stack A B = "caml_alloc_stack";
+    (t[C] -> continuation[C, B] -> last_fiber -> B) ->
+    stack[A, B] = "caml_alloc_stack";
 
-  let fiber : new a b :: (a -> b) -> continuation a b = fn f -> {
-    mod M = { type t _ += Initial_setup__ : t a };
-    exception E (continuation a b);
+  let fiber : new [a, b] :: (a -> b) -> continuation[a, b] = fn f -> {
+    mod M = { type t[_] += Initial_setup__ : t[a] };
+    exception E (continuation[a, b]);
 
     let f' () = f (perform M.Initial_setup__);
     let error _ = failwith "impossible";
@@ -119,22 +117,19 @@ mod Shallow = {
     }
   };
 
-  type handler A B = {
+  type handler[A, B] = {
     retc : A -> B,
     exnc : exn -> B,
-    effc : C :: t C -> option (continuation C A -> B)
+    effc : [C] :: t[C] -> option[continuation[C, A] -> B]
   };
 
   @noalloc
-  external update_handler :
-    continuation A B ->
-    (B -> C) ->
-    (exn -> C) ->
-    (t D -> continuation D B -> last_fiber -> C) ->
-    stack A C = "caml_continuation_use_and_update_handler_noexc";
+  external update_handler : continuation[A, B] -> (B -> C) -> (exn -> C)
+      -> (t[D] -> continuation[D, B] -> last_fiber -> C) -> stack[A, C] =
+    "caml_continuation_use_and_update_handler_noexc";
 
-  external reperform :
-    t A -> continuation A B -> last_fiber -> C = "%reperform";
+  external reperform : t[A] -> continuation[A, B] -> last_fiber -> C =
+    "%reperform";
 
   let continue_gen k resume_fun v handler = {
     let effc eff k last_fiber =
@@ -155,8 +150,6 @@ mod Shallow = {
   let discontinue_with_backtrace k v bt handler =
     continue_gen k (fn e -> Printexc.raise_with_backtrace e bt) v handler;
 
-  external get_callstack :
-    continuation A B -> int -> Printexc.raw_backtrace =
+  external get_callstack : continuation[A, B] -> int -> Printexc.raw_backtrace =
     "caml_get_continuation_callstack";
 };
-

@@ -205,6 +205,8 @@ let prefix (tok : L.token) =
     Some rule
   (* prefix label *)
   | Sym "~" -> Some parse_label
+  | Sym "|" ->
+    Some (P.prefix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "|" xs))
   | _ -> Shaper_parser.prefix tok
 
 let infix (tok : L.token) =
@@ -242,7 +244,7 @@ let infix (tok : L.token) =
        )
       )
   | Sym "|" ->
-    Some (P.infix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "_|_" xs))
+    Some (P.infix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "|" xs))
   | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
   | Sym "::" ->
     Some
@@ -251,8 +253,6 @@ let infix (tok : L.token) =
        )
       )
   | Sym "->" -> Some (P.infix_right_binary Prec.arrow tok C.arrow)
-  (* | Sym "|" ->
-     Some (P.infix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "_|_" xs)) *)
   | Lower "as" ->
     Some (P.infix_binary Prec.as' tok (fun a b -> Shaper.shape "as" [ a; b ]))
   | Sym "." -> Some (parse_infix_dot, Prec.dot)

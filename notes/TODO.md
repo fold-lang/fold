@@ -24,3 +24,5 @@
   - `(if)` - fun a b c -> if a b c
   - `(fn)` - identity function
   - `(raise)`
+- [ ] Can we not halt when a syntax error is encountered?
+- [ ] Use exn instead of exception.

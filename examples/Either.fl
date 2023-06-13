@@ -1,9 +1,6 @@
 // https://github.com/ocaml/ocaml/blob/trunk/stdlib/either.ml
 
-//type ('a, 'b) t = Left of 'a | Right of 'b
-//type t = { Left 'a | Right 'b };
-
-open Stdlib.Either;
+type t[A, B] = { Left A | Right B };
 
 let left v = Left v;
 let right v = Right v;

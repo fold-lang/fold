@@ -7,7 +7,7 @@
   (with-stdout-to
    Lispy.fl.ml.actual
    (pipe-stdout
-    (run fold-fmt -i fl -o ml %{deps})
+    (run fl -i fl -o ml %{deps})
     (run %{bin:ocamlformat} --impl -)))))
 
 (rule
@@ -20,7 +20,7 @@
  (action
   (with-stdout-to
    Lispy.fl.sexp.actual
-   (run fold-fmt -i fl -o sexp %{deps}))))
+   (run fl -i fl -o sexp %{deps}))))
 
 (rule
  (alias runtest)
@@ -34,7 +34,7 @@
  (action
   (with-stdout-to
    Shapes.fl.sexp.actual
-   (run fold-fmt -i fl -o sexp %{deps}))))
+   (run fl -i fl -o sexp %{deps}))))
 
 (rule
  (alias runtest)
@@ -46,7 +46,7 @@
  (action
   (with-stdout-to
    Shapes.fl.fmt
-   (run fold-fmt -i fl -o fl %{deps}))))
+   (run fl -i fl -o fl %{deps}))))
 
 (rule
  (alias runtest)
@@ -61,10 +61,12 @@
  (action
   (with-stdout-to
    Quote.fl.ml.actual
-   (run fold-fmt -i fl -o ml %{deps}))))
+   (run fl -i fl -o ml %{deps}))))
 
 (rule
  (alias runtest)
  (action
   (diff Quote.fl.ml.expected Quote.fl.ml.actual)))
 
+(cram
+ (deps %{bin:fl}))

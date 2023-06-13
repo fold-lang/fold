@@ -3,6 +3,7 @@
 
 Pro:
 - Moving bindings between local and global scope is easy.
+- Local definitions of types, exceptions, modules uses the same syntax.
 - Easy navigation in vim with `f;`.
 
 

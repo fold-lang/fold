@@ -10,7 +10,7 @@
   (with-stdout-to
    Either.fl.ml.actual
    (pipe-stdout
-    (run fold-fmt -i fl -o ml %{deps})
+    (run fl -i fl -o ml %{deps})
     (run %{bin:ocamlformat} --impl -)))))
 
 (rule
@@ -26,7 +26,7 @@
   (with-stdout-to
    Effect.fl.ml.actual
    (pipe-stdout
-    (run fold-fmt -i fl -o ml %{deps})
+    (run fl -i fl -o ml %{deps})
     (run %{bin:ocamlformat} --impl -)))))
 
 (rule

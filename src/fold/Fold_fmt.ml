@@ -27,20 +27,13 @@ let ( ^^ ) = PPrint.( ^^ )
 let ( !^ ) = PPrint.( !^ )
 let ( ^/^ ) = PPrint.( ^/^ )
 
-let is_infix_bin (fl : fl) =
-  match fl with
-  | Shape (_, kwd, [ _; _ ])
-    when String.length kwd > 3
-         && Char.equal (String.get kwd 0) '_'
-         && Char.equal (String.get kwd (String.length kwd - 1)) '_' -> true
-  | _ -> false
-
 let classify_kwd kwd =
   if
     String.length kwd >= 3
     && Char.equal (String.get kwd 0) '_'
     && Char.equal (String.get kwd (String.length kwd - 1)) '_'
   then Some (String.sub kwd 1 (String.length kwd - 2))
+  else if String.equal kwd "|" then Some kwd
   else None
 
 module Ast_eval = struct

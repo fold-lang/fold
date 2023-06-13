@@ -282,7 +282,7 @@ let () =
   f ?a;
   f ?a;
   f ?a:b;
-  f ?a:(b : option int)
+  f ?a:(b : int option)
 
 type f = a -> b
 type f = a -> b -> c -> d
@@ -477,11 +477,33 @@ let (v_constraint_1 : int) = 42
 let (v_constraint_2 : (string * int) list) = [ ("a", 2); ("b", 3) ]
 
 type t
+type 'a t
+type ('a, 'b) t
+type ('a, 'b, 'c) t
+type t = a
+type 'a t = a
+type ('a, 'b) t = a
+type ('a, 'b, 'c) t = a
 type nonrec t
-type t = int
-type t = int list
-type t = int list list
-type nonrec t = int
+type nonrec 'a t
+type nonrec ('a, 'b) t
+type nonrec ('a, 'b, 'c) t
+type nonrec t = a
+type nonrec 'a t = a
+type nonrec ('a, 'b) t = a
+type nonrec ('a, 'b, 'c) t = a
+type t = a
+type t = a list
+type t = a list list
+type t = a * b
+type t = (a * b) t
+type t = (a * b, 'x) t
+type t = 'a t
+type t = ('a, 'b) t
+type t = ('a, 'b, 'c) t
+type t = 'a M.t
+type t = ('a, 'b) M.t
+type t = ('a, 'b, 'c) M.t
 type t = int * bool
 type t = A
 type t = A of int
@@ -500,6 +522,7 @@ type t = u = { a : int; b : bool list }
 type t = { mutable a : int; mutable b : bool list }
 type t = { a : 'a. int }
 type t = { a : 'a 'b. int }
+type t = { a : 'a. int; b : 'b 'c 'd. 'b }
 type t = { a : 'b. 'b t2 -> (('c, 'd) t3 -> 'd) option }
 type t = A : int
 type t = A : int -> t
@@ -524,14 +547,6 @@ type 'a t += A
 type ('a, 'b) t += A
 type t += A : t
 type t += A : a -> t
-type 'a t
-type ('a, 'b) t
-type 'a t = A
-type ('a, 'b) t = A
-type nonrec 'a t
-type nonrec ('a, 'b) t
-type nonrec 'a t = A
-type nonrec ('a, 'b) t = A
 type _ t
 type _ t += A
 type ' a'b t

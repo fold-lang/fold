@@ -13,8 +13,8 @@
  (implementation
   (extension fl)
   (preprocess
-   (run fold-fmt -i fl -o bin %{input-file})))
+   (run fl -i fl -o bin %{input-file})))
  (interface
   (extension fli)
   (preprocess
-   (run fold-fmt %{input-file}))))
+   (run fl %{input-file}))))

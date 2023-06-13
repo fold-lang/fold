@@ -1,5 +1,5 @@
 (executable
  (name Main)
  (modules Main)
- (public_name fold-fmt)
+ (public_name fl)
  (libraries fold fmt cmdliner))
