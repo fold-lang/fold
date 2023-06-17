@@ -168,6 +168,7 @@ let prefix (tok : L.token) =
         | "if"
         | "match"
         | "exception"
+        (* | "exn" *)
         | "quote"
         | "unquote"
         | "for"
@@ -203,10 +204,26 @@ let prefix (tok : L.token) =
       Ok (S.shape "@" [ attr; payload ])
     in
     Some rule
+  (* prefix attr *)
+  | Sym "\\" ->
+    let rule g l =
+      let* () = P.consume tok l in
+      let tok = L.pick l in
+      let id =
+        match tok with
+        | L.Lower id | L.Sym id | L.String id -> id
+        | _ -> failwith "escape: invalid identifier, must be lower or string"
+      in
+      let* () = P.consume tok l in
+      Ok (S.shape "\\" [ Shaper.lower id ])
+    in
+    Some rule
   (* prefix label *)
   | Sym "~" -> Some parse_label
   | Sym "|" ->
     Some (P.prefix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "|" xs))
+  | Lower "on" ->
+    Some (P.prefix_seq ~sep:(tok, Prec.on) (fun xs -> Shaper.shape "on" xs))
   | _ -> Shaper_parser.prefix tok
 
 let infix (tok : L.token) =
@@ -243,6 +260,8 @@ let infix (tok : L.token) =
            Shaper.shape "+=" [ a; b ]
        )
       )
+  | Lower "on" ->
+    Some (P.infix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "on" xs))
   | Sym "|" ->
     Some (P.infix_seq ~sep:(tok, Prec.pipe) (fun xs -> Shaper.shape "|" xs))
   | Sym ":" -> Some (P.infix_binary Prec.colon tok C.constraint')
@@ -255,6 +274,8 @@ let infix (tok : L.token) =
   | Sym "->" -> Some (P.infix_right_binary Prec.arrow tok C.arrow)
   | Lower "as" ->
     Some (P.infix_binary Prec.as' tok (fun a b -> Shaper.shape "as" [ a; b ]))
+  | Lower "or" ->
+    Some (P.infix_binary Prec.or' tok (fun a b -> Shaper.shape "or" [ a; b ]))
   | Sym "." -> Some (parse_infix_dot, Prec.dot)
   | Sym "!" -> Some (macro_call, Prec.excl)
   | Sym "?" ->

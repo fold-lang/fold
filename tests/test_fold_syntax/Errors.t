@@ -87,3 +87,7 @@ Module id:
 #             Called from Cmdliner_term.app.(fun) in file "cmdliner_term.ml", line 24, characters 19-24
 #             Called from Cmdliner_eval.run_parser in file "cmdliner_eval.ml", line 34, characters 37-44
 #   [125]
+
+
+f ~M;
+f ~2;

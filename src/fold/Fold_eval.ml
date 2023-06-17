@@ -1,7 +1,7 @@
 open Prelude
 
 module Eval (E : Fold_ast_builder.S) : sig
-  val expression : fl -> E.expression
+  val expression : ?loc:loc -> fl -> E.expression
   val pattern : fl -> E.pattern
   val core_type : fl -> E.core_type
   val value_binding : fl -> E.value_binding
@@ -77,17 +77,23 @@ end = struct
       construct "Shape" [ noloc; string kwd; list (List.map quasiquote items) ]
 
   module rec Expression : sig
-    val eval : fl -> E.expression
+    val eval : ?loc:loc -> fl -> E.expression
     val eval_fn : ?loc:loc -> fl list -> fl -> E.expression
   end = struct
-    let rec eval (fl : fl) =
+    let rec eval ?loc:_ (fl : fl) =
       match fl with
+      (* --- #{ e } --- *)
+      | Shape (loc, "#", [ Scope ("{", fl, "}") ]) -> eval ~loc fl
       (* --- ident --- *)
       | Ident (Lower "true") | Ident (Lower "false") ->
         failwith "True and False must be start with a capital letter"
       (* x *)
       | Ident (Lower x) -> E.pexp_ident ~loc:noloc (with_noloc (Ident.Lident x))
+      (* \a *)
+      | Shape (loc, "\\", [ Ident (Lower id) ]) ->
+        E.pexp_ident ~loc (with_noloc (Ident.Lident id))
       (* TODO + *)
+      | Sym "." -> failwith "`.` is not an expression"
       | Sym x -> E.pexp_ident ~loc:noloc (with_noloc (Ident.Lident x))
       (* M.a.b *)
       | Shape (loc, "ident", _) ->
@@ -146,7 +152,9 @@ end = struct
           , "fn"
           , [ Scope
                 ( "{"
-                , Shape (_, ",", (Shape (_, "->", [ _; _ ]) :: _ as cases))
+                , Shape
+                    (* TODO decide *)
+                    (_, ("," | "on"), (Shape (_, "->", [ _; _ ]) :: _ as cases))
                 , "}"
                 )
             ]
@@ -186,7 +194,7 @@ end = struct
       | Shape (loc, "match", [ a; Scope ("{", Shape (_, ",", b), "}") ]) ->
         eval_match ~loc a b
       (* --- match --- *)
-      | Shape (loc, "match", [ a; Scope ("{", Shape (_, "|", b), "}") ]) ->
+      | Shape (loc, "match", [ a; Scope ("{", Shape (_, "on", b), "}") ]) ->
         eval_match ~loc a b
       | Shape (loc, "match", [ _a; Scope ("{", Seq [], "}") ]) ->
         (* XXX: generates an error attribute for the syntax error *)
@@ -215,11 +223,9 @@ end = struct
         Fmt.failwith "invalid match syntax: %a" Location.print_loc
           (Obj.magic loc)
       (* -- try --- *)
-      (* try _ { _, ... } *)
-      | Shape (loc, "try", [ a; Scope ("{", Shape (_, ",", b), "}") ]) ->
+      (* try a { on err -> b } *)
+      | Shape (loc, "try", [ a; Scope ("{", Shape (_, "on", b), "}") ]) ->
         eval_try ~loc a b
-      (* try _ { _ } *)
-      | Shape (loc, "try", [ a; Scope ("{", b, "}") ]) -> eval_try ~loc a [ b ]
       (* --- construct --- *)
       (* TODO: explicit arity *)
       | Ident (Upper "True") ->
@@ -286,6 +292,16 @@ end = struct
       (* --- quote --- *)
       | Shape (_loc, "quote", [ x ]) -> eval (quasiquote x)
       | Shape (_loc, "quote", xs) -> eval (quasiquote (Shaper.seq xs))
+      (* --- fl_expression! { e } --- *)
+      | Shape (loc, "fl_expression", [ Scope ("{", fl, "}") ]) -> (
+        try eval fl
+        with Failure msg ->
+          let arg = Shaper.String msg in
+          let arg = E.pexp_constant ~loc (conv_const arg) in
+          let item = E.pstr_eval ~loc arg [] in
+          let payload = E.pstr [ item ] in
+          E.pexp_extension ~loc (with_loc loc "fl.error", payload)
+      )
       (* --- macro --- *)
       | Shape (loc, kwd, args) -> begin
         match Fold_macros.getmacro kwd with
@@ -625,16 +641,21 @@ end = struct
 
     and eval_tuple ~loc items = E.pexp_tuple ~loc (List.map eval items)
 
+    and eval_case_exp (fl : fl) =
+      match fl with
+      | Sym "." -> E.pexp_unreachable ~loc:noloc
+      | _ -> eval fl
+
     and eval_case (fl : fl) =
       match fl with
       | Shape (_loc, "->", [ Shape (_, "_if_", [ pat_fl; guard ]); exp_fl ]) ->
         let lhs = Pattern.eval pat_fl in
-        let rhs = eval exp_fl in
+        let rhs = eval_case_exp exp_fl in
         let guard = Some (eval guard) in
         E.case ~lhs ~guard ~rhs
       | Shape (_loc, "->", [ pat_fl; exp_fl ]) ->
         let lhs = Pattern.eval pat_fl in
-        let rhs = eval exp_fl in
+        let rhs = eval_case_exp exp_fl in
         E.case ~lhs ~guard:None ~rhs
       | _ ->
         Fmt.epr "%a@." Shaper.dump fl;
@@ -814,7 +835,12 @@ end = struct
       | Shape (loc, "exception", [ Ident (Lower name) ]) ->
         let pat = eval_var ~loc name in
         E.ppat_exception ~loc pat
-      (* _ | _ *)
+      (* a or b *)
+      | Shape (loc, "or", [ a; b ]) ->
+        let a = eval a in
+        let b = eval b in
+        E.ppat_or ~loc a b
+      (* a | b, TODO decide *)
       | Shape (loc, "|", [ a; b ]) ->
         let a = eval a in
         let b = eval b in
@@ -858,52 +884,52 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       | Scope ("(", fl, ")") -> eval fl
-      (* pat ":" new var "::" t "=" expr *)
+      (* let x : type [a, b] :: a -> b = e *)
       | Shape
           ( loc
-          , "="
-          , [ Shape
-                ( constraint_loc
-                , ":"
-                , [ pat
-                  ; Shape
-                      ( colon_colon_loc
-                      , "::"
-                      , [ Seq
-                            [ Ident (Lower "new")
-                            ; Scope ("[", Shape (_, ",", vars), "]")
-                            ]
-                        ; typ
+          , ":"
+          , [ pat
+            ; Shape
+                ( _
+                , "type"
+                , [ Shape
+                      ( _
+                      , "="
+                      , [ Shape
+                            ( colon_colon_loc
+                            , "::"
+                            , [ Scope ("[", Shape (_, ",", vars), "]"); typ ]
+                            )
+                        ; exp
                         ]
                       )
                   ]
                 )
-            ; exp
             ]
-          ) ->
-        eval_new_type ~loc ~colon_colon_loc ~constraint_loc ~vars ~pat ~typ exp
-      (* pat ":" new var "::" t "=" expr *)
+          ) -> eval_new_type ~loc ~colon_colon_loc ~vars ~pat ~typ exp
+      (* let x : type [a] :: a -> b = e *)
       | Shape
           ( loc
-          , "="
-          , [ Shape
-                ( constraint_loc
-                , ":"
-                , [ pat
-                  ; Shape
-                      ( colon_colon_loc
-                      , "::"
-                      , [ Seq [ Ident (Lower "new"); Scope ("[", var, "]") ]
-                        ; typ
+          , ":"
+          , [ pat
+            ; Shape
+                ( _
+                , "type"
+                , [ Shape
+                      ( _
+                      , "="
+                      , [ Shape
+                            ( colon_colon_loc
+                            , "::"
+                            , [ Scope ("[", var, "]"); typ ]
+                            )
+                        ; exp
                         ]
                       )
                   ]
                 )
-            ; exp
             ]
-          ) ->
-        eval_new_type ~loc ~colon_colon_loc ~constraint_loc ~vars:[ var ] ~pat
-          ~typ exp
+          ) -> eval_new_type ~loc ~colon_colon_loc ~vars:[ var ] ~pat ~typ exp
       (* (_ : _) = _ *)
       | Shape (loc, "=", [ Shape (constraint_loc, ":", [ pat; typ ]); expr ]) ->
         let typ = Core_type.eval typ in
@@ -920,8 +946,7 @@ end = struct
         Fmt.epr "not a vb: %a@." Shaper.dump fl;
         assert false
 
-    and eval_new_type ~loc ~colon_colon_loc ~constraint_loc ~vars ~pat ~typ exp
-        =
+    and eval_new_type ~loc ~colon_colon_loc ~vars ~pat ~typ exp =
       let vars =
         List.map
           (function
@@ -934,13 +959,11 @@ end = struct
       let pat =
         let pat_base = Pattern.eval pat in
         let typ_poly = E.ptyp_poly ~loc:colon_colon_loc vars typ in
-        E.ppat_constraint ~loc:constraint_loc pat_base typ_poly
+        E.ppat_constraint ~loc pat_base typ_poly
       in
       let expr =
         let exp_base = Expression.eval exp in
-        let exp_constraint =
-          E.pexp_constraint ~loc:constraint_loc exp_base typ
-        in
+        let exp_constraint = E.pexp_constraint ~loc exp_base typ in
         List.fold_left
           (fun acc t -> E.pexp_newtype ~loc:colon_colon_loc t acc)
           exp_constraint (List.rev vars)
@@ -1175,6 +1198,9 @@ end = struct
           ) -> eval_item_value_fn ~loc Asttypes.Nonrecursive ident args body
       (* let _ = _ *)
       | Shape (loc, "let", [ (Shape (_, "=", [ _lhs; _rhs ]) as vb) ]) ->
+        eval_item_value ~loc Asttypes.Nonrecursive [ vb ]
+      (* let _ : _ *)
+      | Shape (loc, "let", [ (Shape (_, ":", [ _lhs; _rhs ]) as vb) ]) ->
         eval_item_value ~loc Asttypes.Nonrecursive [ vb ]
       | Shape (loc, "let", [ Shape (_loc, ",", vbl) ]) ->
         eval_item_value ~loc Asttypes.Nonrecursive vbl

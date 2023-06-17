@@ -1,21 +1,216 @@
 // @fold { version = "1.0" };
 
-do {
-  a;
-  f a b;
-  f a b c d e;
-  42;
-  ();
+// --- expression - constant/integer ---
+[3];
+// [g-zG-Z] suffixes
+//3l;
+//3L;
+//3n;
+
+// --- expression - constant/char ---
+// FIXME
+//'x';
+
+// --- expression - constant/string ---
+[
+  "",
+  "a",
+  "abc"
+];
+//{||};
+//{abc||};
+//{abc||abc};
+// constant - float
+//3.4;
+//2e5;
+//1.4e4;
+
+// --- expression - ident ---
+[
+  x,
+  M.x,
+  M1.M2.M3.x
+];
+
+// --- expression - let ---
+
+{ let a = 1; a + 1 };
+
+{
+  let a = 1;
+  let b = a + 1;
+  Ok b
 };
 
-// Constructors
-let x = None;
-let x = Some 1;
-let x = Some [1, 2, 3];
-let x = Two 1 2;
-let x = Two 1 2 |> f;
+{
+  let a = 1, b = 2;
+  Ok (a + b)
+};
 
-// Polymorphic variants
+{ rec xs = [1 & xs]; Ok xs };
+
+{
+  rec a = 2 - b, b = a + 1;
+  Ok (a + b)
+};
+
+{
+  let x = 42;
+  rec a = 2 - b, b = a + 1;
+  Ok (a + b)
+};
+
+{ let a = 1 };
+
+{ let a = 1, b = 2 };
+
+{ let a = 1; let b = 2 };
+
+
+// expression - function
+let f01 = fn { a -> a + 1 };
+let f02 = fn { a -> a + 1 } + 1;
+let f03 = fn { a -> 1, b -> 2 };
+let f04 = fn { a -> 1, (A or B) -> 2 };
+
+// expression - fun
+let f = fn a -> a + 1;
+let f = fn () -> ();
+let f = fn a b -> a + b;
+let f = fn (a : int) -> a + 1;
+let f = fn ~a -> a;
+let f = fn ~(a) -> a;
+let f = fn ~(a : int) -> a;
+let f = fn ~(a as b) -> b;
+let f = fn ~(a = 1) b -> a + b;
+let f = fn ~(a as b = 1) c -> b + c;
+let f = fn ~(a as (Some b) = x) c -> b + c;
+//let f = fn ~(a as (Some b) : option int = x) c -> b + c;
+let f = fn ~(a as (Some b : option[int]) = x) c -> b + c;
+let f = fn ~a? -> a;
+let f = fn ~(a? as b) -> b;
+
+// This matches on an singleton array
+// let f = fn {a} -> a + 1;
+
+// This matches on a record
+//let f = fn {~a} -> a + 1;
+
+
+// expression - apply
+let ap01 = f a;
+let ap01 = f a b;
+let ap02 = f a b c d e;
+
+// apply labels
+do {
+  f ~a;
+  f ~(a);
+  f ~(a = 1);
+  f ~(a : int);
+  f ~(a : int = 1);
+  f ~a?;
+  f ~(a?);
+  f ~(a? = b);
+  f ~(a? : option[int] = b);
+
+  // errors
+  // { fl_expression! { f ~M }; };
+  // { fl_expression! { f ~2 }; };
+};
+
+
+// expression - match
+
+let x = match a {
+  on 1 -> 0
+  on 2 -> b
+};
+let x = match a { on 1 -> 0 };
+let x = match (a + b) {
+  on 1 -> 0
+  on 2 -> b
+};
+let x = match a { on 1 -> b on 2 -> c } + 100;
+let x =
+  match a {
+    on 1 -> {
+      print_endline "1";
+      a
+    }
+    on x if x > 2 -> b
+    on 3 as x or x -> x
+  };
+let x =
+  match a {
+    on 1 -> 0
+    on x if x > 0 -> b
+    on _ -> 1
+  };
+// "lambda match"
+let m = a |> fn {
+  on 1 -> 0
+  on 2 -> b
+};
+
+// match exception
+let mexn01 = match a {
+  on exception e -> 1
+  on exception My_error -> 1
+  on exception My_error a b c -> 1
+  on exception My_error a b c as x -> 1
+};
+
+// expression - unreachable
+{ match a { on _ -> . } };
+
+// errors
+{ fl_expression! { . } };
+
+
+// expression - try
+
+let x = try (f ()) { on a -> prerr_endline msg };
+let x = try (f ()) {
+  on a -> prerr_endline msg
+  on b -> bar
+};
+
+
+// expression - tuple
+let tup01 = (a, b);
+let tup02 = (a, b, c);
+let tup03 = (a, b, c, d);
+let tup04 = ((a, b), (c, d));
+let tup05 = (a, (b, c), (d, e, f));
+
+
+// expression - construct
+let cons01 = None;
+let cons02 = Some 1;
+let cons03 = Some [1, 2, 3];
+let cons04 = Two 1 2;
+let cons05 = Two 1 2 |> f;
+let cons06 = ();
+
+// TODO
+//let empty_block = { ; };
+
+let l01 = [[]];
+let l02 = [[[]]];
+let l03 = [[1], [2], [], [3, 4], [5]];
+let l04 = [];
+let l05 = [1];
+let l06 = [1, 2];
+let l07 = [1, 2, 3];
+let l08 = [0 & xs];
+let l09 = [1, 2 & xs];
+let l10 = [1 & [2]];
+let l11 = [1 & [2 & [3, 4]]];
+let l12 = [1, 2 & [3, 4 & [5, 6]]];
+
+
+// expression - variant
 let x = #A;
 let x = #A #B;
 let x = #A 42;
@@ -26,7 +221,31 @@ let x = #A |> f;
 let x = f #A #B;
 let x = f #A #B <| #C;
 
-// Field and mod access.
+
+// expression - record
+
+let r01 = { a = "A", b = 1, c = 2 };
+let r02 = { ~a };
+let r03 = { a = 1 };
+let r04 = { ~a, b = 1 };
+let r05 = { a = 1, ~b };
+let r06 = { ~a, ~b, ~c };
+let r07 = {
+  a = 1,
+  f = fn x -> x + 1,
+  g = fn x y -> x - y
+};
+
+// update record
+let r08 = { r & a = 23, b = 1 };
+let r09 = { r & a = 23, ~b };
+let r10 = { r & ~a, b = 1 };
+let r11 = { r & ~a };
+let r12 = { r & ~a, ~b };
+let r13 = { r & a = 1 };
+
+
+// expression - field
 do {
   // value access
   M.x;
@@ -124,21 +343,131 @@ do {
 };
 
 
-// --- expr ---
+
+// expression - setfield
 
 
-let l01 = [[]];
-let l02 = [[[]]];
-let l03 = [[1], [2], [], [3, 4], [5]];
-let l04 = [];
-let l05 = [1];
-let l06 = [1, 2];
-let l07 = [1, 2, 3];
-let l08 = [0 & xs];
-let l09 = [1, 2 & xs];
-let l10 = [1 & [2]];
-let l11 = [1 & [2 & [3, 4]]];
-let l12 = [1, 2 & [3, 4 & [5, 6]]];
+
+// expression - array
+
+//let arr01 = {};
+//let arr02 = {,};
+//let arr03 = {1};
+//let arr04 = {1, 2};
+//let arr05 = {1, 2, 3};
+//let arr06 = {1, 2, 3, 4};
+
+
+// expression - ifthenelse
+let x = if a b c;
+let x = if a { x; b } { c };
+let x = if a { x; b; } { y; c; };
+let x = { if a { b } { c }; x; };
+let x = if a { b } { c } + 1;
+let x = if a b c + 1;
+// err
+//let x = if a { b } else c + 1;
+
+// if
+let x = if a { b };
+let x = if a { print_newline (); b; };
+let x = if a { b + 1 };
+let x = if a { b } + 1;
+let x = if a b + 1;
+
+// Syntax errors
+//let x = if a; x then b else c;
+//let x = if a then b; x else c;
+// let + 1;
+
+
+// expression - sequence
+{ a };
+{ a; };
+{ a; b };
+{ a; b; };
+{ a; b; c; };
+{ a; b; c };
+{ f (); let a = 1; a };
+{ let a = 1; a; b };
+
+// { }; // array? unit?
+// { ; }; // empty block? unit?
+
+// expression - while
+do {
+  while e1 e2;
+  while (x > 1) {
+    print "hello";
+    f ();
+  };
+};
+
+// expression - for
+do {
+  for (i = e1 to e2) e3;
+  for (i = e1 downto e2) e3;
+  for (i = e1 to e2) {
+    print "hello";
+    f ();
+  };
+};
+
+
+// expression - constraint
+
+// if tight prec cannot be used for :, consider forcing (_ : _).
+do {
+  x : t;
+  2 + (x : int) * 2;
+  // 2 + f x y : int * 2;
+  f (x : int) y;
+  f (xs : list[int]);
+};
+
+
+// expression - coerce
+// expression - send
+// expression - new
+// expression - setinstvar
+
+// expression - letmodule
+//{ mod X = { let x = 1 }; };
+{ mod X = { let x = 1 }; X.x };
+{ mod _ = { let x = 1 }; 2 };
+{ let a = 2; mod X = { let x = 1 }; X.x };
+{ let a = 2; mod _ = { let x = 1 }; 2 };
+
+
+// expression - letexception
+
+// TODO
+// { exception My_error int string };
+{ exception My_error; 1 };
+{ exception My_error int; 1 };
+{ exception My_error int bool; 1 };
+
+
+// expression - assert
+// expression - lazy
+// expression - poly
+// expression - object
+// expression - newtype
+// expression - pack
+
+// expression - open
+
+{ open M; a; };
+{ let a = 1; open M; a; };
+{ open M; let a = 1; a; };
+
+// TODO: err
+// { open M; };
+
+
+// expression - letop
+// expression - extension
+// expression - unreachable
 
 
 // --- structure item: eval ---
@@ -184,84 +513,6 @@ sig S = {
   external prim2 : t1 -> t2[A] = "x";
 };
 
-// --- let ---
-
-let let_01 = {
-  let a = 1;
-  a + 1
-};
-
-let let_02 = {
-  let a = 1;
-  let b = a + 1;
-  Ok b
-};
-
-let let_03 = {
-  let
-    a = 1,
-    b = 2;
-  Ok (a + b)
-};
-
-let let_04 = {
-  rec xs = [1 & xs];
-  Ok xs
-};
-
-let let_05 = {
-  rec
-    a = 2 - b,
-    b = a + 1;
-  Ok (a + b)
-};
-
-let let_06 = {
-  let x = 42;
-  rec
-    a = 2 - b,
-    b = a + 1;
-  Ok (a + b)
-};
-
-let let_07 = {
-  let a = 1
-};
-
-let let_08 = {
-  let a = 1, b = 2
-};
-
-let let_09 = {
-  let a = 1;
-  let b = 2;
-};
-
-// --- let module ---
-//{ mod X = { let x = 1 }; };
-{ mod X = { let x = 1 }; X.x };
-{ mod _ = { let x = 1 }; 2 };
-
-// let exception ---
-//{ exception My_error int string };
-{ exception My_error; 1 };
-{ exception My_error int; 1 };
-{ exception My_error int bool; 1 };
-
-// Scopes
-// { }; // array? unit?
-// { ; }; // empty block? unit?
-{ a };
-{ a; };
-{ a; b };
-{ a; b; };
-{ a; b; c; };
-{ a; b; c };
-{
-  f ();
-  let a = 1;
-  a
-};
 
 // pattern contruct
 let A = a;
@@ -286,49 +537,13 @@ let [[], [1, 2] & xs] = x;
 let 1 : int = x;
 
 // or pattern
-let A | B = x;
+let A or B = x;
 
 // Arrays
-// x = {a};
+// let x = {a};
 // x = {a, b, c};
 
-// create record
-let r01 = { a = "A", b = 1, c = 2 };
-let r02 = { ~a };
-let r03 = { a = 1 };
-let r04 = { ~a, b = 1 };
-let r05 = { a = 1, ~b };
-let r06 = { ~a, ~b, ~c };
-let r07 = {
-  a = 1,
-  f = fn x -> x + 1,
-  g = fn x y -> x - y
-};
 
-// update record
-let r08 = { r & a = 23, b = 1 };
-let r09 = { r & a = 23, ~b };
-let r10 = { r & ~a, b = 1 };
-let r11 = { r & ~a };
-let r12 = { r & ~a, ~b };
-let r13 = { r & a = 1 };
-
-// Lambda
-let f = fn a -> a + 1;
-let f = fn () -> ();
-let f = fn a b -> a + b;
-let f = fn (a : int) -> a + 1;
-let f = fn ~a -> a;
-let f = fn ~(a) -> a;
-let f = fn ~(a : int) -> a;
-let f = fn ~(a as b) -> b;
-let f = fn ~(a = 1) b -> a + b;
-let f = fn ~(a as b = 1) c -> b + c;
-let f = fn ~(a as (Some b) = x) c -> b + c;
-//let f = fn ~(a as (Some b) : option int = x) c -> b + c;
-let f = fn ~(a as (Some b : option[int]) = x) c -> b + c;
-let f = fn ~a? -> a;
-let f = fn ~(a? as b) -> b;
 
 let f a = a + 1;
 let f () = ();
@@ -346,22 +561,6 @@ let f ~(a as (Some b : option[int]) = x) c = b + c;
 let f ~a? = a;
 let f ~(a? as b) = b;
 
-// apply labels
-do {
-  f ~a;
-  f ~(a);
-  f ~(a = 1);
-  f ~(a : int);
-  f ~(a : int = 1);
-  f ~a?;
-  f ~(a?);
-  f ~(a? = b);
-  f ~(a? : option[int] = b);
-
-  // errors
-  // f ~M;
-  // f ~2;
-};
 
 
 // --- core type arrow ---
@@ -384,102 +583,12 @@ sig S = {
   v : ~(a : t) -> ~(b? : t) -> c;
 };
 
-// This matches on an singleton array
-// let f = fn {a} -> a + 1;
-
-// This matches on a record
-//let f = fn {~a} -> a + 1;
-
-// This wraps a single case.
-let f = fn { a -> a + 1 };
-let f = fn { a -> a + 1 } + 1;
-let f = fn { a -> 1, b -> 2 };
-let f = fn { a -> 1, (A | B) -> 2 };
 
 // Lambda argument
-let x = xs |> List.map (fn { x -> x + 1 });
-//val x = xs |> List.map (fn { 1 -> a, 2 -> b });
-
-// if else
-let x = if a b c;
-let x = if a { x; b } { c };
-let x = if a { x; b; } { y; c; };
-let x = { if a { b } { c }; x; };
-let x = if a { b } { c } + 1;
-let x = if a b c + 1;
-// err
-//let x = if a { b } else c + 1;
-
-// if
-let x = if a { b };
-let x = if a { print_newline (); b; };
-let x = if a { b + 1 };
-let x = if a { b } + 1;
-let x = if a b + 1;
-
-// Syntax errors
-//let x = if a; x then b else c;
-//let x = if a then b; x else c;
-// let + 1;
-
-// match
-let x = match a {
-  1 -> 0,
-  2 -> b
-};
-let x = match a { 1 -> 0 };
-let x = match (a + b) {
-  1 -> 0,
-  2 -> b
-};
-let x = match a { 1 -> b, 2 -> c } + 100;
-let x = match a {
-  1 -> {
-    print_endline "1";
-    a
-  },
-  2 -> b
-};
-let x = match a {
-  1 -> 0,
-  x if x > 0 -> b,
-  _ -> 1
-};
-// "lambda match"
-let m = a |> fn {
-  1 -> 0,
-  2 -> b
-};
-
-// cases with |
-//let x =
-//  match a {
-//  | 1 -> {
-//      print_endline "1";
-//      a
-//    }
-//  | 2 -> b
-//  | 3 as x | x -> x
-//  };
+let x = xs |> List.map (fn { on x -> x + 1 });
+let x = xs |> List.map (fn { on 1 -> a on 2 -> b });
 
 
-// match exception
-let mexn01 = match a {
-  exception e -> 1,
-  exception My_error -> 1,
-  exception My_error a b c -> 1,
-  exception My_error a b c as x -> 1
-};
-
-// match refute?
-// x = match a { _ -> . };
-
-// try
-let x = try (f ()) { a -> prerr_endline msg };
-let x = try (f ()) {
-  a -> prerr_endline msg,
-  b -> bar
-};
 
 // Module bindings
 mod M1 = X;
@@ -503,17 +612,6 @@ sig S1 = {
 
 // open
 open M;
-let x = {
-  let a = 1;
-  open M;
-  a;
-};
-
-let x = {
-  open M;
-  let a = 1;
-  a;
-};
 
 
 // PPX
@@ -538,34 +636,6 @@ let x = {
   //pp! "HOME"
 //};
 
-// while
-do {
-  while e1 e2;
-  while (x > 1) {
-    print "hello";
-    f ();
-  };
-};
-
-// for
-do {
-  for (i = e1 to e2) e3;
-  for (i = e1 downto e2) e3;
-  for (i = e1 to e2) {
-    print "hello";
-    f ();
-  };
-};
-
-// constraint
-// if tight prec cannot be used for :, consider forcing (_ : _).
-do {
-  x : t;
-  2 + (x : int) * 2;
-  // 2 + f x y : int * 2;
-  f (x : int) y;
-  f (xs : list[int]);
-};
 
 // value constraint
 let v_constraint_1 : int = 42;
@@ -660,8 +730,8 @@ type t = { A : a | B : b | C : (c1, c2) -> c3 };
 //type t = A : t1 -> t2 -> t3;
 
 // new type
-let v : new [a] :: a -> int = x;
-let v : new [a, b] :: (a, b) -> int = x;
+let v : type [a] :: a -> int = x;
+let v : type [a, b] :: (a, b) -> int = x;
 
 // type extensibe
 type t = {..};
@@ -784,6 +854,21 @@ let x = if {
   else -> "no"
 };
 
+// escape identidiefrs
+{
+  \x;
+  \+;
+  \*;
+  \mod;
+  \"x";
+  \"mod";
+
+  //~(+);
+
+  // this is not a valid ocaml identifier, but might be in the future.
+  \"foo bar";
+};
+
 // lambda with holes
 // List.map (fn { f _ x })
 
@@ -808,6 +893,9 @@ let x = if {
 //f1 = fn { 2 + _ } 1;
 //f1 = 0 |> fn { List.fold_left _ (+) [1, 2, 3] };
 
+// fn id
+// let f = (fn);
+
 // bind
 //b1 = {
 //  let user <- await Db.get_user ();
@@ -815,6 +903,12 @@ let x = if {
 //    Some u -> u,
 //    None -> failwith "no"
 //  }
+//};
+
+// use
+//do {
+//  let file <- use File.create "/tmp/x";
+//  File.write file "hello";
 //};
 
 // record fn

@@ -6,60 +6,60 @@ let left v = Left v;
 let right v = Right v;
 
 let is_left = fn {
-  Left _ -> True,
-  Right _ -> False
+  on Left _ -> True
+  on Right _ -> False
 };
 
 let is_right = fn {
-  Left _ -> False,
-  Right _ -> True
+  on Left _ -> False
+  on Right _ -> True
 };
 
 let find_left = fn {
-  Left v -> Some v,
-  Right _ -> None
+  on Left v -> Some v
+  on Right _ -> None
 };
 
 let find_right = fn {
-  Left _ -> None,
-  Right v -> Some v
+  on Left _ -> None
+  on Right v -> Some v
 };
 
 let map_left f = fn {
-  Left v -> Left (f v),
-  Right _ as e -> e
+  on Left v -> Left (f v)
+  on Right _ as e -> e
 };
 
 let map_right f = fn {
-  Left _ as e -> e,
-  Right v -> Right (f v)
+  on Left _ as e -> e
+  on Right v -> Right (f v)
 };
 
 let map ~left ~right = fn {
-  Left v -> Left (left v),
-  Right v -> Right (right v)
+  on Left v -> Left (left v)
+  on Right v -> Right (right v)
 };
 
 let fold ~left ~right = fn {
-  Left v -> left v,
-  Right v -> right v
+  on Left v -> left v
+  on Right v -> right v
 };
 
 let iter = fold;
 let for_all = fold;
 
-let equal~left ~right e1 e2 =
+let equal ~left ~right e1 e2 =
   match (e1, e2) {
-    (Left v1, Left v2) -> left v1 v2,
-    (Right v1, Right v2) -> right v1 v2,
-    ((Left _, Right _) | (Right _, Left _)) -> False
+    on (Left v1, Left v2) -> left v1 v2
+    on (Right v1, Right v2) -> right v1 v2
+    on (Left _, Right _) or (Right _, Left _) -> False
   };
 
 let compare ~left ~right e1 e2 =
   match (e1, e2) {
-    (Left v1, Left v2) -> left v1 v2,
-    (Right v1, Right v2) -> right v1 v2,
-    (Left _, Right _) -> -1,
-    (Right _, Left _) -> 1
+    on (Left v1, Left v2) -> left v1 v2
+    on (Right v1, Right v2) -> right v1 v2
+    on (Left _, Right _) -> -1
+    on (Right _, Left _) -> 1
   };
 

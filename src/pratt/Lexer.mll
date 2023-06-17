@@ -95,6 +95,7 @@ rule read lexer = parse
   | ';' { Semi }
   | '`' { Sym "`" }
   | '\'' { Sym "'" }
+  | '\\' { Sym "\\" }
   | '"' {
     Buffer.clear lexer.strbuf;
     String (finish_string lexer lexbuf)

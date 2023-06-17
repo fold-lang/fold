@@ -8,12 +8,12 @@ exception Continuation_already_resumed;
 
 do {
   let printer = fn {
-    Unhandled x -> {
+    on Unhandled x -> {
       let msg = Printf.sprintf "Stdlib.Effect.Unhandled(%s)"
           (Printexc.string_of_extension_constructor @@ Obj.repr x);
       Some msg
-    },
-    _ -> None
+    }
+    on _ -> None
   };
   Printexc.register_printer printer
 };
@@ -61,8 +61,8 @@ module Deep = {
   let match_with comp arg handler = {
     let effc eff k last_fiber =
       match (handler.effc eff) {
-        Some f -> f k,
-        None -> reperform eff k last_fiber
+        on Some f -> f k
+        on None -> reperform eff k last_fiber
       };
     let s = alloc_stack handler.retc handler.exnc effc;
     runstack s comp arg
@@ -75,8 +75,8 @@ module Deep = {
   let try_with comp arg handler = {
     let effc' eff k last_fiber =
       match (handler.effc eff) {
-        Some f -> f k,
-        None -> reperform eff k last_fiber
+        on Some f -> f k
+        on None -> reperform eff k last_fiber
       };
     let s = alloc_stack (fn x -> x) (fn e -> raise e) effc';
     runstack s comp arg
@@ -96,7 +96,7 @@ mod Shallow = {
     (t[C] -> continuation[C, B] -> last_fiber -> B) ->
     stack[A, B] = "caml_alloc_stack";
 
-  let fiber : new [a, b] :: (a -> b) -> continuation[a, b] = fn f -> {
+  let fiber : type [a, b] :: (a -> b) -> continuation[a, b] = fn f -> {
     mod M = { type t[_] += Initial_setup__ : t[a] };
     exception E (continuation[a, b]);
 
@@ -105,15 +105,15 @@ mod Shallow = {
 
     let effc eff k _last_fiber =
       match eff {
-        M.Initial_setup__ -> raise_notrace (E k),
-        _ -> error ()
+        on M.Initial_setup__ -> raise_notrace (E k)
+        on _ -> error ()
       };
 
     let s = alloc_stack error error effc;
 
     match (runstack s f' ()) {
-      exception E k -> k,
-      _ -> error ()
+      on exception E k -> k
+      on _ -> error ()
     }
   };
 
@@ -134,8 +134,8 @@ mod Shallow = {
   let continue_gen k resume_fun v handler = {
     let effc eff k last_fiber =
       match (handler.effc eff) {
-        Some f -> f k,
-        None -> reperform eff k last_fiber
+        on Some f -> f k
+        on None -> reperform eff k last_fiber
       };
     let stack = update_handler k handler.retc handler.exnc effc;
     resume stack resume_fun v

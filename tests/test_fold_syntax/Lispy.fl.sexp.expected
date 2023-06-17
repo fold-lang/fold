@@ -1,10 +1,107 @@
 (;
-  !(do {; a (f a b) (f a b c d e) 42 ()})
-  !(let !(= x None))
-  !(let !(= x (Some 1)))
-  !(let !(= x (Some [, 1 2 3])))
-  !(let !(= x (Two 1 2)))
-  !(let !(= x (|> (Two 1 2) f)))
+  [3]
+  [, "" "a" "abc"]
+  [, x !(ident M x) !(ident M1 M2 M3 x)]
+  {; !(let !(= a 1)) (+ a 1)}
+  {; !(let !(= a 1)) !(let !(= b (+ a 1))) (Ok b)}
+  {; !(let (, !(= a 1) !(= b 2))) (Ok ((+ a b)))}
+  {; !(rec !(= xs [!(& 1 xs)])) (Ok xs)}
+  {; !(rec (, !(= a (- 2 b)) !(= b (+ a 1)))) (Ok ((+ a b)))}
+  {; !(let !(= x 42)) !(rec (, !(= a (- 2 b)) !(= b (+ a 1)))) (Ok ((+ a b)))}
+  {!(let !(= a 1))}
+  {!(let (, !(= a 1) !(= b 2)))}
+  {; !(let !(= a 1)) !(let !(= b 2))}
+  !(let !(= f01 !(fn {!(-> a (+ a 1))})))
+  !(let !(= f02 (+ !(fn {!(-> a (+ a 1))}) 1)))
+  !(let !(= f03 !(fn {, !(-> a 1) !(-> b 2)})))
+  !(let !(= f04 !(fn {, !(-> a 1) !(-> (!(or A B)) 2)})))
+  !(let !(= f !(-> !(fn a) (+ a 1))))
+  !(let !(= f !(-> !(fn ()) ())))
+  !(let !(= f !(-> !(fn a b) (+ a b))))
+  !(let !(= f !(-> !(fn (!(: a int))) (+ a 1))))
+  !(let !(= f !(-> !(fn !(~ a)) a)))
+  !(let !(= f !(-> !(fn !(~ (a))) a)))
+  !(let !(= f !(-> !(fn !(~ (!(: a int)))) a)))
+  !(let !(= f !(-> !(fn !(~ (!(as a b)))) b)))
+  !(let !(= f !(-> !(fn !(~ (!(= a 1))) b) (+ a b))))
+  !(let !(= f !(-> !(fn !(~ (!(= !(as a b) 1))) c) (+ b c))))
+  !(let !(= f !(-> !(fn !(~ (!(= !(as a ((Some b))) x))) c) (+ b c))))
+  !(let
+     !(=
+        f
+        !(->
+           !(fn !(~ (!(= !(as a (!(: (Some b) (option [int])))) x))) c)
+           (+ b c))))
+  !(let !(= f !(-> !(fn !(~? a)) a)))
+  !(let !(= f !(-> !(fn !(~ (!(as !(? a) b)))) b)))
+  !(let !(= ap01 (f a)))
+  !(let !(= ap01 (f a b)))
+  !(let !(= ap02 (f a b c d e)))
+  !(do
+     {;
+       (f !(~ a))
+       (f !(~ (a)))
+       (f !(~ (!(= a 1))))
+       (f !(~ (!(: a int))))
+       (f !(~ (!(= !(: a int) 1))))
+       (f !(~? a))
+       (f !(~ (!(? a))))
+       (f !(~ (!(= !(? a) b))))
+       (f !(~ (!(= !(: !(? a) (option [int])) b))))})
+  !(let !(= x !(match a {!(on !(-> 1 0) !(-> 2 b))})))
+  !(let !(= x !(match a {!(on !(-> 1 0))})))
+  !(let !(= x !(match ((+ a b)) {!(on !(-> 1 0) !(-> 2 b))})))
+  !(let !(= x (+ !(match a {!(on !(-> 1 b) !(-> 2 c))}) 100)))
+  !(let
+     !(=
+        x
+        !(match
+           a
+           {!(on
+               !(-> 1 {; (print_endline "1") a})
+               !(-> !(_if_ x (> x 2)) b)
+               !(-> !(or !(as 3 x) x) x))})))
+  !(let
+     !(= x !(match a {!(on !(-> 1 0) !(-> !(_if_ x (> x 0)) b) !(-> _ 1))})))
+  !(let !(= m (|> a !(fn {!(on !(-> 1 0) !(-> 2 b))}))))
+  !(let
+     !(=
+        mexn01
+        !(match
+           a
+           {!(on
+               !(-> !(exception e) 1)
+               !(-> !(exception My_error) 1)
+               !(-> !(exception My_error a b c) 1)
+               !(-> !(as !(exception My_error a b c) x) 1))})))
+  {!(match a {!(on !(-> _ .))})}
+  {!(fl_expression {.})}
+  !(let !(= x !(try ((f ())) {!(on !(-> a (prerr_endline msg)))})))
+  !(let
+     !(= x !(try ((f ())) {!(on !(-> a (prerr_endline msg)) !(-> b bar))})))
+  !(let !(= tup01 (, a b)))
+  !(let !(= tup02 (, a b c)))
+  !(let !(= tup03 (, a b c d)))
+  !(let !(= tup04 (, (, a b) (, c d))))
+  !(let !(= tup05 (, a (, b c) (, d e f))))
+  !(let !(= cons01 None))
+  !(let !(= cons02 (Some 1)))
+  !(let !(= cons03 (Some [, 1 2 3])))
+  !(let !(= cons04 (Two 1 2)))
+  !(let !(= cons05 (|> (Two 1 2) f)))
+  !(let !(= cons06 ()))
+  !(let !(= l01 [[]]))
+  !(let !(= l02 [[[]]]))
+  !(let !(= l03 [, [1] [2] [] [, 3 4] [5]]))
+  !(let !(= l04 []))
+  !(let !(= l05 [1]))
+  !(let !(= l06 [, 1 2]))
+  !(let !(= l07 [, 1 2 3]))
+  !(let !(= l08 [!(& 0 xs)]))
+  !(let !(= l09 [!(& (, 1 2) xs)]))
+  !(let !(= l10 [!(& 1 [2])]))
+  !(let !(= l11 [!(& 1 [!(& 2 [, 3 4])])]))
+  !(let !(= l12 [!(& (, 1 2) [!(& (, 3 4) [, 5 6])])]))
   !(let !(= x !(# A)))
   !(let !(= x (!(# A) !(# B))))
   !(let !(= x (!(# A) 42)))
@@ -14,6 +111,25 @@
   !(let !(= x (|> !(# A) f)))
   !(let !(= x (f !(# A) !(# B))))
   !(let !(= x (<| (f !(# A) !(# B)) !(# C))))
+  !(let !(= r01 {, !(= a "A") !(= b 1) !(= c 2)}))
+  !(let !(= r02 {!(~ a)}))
+  !(let !(= r03 {!(= a 1)}))
+  !(let !(= r04 {, !(~ a) !(= b 1)}))
+  !(let !(= r05 {, !(= a 1) !(~ b)}))
+  !(let !(= r06 {, !(~ a) !(~ b) !(~ c)}))
+  !(let
+     !(=
+        r07
+        {,
+          !(= a 1)
+          !(= f !(-> !(fn x) (+ x 1)))
+          !(= g !(-> !(fn x y) (- x y)))}))
+  !(let !(= r08 {!(& r (, !(= a 23) !(= b 1)))}))
+  !(let !(= r09 {!(& r (, !(= a 23) !(~ b)))}))
+  !(let !(= r10 {!(& r (, !(~ a) !(= b 1)))}))
+  !(let !(= r11 {!(& r !(~ a))}))
+  !(let !(= r12 {!(& r (, !(~ a) !(~ b)))}))
+  !(let !(= r13 {!(& r !(= a 1))}))
   !(do
      {;
        !(ident M x)
@@ -77,18 +193,47 @@
          ((f2 !(ident M4 M5 x)))
          ((h !(ident M6 c) d e)))
        (f !(ident M a) b)})
-  !(let !(= l01 [[]]))
-  !(let !(= l02 [[[]]]))
-  !(let !(= l03 [, [1] [2] [] [, 3 4] [5]]))
-  !(let !(= l04 []))
-  !(let !(= l05 [1]))
-  !(let !(= l06 [, 1 2]))
-  !(let !(= l07 [, 1 2 3]))
-  !(let !(= l08 [!(& 0 xs)]))
-  !(let !(= l09 [!(& (, 1 2) xs)]))
-  !(let !(= l10 [!(& 1 [2])]))
-  !(let !(= l11 [!(& 1 [!(& 2 [, 3 4])])]))
-  !(let !(= l12 [!(& (, 1 2) [!(& (, 3 4) [, 5 6])])]))
+  !(let !(= x !(if a b c)))
+  !(let !(= x !(if a {; x b} {c})))
+  !(let !(= x !(if a {; x b} {; y c})))
+  !(let !(= x {; !(if a {b} {c}) x}))
+  !(let !(= x (+ !(if a {b} {c}) 1)))
+  !(let !(= x (+ !(if a b c) 1)))
+  !(let !(= x !(if a {b})))
+  !(let !(= x !(if a {; (print_newline ()) b})))
+  !(let !(= x !(if a {(+ b 1)})))
+  !(let !(= x (+ !(if a {b}) 1)))
+  !(let !(= x (+ !(if a b) 1)))
+  {a}
+  {; a}
+  {; a b}
+  {; a b}
+  {; a b c}
+  {; a b c}
+  {; (f ()) !(let !(= a 1)) a}
+  {; !(let !(= a 1)) a b}
+  !(do {; !(while e1 e2) !(while ((> x 1)) {; (print "hello") (f ())})})
+  !(do
+     {;
+       !(for (!(= i !(to e1 e2))) e3)
+       !(for (!(= i !(downto e1 e2))) e3)
+       !(for (!(= i !(to e1 e2))) {; (print "hello") (f ())})})
+  !(do
+     {;
+       !(: x t)
+       (+ 2 (* (!(: x int)) 2))
+       (f (!(: x int)) y)
+       (f (!(: xs (list [int]))))})
+  {; !(mod !(= X {!(let !(= x 1))})) !(ident X x)}
+  {; !(mod !(= _ {!(let !(= x 1))})) 2}
+  {; !(let !(= a 2)) !(mod !(= X {!(let !(= x 1))})) !(ident X x)}
+  {; !(let !(= a 2)) !(mod !(= _ {!(let !(= x 1))})) 2}
+  {; !(exception My_error) 1}
+  {; !(exception My_error int) 1}
+  {; !(exception My_error int bool) 1}
+  {; !(open M) a}
+  {; !(let !(= a 1)) !(open M) a}
+  {; !(open M) !(let !(= a 1)) a}
   ()
   1
   "abc"
@@ -114,34 +259,6 @@
         {;
           !(external !(= !(: prim1 t) "x"))
           !(external !(= !(: prim2 !(-> t1 (t2 [A]))) "x"))}))
-  !(let !(= let_01 {; !(let !(= a 1)) (+ a 1)}))
-  !(let !(= let_02 {; !(let !(= a 1)) !(let !(= b (+ a 1))) (Ok b)}))
-  !(let !(= let_03 {; !(let (, !(= a 1) !(= b 2))) (Ok ((+ a b)))}))
-  !(let !(= let_04 {; !(rec !(= xs [!(& 1 xs)])) (Ok xs)}))
-  !(let
-     !(= let_05 {; !(rec (, !(= a (- 2 b)) !(= b (+ a 1)))) (Ok ((+ a b)))}))
-  !(let
-     !(=
-        let_06
-        {;
-          !(let !(= x 42))
-          !(rec (, !(= a (- 2 b)) !(= b (+ a 1))))
-          (Ok ((+ a b)))}))
-  !(let !(= let_07 {!(let !(= a 1))}))
-  !(let !(= let_08 {!(let (, !(= a 1) !(= b 2)))}))
-  !(let !(= let_09 {; !(let !(= a 1)) !(let !(= b 2))}))
-  {; !(mod !(= X {!(let !(= x 1))})) !(ident X x)}
-  {; !(mod !(= _ {!(let !(= x 1))})) 2}
-  {; !(exception My_error) 1}
-  {; !(exception My_error int) 1}
-  {; !(exception My_error int bool) 1}
-  {a}
-  {; a}
-  {; a b}
-  {; a b}
-  {; a b c}
-  {; a b c}
-  {; (f ()) !(let !(= a 1)) a}
   !(let !(= A a))
   !(let !(= !(ident M A) a))
   !(let !(= !(ident M1 M2 A) a))
@@ -164,45 +281,7 @@
   !(let !(= [!(& (, 1 2) xs)] x))
   !(let !(= [!(& (, [] [, 1 2]) xs)] x))
   !(let !(= !(: 1 int) x))
-  !(let !(= !(| A B) x))
-  !(let !(= r01 {, !(= a "A") !(= b 1) !(= c 2)}))
-  !(let !(= r02 {!(~ a)}))
-  !(let !(= r03 {!(= a 1)}))
-  !(let !(= r04 {, !(~ a) !(= b 1)}))
-  !(let !(= r05 {, !(= a 1) !(~ b)}))
-  !(let !(= r06 {, !(~ a) !(~ b) !(~ c)}))
-  !(let
-     !(=
-        r07
-        {,
-          !(= a 1)
-          !(= f !(-> !(fn x) (+ x 1)))
-          !(= g !(-> !(fn x y) (- x y)))}))
-  !(let !(= r08 {!(& r (, !(= a 23) !(= b 1)))}))
-  !(let !(= r09 {!(& r (, !(= a 23) !(~ b)))}))
-  !(let !(= r10 {!(& r (, !(~ a) !(= b 1)))}))
-  !(let !(= r11 {!(& r !(~ a))}))
-  !(let !(= r12 {!(& r (, !(~ a) !(~ b)))}))
-  !(let !(= r13 {!(& r !(= a 1))}))
-  !(let !(= f !(-> !(fn a) (+ a 1))))
-  !(let !(= f !(-> !(fn ()) ())))
-  !(let !(= f !(-> !(fn a b) (+ a b))))
-  !(let !(= f !(-> !(fn (!(: a int))) (+ a 1))))
-  !(let !(= f !(-> !(fn !(~ a)) a)))
-  !(let !(= f !(-> !(fn !(~ (a))) a)))
-  !(let !(= f !(-> !(fn !(~ (!(: a int)))) a)))
-  !(let !(= f !(-> !(fn !(~ (!(as a b)))) b)))
-  !(let !(= f !(-> !(fn !(~ (!(= a 1))) b) (+ a b))))
-  !(let !(= f !(-> !(fn !(~ (!(= !(as a b) 1))) c) (+ b c))))
-  !(let !(= f !(-> !(fn !(~ (!(= !(as a ((Some b))) x))) c) (+ b c))))
-  !(let
-     !(=
-        f
-        !(->
-           !(fn !(~ (!(= !(as a (!(: (Some b) (option [int])))) x))) c)
-           (+ b c))))
-  !(let !(= f !(-> !(fn !(~? a)) a)))
-  !(let !(= f !(-> !(fn !(~ (!(as !(? a) b)))) b)))
+  !(let !(= !(or A B) x))
   !(let !(= (f a) (+ a 1)))
   !(let !(= (f ()) ()))
   !(let !(= (f a b) (+ a b)))
@@ -218,17 +297,6 @@
      !(= (f !(~ (!(= !(as a (!(: (Some b) (option [int])))) x))) c) (+ b c)))
   !(let !(= (f !(~? a)) a))
   !(let !(= (f !(~ (!(as !(? a) b)))) b))
-  !(do
-     {;
-       (f !(~ a))
-       (f !(~ (a)))
-       (f !(~ (!(= a 1))))
-       (f !(~ (!(: a int))))
-       (f !(~ (!(= !(: a int) 1))))
-       (f !(~? a))
-       (f !(~ (!(? a))))
-       (f !(~ (!(= !(? a) b))))
-       (f !(~ (!(= !(: !(? a) (option [int])) b))))})
   !(type !(= f !(-> a b)))
   !(type !(= f !(-> a !(-> b !(-> c d)))))
   !(type !(= f !(-> !(~ (!(: a t))) b)))
@@ -247,41 +315,9 @@
           !(: v !(-> !(~ (!(: a t))) !(-> b c)))
           !(: v !(-> !(~ (!(: !(? a) t))) b))
           !(: v !(-> !(~ (!(: a t))) !(-> !(~ (!(: !(? b) t))) c)))}))
-  !(let !(= f !(fn {!(-> a (+ a 1))})))
-  !(let !(= f (+ !(fn {!(-> a (+ a 1))}) 1)))
-  !(let !(= f !(fn {, !(-> a 1) !(-> b 2)})))
-  !(let !(= f !(fn {, !(-> a 1) !(-> (!(| A B)) 2)})))
-  !(let !(= x (|> xs (!(ident List map) (!(fn {!(-> x (+ x 1))}))))))
-  !(let !(= x !(if a b c)))
-  !(let !(= x !(if a {; x b} {c})))
-  !(let !(= x !(if a {; x b} {; y c})))
-  !(let !(= x {; !(if a {b} {c}) x}))
-  !(let !(= x (+ !(if a {b} {c}) 1)))
-  !(let !(= x (+ !(if a b c) 1)))
-  !(let !(= x !(if a {b})))
-  !(let !(= x !(if a {; (print_newline ()) b})))
-  !(let !(= x !(if a {(+ b 1)})))
-  !(let !(= x (+ !(if a {b}) 1)))
-  !(let !(= x (+ !(if a b) 1)))
-  !(let !(= x !(match a {, !(-> 1 0) !(-> 2 b)})))
-  !(let !(= x !(match a {!(-> 1 0)})))
-  !(let !(= x !(match ((+ a b)) {, !(-> 1 0) !(-> 2 b)})))
-  !(let !(= x (+ !(match a {, !(-> 1 b) !(-> 2 c)}) 100)))
-  !(let !(= x !(match a {, !(-> 1 {; (print_endline "1") a}) !(-> 2 b)})))
-  !(let !(= x !(match a {, !(-> 1 0) !(-> !(_if_ x (> x 0)) b) !(-> _ 1)})))
-  !(let !(= m (|> a !(fn {, !(-> 1 0) !(-> 2 b)}))))
+  !(let !(= x (|> xs (!(ident List map) (!(fn {!(on !(-> x (+ x 1)))}))))))
   !(let
-     !(=
-        mexn01
-        !(match
-           a
-           {,
-             !(-> !(exception e) 1)
-             !(-> !(exception My_error) 1)
-             !(-> !(exception My_error a b c) 1)
-             !(-> !(as !(exception My_error a b c) x) 1)})))
-  !(let !(= x !(try ((f ())) {!(-> a (prerr_endline msg))})))
-  !(let !(= x !(try ((f ())) {, !(-> a (prerr_endline msg)) !(-> b bar)})))
+     !(= x (|> xs (!(ident List map) (!(fn {!(on !(-> 1 a) !(-> 2 b))}))))))
   !(mod !(= M1 X))
   !(mod !(= M1 !(ident M2 M3 X)))
   !(mod !(= M2 {}))
@@ -294,20 +330,6 @@
         {; !(let !(= x 42)) !(let !(= y 2))}))
   !(sig !(= S1 {; !(: a int) !(: b bool)}))
   !(open M)
-  !(let !(= x {; !(let !(= a 1)) !(open M) a}))
-  !(let !(= x {; !(open M) !(let !(= a 1)) a}))
-  !(do {; !(while e1 e2) !(while ((> x 1)) {; (print "hello") (f ())})})
-  !(do
-     {;
-       !(for (!(= i !(to e1 e2))) e3)
-       !(for (!(= i !(downto e1 e2))) e3)
-       !(for (!(= i !(to e1 e2))) {; (print "hello") (f ())})})
-  !(do
-     {;
-       !(: x t)
-       (+ 2 (* (!(: x int)) 2))
-       (f (!(: x int)) y)
-       (f (!(: xs (list [int]))))})
   !(let !(= !(: v_constraint_1 int) 42))
   !(let
      !(= !(: v_constraint_2 (list [(, string int)])) [, (, "a" 2) (, "b" 3)]))
@@ -355,11 +377,11 @@
   !(type !(= t {, !(: a int) !(: b (list [bool]))}))
   !(type !(= t (== u {, !(: a int) !(: b (list [bool]))})))
   !(type !(= t {, !(: a (mutable int)) !(: b (mutable ((list [bool]))))}))
-  !(type !(= t {!(: a !(:: A int))}))
-  !(type !(= t {!(: a !(:: (A B) int))}))
-  !(type !(= t {, !(: a !(:: A int)) !(: b !(:: (B C D) B))}))
+  !(type !(= t {!(: a !(:: [A] int))}))
+  !(type !(= t {!(: a !(:: [, A B] int))}))
+  !(type !(= t {, !(: a !(:: [A] int)) !(: b !(:: [, B C D] B))}))
   !(type
-     !(= t {!(: a !(:: B !(-> (t2 [B]) (option [!(-> (t3 [, C D]) D)]))))}))
+     !(= t {!(: a !(:: [B] !(-> (t2 [B]) (option [!(-> (t3 [, C D]) D)]))))}))
   !(type !(= t !(: A int)))
   !(type !(= t !(: A !(-> int t))))
   !(type !(= t !(: A !(-> (, t1 t2) t3))))
@@ -370,8 +392,8 @@
   !(type !(= (t [A]) !(: A !(-> (!(-> t1 t2)) (t [!(-> t1 t2)])))))
   !(type !(= t {!(| !(: A a) !(: B b))}))
   !(type !(= t {!(| !(: A a) !(: B b) !(: C !(-> (, c1 c2) c3)))}))
-  !(let !(= !(: v !(:: (new a) !(-> a int))) x))
-  !(let !(= !(: v !(:: (new a b) !(-> (, a b) int))) x))
+  !(let !(: v !(type !(= !(:: [a] !(-> a int)) x))))
+  !(let !(: v !(type !(= !(:: [, a b] !(-> (, a b) int)) x))))
   !(type !(= t {..}))
   !(type !(+= t A))
   !(type !(+= t (A int)))
@@ -392,4 +414,5 @@
   !(let
      !(=
         x
-        !(if {, !(-> (> a 1) "yes") !(-> (== a 0) "maybe") !(-> else "no")}))))
+        !(if {, !(-> (> a 1) "yes") !(-> (== a 0) "maybe") !(-> else "no")})))
+  {; !(\ x) !(\ +) !(\ *) !(\ mod) !(\ x) !(\ mod) !(\ foo bar)})

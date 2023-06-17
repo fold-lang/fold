@@ -1,4 +1,4 @@
 open Prelude
 
-val expression : fl -> Parsetree.expression
+val expression : ?loc:loc -> fl -> Parsetree.expression
 val structure : fl -> Parsetree.structure

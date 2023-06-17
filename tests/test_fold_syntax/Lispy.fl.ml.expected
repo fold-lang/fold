@@ -1,15 +1,169 @@
-let () =
-  a;
-  f a b;
-  f a b c d e;
-  42;
-  ()
+[ 3 ];;
+[ ""; "a"; "abc" ];;
+[ x; M.x; M1.M2.M3.x ];;
 
-let x = None
-let x = Some 1
-let x = Some [ 1; 2; 3 ]
-let x = Two (1, 2)
-let x = Two (1, 2) |> f
+let a = 1 in
+a + 1
+;;
+
+let a = 1 in
+let b = a + 1 in
+Ok b
+;;
+
+let a = 1 and b = 2 in
+Ok (a + b)
+;;
+
+let rec xs = 1 :: xs in
+Ok xs
+;;
+
+let rec a = 2 - b and b = a + 1 in
+Ok (a + b)
+;;
+
+let x = 42 in
+let rec a = 2 - b and b = a + 1 in
+Ok (a + b)
+;;
+
+let a = 1 in
+()
+;;
+
+let a = 1 and b = 2 in
+()
+;;
+
+let a = 1 in
+let b = 2 in
+()
+
+let f01 a = a + 1
+let f02 = (fun a -> a + 1) + 1
+
+let f03 = function
+  | a -> 1
+  | b -> 2
+
+let f04 = function
+  | a -> 1
+  | A | B -> 2
+
+let f a = a + 1
+let f () = ()
+let f a b = a + b
+let f (a : int) = a + 1
+let f ~a = a
+let f ~a = a
+let f ~(a : int) = a
+let f ?a:b = b
+let f ?(a = 1) b = a + b
+let f ?a:(b = 1) c = b + c
+let f ?a:(Some b = x) c = b + c
+let f ?a:(Some b : int option = x) c = b + c
+let f ?a = a
+let f ?a:b = b
+let ap01 = f a
+let ap01 = f a b
+let ap02 = f a b c d e
+
+let () =
+  f ~a;
+  f ~a;
+  f ~a:1;
+  f ~a:(a : int);
+  f ~a:(1 : int);
+  f ?a;
+  f ?a;
+  f ?a:b;
+  f ?a:(b : int option)
+
+let x =
+  match a with
+  | 1 -> 0
+  | 2 -> b
+
+let x =
+  match a with
+  | 1 -> 0
+
+let x =
+  match a + b with
+  | 1 -> 0
+  | 2 -> b
+
+let x =
+  ( match a with
+  | 1 -> b
+  | 2 -> c
+  )
+  + 100
+
+let x =
+  match a with
+  | 1 ->
+    print_endline "1";
+    a
+  | x when x > 2 -> b
+  | (3 as x) | x -> x
+
+let x =
+  match a with
+  | 1 -> 0
+  | x when x > 0 -> b
+  | _ -> 1
+
+let m =
+  a |> function
+  | 1 -> 0
+  | 2 -> b
+
+let mexn01 =
+  match a with
+  | exception e -> 1
+  | exception My_error -> 1
+  | exception My_error (a, b, c) -> 1
+  | (exception My_error (a, b, c)) as x -> 1
+;;
+
+match a with
+| _ -> .
+;;
+
+[%fl.error "`.` is not an expression"]
+
+let x = try f () with a -> prerr_endline msg
+
+let x =
+  try f () with
+  | a -> prerr_endline msg
+  | b -> bar
+
+let tup01 = (a, b)
+let tup02 = (a, b, c)
+let tup03 = (a, b, c, d)
+let tup04 = ((a, b), (c, d))
+let tup05 = (a, (b, c), (d, e, f))
+let cons01 = None
+let cons02 = Some 1
+let cons03 = Some [ 1; 2; 3 ]
+let cons04 = Two (1, 2)
+let cons05 = Two (1, 2) |> f
+let cons06 = ()
+let l01 = [ [] ]
+let l02 = [ [ [] ] ]
+let l03 = [ [ 1 ]; [ 2 ]; []; [ 3; 4 ]; [ 5 ] ]
+let l04 = []
+let l05 = [ 1 ]
+let l06 = [ 1; 2 ]
+let l07 = [ 1; 2; 3 ]
+let l08 = 0 :: xs
+let l09 = 1 :: 2 :: xs
+let l10 = [ 1; 2 ]
+let l11 = [ 1; 2; 3; 4 ]
+let l12 = [ 1; 2; 3; 4; 5; 6 ]
 let x = `A
 let x = `A `B
 let x = `A 42
@@ -19,6 +173,19 @@ let x = `A (b, 43)
 let x = `A |> f
 let x = f `A `B
 let x = f `A `B <| `C
+let r01 = { a = "A"; b = 1; c = 2 }
+let r02 = { a }
+let r03 = { a = 1 }
+let r04 = { a; b = 1 }
+let r05 = { a = 1; b }
+let r06 = { a; b; c }
+let r07 = { a = 1; f = (fun x -> x + 1); g = (fun x y -> x - y) }
+let r08 = { r with a = 23; b = 1 }
+let r09 = { r with a = 23; b }
+let r10 = { r with a; b = 1 }
+let r11 = { r with a }
+let r12 = { r with a; b }
+let r13 = { r with a = 1 }
 
 let () =
   M.x;
@@ -75,18 +242,152 @@ let () =
   f a (M3.g 2) (f2 M4.M5.x) (h M6.c d e);
   f M.a b
 
-let l01 = [ [] ]
-let l02 = [ [ [] ] ]
-let l03 = [ [ 1 ]; [ 2 ]; []; [ 3; 4 ]; [ 5 ] ]
-let l04 = []
-let l05 = [ 1 ]
-let l06 = [ 1; 2 ]
-let l07 = [ 1; 2; 3 ]
-let l08 = 0 :: xs
-let l09 = 1 :: 2 :: xs
-let l10 = [ 1; 2 ]
-let l11 = [ 1; 2; 3; 4 ]
-let l12 = [ 1; 2; 3; 4; 5; 6 ];;
+let x = if a then b else c
+
+let x =
+  if a then (
+    x;
+    b
+  )
+  else c
+
+let x =
+  if a then (
+    x;
+    b
+  )
+  else (
+    y;
+    c
+  )
+
+let x =
+  if a then b else c;
+  x
+
+let x = (if a then b else c) + 1
+let x = (if a then b else c) + 1
+let x = if a then b
+
+let x =
+  if a then (
+    print_newline ();
+    b
+  )
+
+let x = if a then b + 1
+let x = (if a then b) + 1
+let x = (if a then b) + 1;;
+
+a;;
+a;;
+
+a;
+b
+;;
+
+a;
+b
+;;
+
+a;
+b;
+c
+;;
+
+a;
+b;
+c
+;;
+
+f ();
+let a = 1 in
+a
+;;
+
+let a = 1 in
+a;
+b
+
+let () =
+  while e1 do
+    e2
+  done;
+  while x > 1 do
+    print "hello";
+    f ()
+  done
+
+let () =
+  for i = e1 to e2 do
+    e3
+  done;
+  for i = e1 downto e2 do
+    e3
+  done;
+  for i = e1 to e2 do
+    print "hello";
+    f ()
+  done
+
+let () =
+  (x : t);
+  2 + ((x : int) * 2);
+  f (x : int) y;
+  f (xs : int list)
+;;
+
+let module X = struct
+  let x = 1
+end in
+X.x
+;;
+
+let module _ = struct
+  let x = 1
+end in
+2
+;;
+
+let a = 2 in
+let module X = struct
+  let x = 1
+end in
+X.x
+;;
+
+let a = 2 in
+let module _ = struct
+  let x = 1
+end in
+2
+;;
+
+let exception My_error in
+1
+;;
+
+let exception My_error of int in
+1
+;;
+
+let exception My_error of int * bool in
+1
+;;
+
+let open M in
+a
+;;
+
+let a = 1 in
+let open M in
+a
+;;
+
+let open M in
+let a = 1 in
+a
+;;
 
 ();;
 1;;
@@ -125,95 +426,6 @@ module type S = sig
   external prim2 : t1 -> 'a t2 = "x"
 end
 
-let let_01 =
-  let a = 1 in
-  a + 1
-
-let let_02 =
-  let a = 1 in
-  let b = a + 1 in
-  Ok b
-
-let let_03 =
-  let a = 1 and b = 2 in
-  Ok (a + b)
-
-let let_04 =
-  let rec xs = 1 :: xs in
-  Ok xs
-
-let let_05 =
-  let rec a = 2 - b and b = a + 1 in
-  Ok (a + b)
-
-let let_06 =
-  let x = 42 in
-  let rec a = 2 - b and b = a + 1 in
-  Ok (a + b)
-
-let let_07 =
-  let a = 1 in
-  ()
-
-let let_08 =
-  let a = 1 and b = 2 in
-  ()
-
-let let_09 =
-  let a = 1 in
-  let b = 2 in
-  ()
-;;
-
-let module X = struct
-  let x = 1
-end in
-X.x
-;;
-
-let module _ = struct
-  let x = 1
-end in
-2
-;;
-
-let exception My_error in
-1
-;;
-
-let exception My_error of int in
-1
-;;
-
-let exception My_error of int * bool in
-1
-;;
-
-a;;
-a;;
-
-a;
-b
-;;
-
-a;
-b
-;;
-
-a;
-b;
-c
-;;
-
-a;
-b;
-c
-;;
-
-f ();
-let a = 1 in
-a
-
 let A = a
 let M.A = a
 let M1.M2.A = a
@@ -231,19 +443,6 @@ let (1 :: 2 :: xs) = x
 let ([] :: [ 1; 2 ] :: xs) = x
 let (1 : int) = x
 let (A | B) = x
-let r01 = { a = "A"; b = 1; c = 2 }
-let r02 = { a }
-let r03 = { a = 1 }
-let r04 = { a; b = 1 }
-let r05 = { a = 1; b }
-let r06 = { a; b; c }
-let r07 = { a = 1; f = (fun x -> x + 1); g = (fun x y -> x - y) }
-let r08 = { r with a = 23; b = 1 }
-let r09 = { r with a = 23; b }
-let r10 = { r with a; b = 1 }
-let r11 = { r with a }
-let r12 = { r with a; b }
-let r13 = { r with a = 1 }
 let f a = a + 1
 let f () = ()
 let f a b = a + b
@@ -258,31 +457,6 @@ let f ?a:(Some b = x) c = b + c
 let f ?a:(Some b : int option = x) c = b + c
 let f ?a = a
 let f ?a:b = b
-let f a = a + 1
-let f () = ()
-let f a b = a + b
-let f (a : int) = a + 1
-let f ~a = a
-let f ~a = a
-let f ~(a : int) = a
-let f ?a:b = b
-let f ?(a = 1) b = a + b
-let f ?a:(b = 1) c = b + c
-let f ?a:(Some b = x) c = b + c
-let f ?a:(Some b : int option = x) c = b + c
-let f ?a = a
-let f ?a:b = b
-
-let () =
-  f ~a;
-  f ~a;
-  f ~a:1;
-  f ~a:(a : int);
-  f ~a:(1 : int);
-  f ?a;
-  f ?a;
-  f ?a:b;
-  f ?a:(b : int option)
 
 type f = a -> b
 type f = a -> b -> c -> d
@@ -302,107 +476,14 @@ module type S = sig
   val v : a:t -> ?b:t -> c
 end
 
-let f a = a + 1
-let f = (fun a -> a + 1) + 1
-
-let f = function
-  | a -> 1
-  | b -> 2
-
-let f = function
-  | a -> 1
-  | A | B -> 2
-
-let x = xs |> List.map (fun x -> x + 1)
-let x = if a then b else c
+let x = xs |> List.map (function x -> x + 1)
 
 let x =
-  if a then (
-    x;
-    b
-  )
-  else c
-
-let x =
-  if a then (
-    x;
-    b
-  )
-  else (
-    y;
-    c
-  )
-
-let x =
-  if a then b else c;
-  x
-
-let x = (if a then b else c) + 1
-let x = (if a then b else c) + 1
-let x = if a then b
-
-let x =
-  if a then (
-    print_newline ();
-    b
-  )
-
-let x = if a then b + 1
-let x = (if a then b) + 1
-let x = (if a then b) + 1
-
-let x =
-  match a with
-  | 1 -> 0
-  | 2 -> b
-
-let x =
-  match a with
-  | 1 -> 0
-
-let x =
-  match a + b with
-  | 1 -> 0
-  | 2 -> b
-
-let x =
-  ( match a with
-  | 1 -> b
-  | 2 -> c
-  )
-  + 100
-
-let x =
-  match a with
-  | 1 ->
-    print_endline "1";
-    a
-  | 2 -> b
-
-let x =
-  match a with
-  | 1 -> 0
-  | x when x > 0 -> b
-  | _ -> 1
-
-let m =
-  a |> function
-  | 1 -> 0
-  | 2 -> b
-
-let mexn01 =
-  match a with
-  | exception e -> 1
-  | exception My_error -> 1
-  | exception My_error (a, b, c) -> 1
-  | (exception My_error (a, b, c)) as x -> 1
-
-let x = try f () with a -> prerr_endline msg
-
-let x =
-  try f () with
-  | a -> prerr_endline msg
-  | b -> bar
+  xs
+  |> List.map (function
+       | 1 -> a
+       | 2 -> b
+       )
 
 module M1 = X
 module M1 = M2.M3.X
@@ -435,43 +516,6 @@ module type S1 = sig
 end
 
 open M
-
-let x =
-  let a = 1 in
-  let open M in
-  a
-
-let x =
-  let open M in
-  let a = 1 in
-  a
-
-let () =
-  while e1 do
-    e2
-  done;
-  while x > 1 do
-    print "hello";
-    f ()
-  done
-
-let () =
-  for i = e1 to e2 do
-    e3
-  done;
-  for i = e1 downto e2 do
-    e3
-  done;
-  for i = e1 to e2 do
-    print "hello";
-    f ()
-  done
-
-let () =
-  (x : t);
-  2 + ((x : int) * 2);
-  f (x : int) y;
-  f (xs : int list)
 
 let (v_constraint_1 : int) = 42
 let (v_constraint_2 : (string * int) list) = [ ("a", 2); ("b", 3) ]
@@ -557,4 +601,12 @@ external a : t = "x" [@@attr2]
 let x = [%fl.mc1 "(2)"]
 let x = [%fl.mc2 "(2)"] + 1
 let x = [%fl.mc3 "{(< div > \"hello\" </ div >)}"]
-let x = if a > 1 then "yes" else if a == 0 then "maybe" else "no"
+let x = if a > 1 then "yes" else if a == 0 then "maybe" else "no";;
+
+x;
+( + );
+( * );
+( mod );
+x;
+( mod );
+foo bar
