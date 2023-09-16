@@ -1,5 +1,21 @@
 # JOURNAL
 
+## 2023-06-17
+
+### Parsetree.expression and Shaper.syntax isomorphism
+
+- When a fold macro is evaluated, encode it's shaper payload using OCaml's Parsetree.expression.
+
+```
+Shape ("if", [a; b; c])
+
+"if" (a, b, c)
+
+[%fl.macro.expression if (a, b, c)]
+```
+
+
+
 ## 2023-04-04
 
 Dylan macros:

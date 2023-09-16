@@ -31,7 +31,7 @@ type stack[A, B];
 external resume : stack[A, B] -> (C -> A) -> C -> B = "%resume";
 external runstack : stack[A, B] -> (C -> A) -> C -> B = "%runstack";
 
-module Deep = {
+mod Deep = {
   type continuation[A, B];
   type last_fiber;
 

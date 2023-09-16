@@ -1,3 +1,5 @@
+type loc = Astlib.Location.t
+
 let noloc = Astlib.Location.none
 
 type ident = Upper of string | Lower of string

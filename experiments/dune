@@ -1,0 +1,30 @@
+(executable
+ (name shaper_templates)
+ (modules Shaper_templates))
+
+; Unquote
+
+(library
+ (name unquote_dep)
+ (modules Unquote_dep)
+ (libraries shaper))
+
+(executable
+ (name unquote)
+ (modules Unquote)
+ (modes byte_complete)
+ (libraries shaper))
+
+(rule
+ (deps Unquote.fl)
+ (action
+  (with-stdout-to
+   Unquote.fl.ml.actual
+   (pipe-stdout
+    (run fl -i fl -o ml %{deps})
+    (run %{bin:ocamlformat} --impl -)))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Unquote.fl.ml.expected Unquote.fl.ml.actual)))

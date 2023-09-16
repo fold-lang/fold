@@ -10,16 +10,11 @@ module type T = sig
   type payload
   type extension = string with_loc * payload
   type core_type
-  type core_type_desc
   type package_type
   type row_field
-  type row_field_desc
   type object_field
-  type object_field_desc
   type pattern
-  type pattern_desc
-  type expression = Ml.expression
-  type expression_desc
+  type expression
   type case
   type letop
   type binding_op
@@ -34,26 +29,20 @@ module type T = sig
   type type_exception
   type extension_constructor_kind
   type class_type
-  type class_type_desc
   type class_signature
   type class_type_field
-  type class_type_field_desc
   type 'a class_infos = 'a Parsetree.class_infos
   type class_description
   type class_type_declaration
   type class_expr
-  type class_expr_desc
   type class_structure
   type class_field
-  type class_field_desc
   type class_field_kind
   type class_declaration
   type module_type
-  type module_type_desc
   type functor_parameter
   type signature_item
   type signature = signature_item list
-  type signature_item_desc
   type module_declaration
   type module_substitution
   type module_type_declaration
@@ -65,16 +54,13 @@ module type T = sig
   type with_constraint
   type module_expr
   type open_declaration = module_expr open_infos
-  type module_expr_desc
   type structure_item
   type structure = structure_item list
-  type structure_item_desc
   type value_binding
   type module_binding
   type toplevel_phrase
   type toplevel_directive
   type directive_argument
-  type directive_argument_desc
 end
 
 module type S = sig
@@ -209,97 +195,102 @@ module type S = sig
   val pdir_int : loc:loc -> string -> char option -> directive_argument
   val pdir_ident : loc:loc -> ident -> directive_argument
   val pdir_bool : loc:loc -> bool -> directive_argument
-  val pexp_ident : loc:loc -> longident_loc -> expression
-  val pexp_constant : loc:loc -> constant -> expression
 
-  val pexp_let :
-       loc:loc
-    -> Asttypes.rec_flag
-    -> value_binding list
-    -> expression
-    -> expression
+  (** {1 Expression} *)
 
-  val pexp_function : loc:loc -> case list -> expression
+  module E : sig
+    val ident : ?loc:loc -> longident_loc -> expression
+    val constant : ?loc:loc -> constant -> expression
 
-  val pexp_fun :
-       loc:loc
-    -> Asttypes.arg_label
-    -> expression option
-    -> pattern
-    -> expression
-    -> expression
+    val let' :
+         ?loc:loc
+      -> Asttypes.rec_flag
+      -> value_binding list
+      -> expression
+      -> expression
 
-  val pexp_apply :
-       loc:loc
-    -> expression
-    -> (Asttypes.arg_label * expression) list
-    -> expression
+    val function' : ?loc:loc -> case list -> expression
 
-  val pexp_match : loc:loc -> expression -> case list -> expression
-  val pexp_try : loc:loc -> expression -> case list -> expression
-  val pexp_tuple : loc:loc -> expression list -> expression
+    val fun' :
+         ?loc:loc
+      -> Asttypes.arg_label
+      -> expression option
+      -> pattern
+      -> expression
+      -> expression
 
-  val pexp_construct :
-    loc:loc -> longident_loc -> expression option -> expression
+    val apply :
+         ?loc:loc
+      -> expression
+      -> (Asttypes.arg_label * expression) list
+      -> expression
 
-  val pexp_variant : loc:loc -> string -> expression option -> expression
+    val match' : ?loc:loc -> expression -> case list -> expression
+    val try' : ?loc:loc -> expression -> case list -> expression
+    val tuple : ?loc:loc -> expression list -> expression
+    val construct : ?loc:loc -> longident_loc -> expression option -> expression
+    val variant : ?loc:loc -> string -> expression option -> expression
 
-  val pexp_record :
-       loc:loc
-    -> (longident_loc * expression) list
-    -> expression option
-    -> expression
+    val record :
+         ?loc:loc
+      -> (longident_loc * expression) list
+      -> expression option
+      -> expression
 
-  val pexp_field : loc:loc -> expression -> longident_loc -> expression
+    val field : ?loc:loc -> expression -> longident_loc -> expression
 
-  val pexp_setfield :
-    loc:loc -> expression -> longident_loc -> expression -> expression
+    val setfield :
+      ?loc:loc -> expression -> longident_loc -> expression -> expression
 
-  val pexp_array : loc:loc -> expression list -> expression
+    val array : ?loc:loc -> expression list -> expression
 
-  val pexp_ifthenelse :
-    loc:loc -> expression -> expression -> expression option -> expression
+    val ifthenelse :
+      ?loc:loc -> expression -> expression -> expression option -> expression
 
-  val pexp_sequence : loc:loc -> expression -> expression -> expression
-  val pexp_while : loc:loc -> expression -> expression -> expression
+    val sequence : ?loc:loc -> expression -> expression -> expression
+    val while' : ?loc:loc -> expression -> expression -> expression
 
-  val pexp_for :
-       loc:loc
-    -> pattern
-    -> expression
-    -> expression
-    -> Asttypes.direction_flag
-    -> expression
-    -> expression
+    val for' :
+         ?loc:loc
+      -> pattern
+      -> expression
+      -> expression
+      -> Asttypes.direction_flag
+      -> expression
+      -> expression
 
-  val pexp_constraint : loc:loc -> expression -> core_type -> expression
+    val constraint' : ?loc:loc -> expression -> core_type -> expression
 
-  val pexp_coerce :
-    loc:loc -> expression -> core_type option -> core_type -> expression
+    val coerce :
+      ?loc:loc -> expression -> core_type option -> core_type -> expression
 
-  val pexp_send : loc:loc -> expression -> string with_loc -> expression
-  val pexp_new : loc:loc -> longident_loc -> expression
-  val pexp_setinstvar : loc:loc -> string with_loc -> expression -> expression
+    val send : ?loc:loc -> expression -> string with_loc -> expression
+    val new' : ?loc:loc -> longident_loc -> expression
+    val setinstvar : ?loc:loc -> string with_loc -> expression -> expression
+    val override : ?loc:loc -> (string with_loc * expression) list -> expression
 
-  val pexp_override :
-    loc:loc -> (string with_loc * expression) list -> expression
+    val module' :
+         ?loc:loc
+      -> string option with_loc
+      -> module_expr
+      -> expression
+      -> expression
 
-  val pexp_letmodule :
-    loc:loc -> string option with_loc -> module_expr -> expression -> expression
+    val exception' :
+      ?loc:loc -> extension_constructor -> expression -> expression
 
-  val pexp_letexception :
-    loc:loc -> extension_constructor -> expression -> expression
-
-  val pexp_assert : loc:loc -> expression -> expression
-  val pexp_lazy : loc:loc -> expression -> expression
-  val pexp_poly : loc:loc -> expression -> core_type option -> expression
-  val pexp_object : loc:loc -> class_structure -> expression
-  val pexp_newtype : loc:loc -> string with_loc -> expression -> expression
-  val pexp_pack : loc:loc -> module_expr -> expression
-  val pexp_open : loc:loc -> open_declaration -> expression -> expression
-  val pexp_letop : loc:loc -> letop -> expression
-  val pexp_extension : loc:loc -> extension -> expression
-  val pexp_unreachable : loc:loc -> expression
+    val assert' : ?loc:loc -> expression -> expression
+    val lazy' : ?loc:loc -> expression -> expression
+    val poly : ?loc:loc -> expression -> core_type option -> expression
+    val object' : ?loc:loc -> class_structure -> expression
+    val newtype : ?loc:loc -> string with_loc -> expression -> expression
+    val pack : ?loc:loc -> module_expr -> expression
+    val open' : ?loc:loc -> open_declaration -> expression -> expression
+    val letop : ?loc:loc -> letop -> expression
+    val extension : ?loc:loc -> extension -> expression
+    val unreachable : ?loc:loc -> expression
+    val attr : attributes -> expression -> expression
+  end
 
   val extension_constructor :
        loc:loc
@@ -436,14 +427,12 @@ module type S = sig
 
   val type_declaration :
        loc:loc
-    -> ?attrs:attributes
     -> name:string with_loc
     -> params:(core_type * (Asttypes.variance * Asttypes.injectivity)) list
     -> cstrs:(core_type * core_type * loc) list
     -> kind:type_kind
     -> private_:Asttypes.private_flag
     -> manifest:core_type option
-    -> unit
     -> type_declaration
 
   val type_exception : loc:loc -> extension_constructor -> type_exception
@@ -460,11 +449,9 @@ module type S = sig
 
   val value_description :
        loc:loc
-    -> ?attrs:attributes
     -> name:string with_loc
     -> type_:core_type
     -> prim:string list
-    -> unit
     -> value_description
 
   val ppat_construct : loc:loc -> ident with_loc -> pattern option -> pattern
@@ -491,16 +478,4 @@ module type S = sig
   val ptype_variant : constructor_declaration list -> type_kind
   val ptype_record : label_declaration list -> type_kind
   val ptype_open : type_kind
-
-  (* Extra: attributes *)
-  val pexp_with_attributes : attributes -> expression -> expression
-
-  (* Extra: extension_constructor_kind *)
-  val pext_decl :
-       string with_loc list
-    -> constructor_arguments
-    -> core_type option
-    -> extension_constructor_kind
-
-  val pext_rebind : Ident.t with_loc -> extension_constructor_kind
 end

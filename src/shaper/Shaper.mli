@@ -10,6 +10,8 @@ type syntax = private
   | Seq of syntax list
   | Shape of Astlib.Location.t * string * syntax list
 
+type loc = Astlib.Location.t
+
 val noloc : Astlib.Location.t
 
 (** {2 Construct syntax} *)

@@ -1,0 +1,7 @@
+let unless ~loc (args : list[Shaper.syntax]) =
+  match args {
+    on [ cond, body ] ->
+      Shaper.shape ~loc "if" [ Shaper.seq [ Shaper.lower "not", cond ], body ]
+    on _ -> failwith "invalid unless syntax"
+  };
+

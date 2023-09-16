@@ -1,0 +1,18 @@
+(test
+  (name test_ppx_fold_unless)
+  (preprocess (pps ppx_fold_unless))
+  (libraries ))
+
+;; Generated code
+
+(rule
+ (deps Test_ppx_fold_unless.fl)
+ (action
+  (with-stdout-to
+   Test_ppx_fold_unless.fl.ml.actual
+   (run fl -i fl -o ml %{deps}))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff Test_ppx_fold_unless.fl.ml.expected Test_ppx_fold_unless.fl.ml.actual)))

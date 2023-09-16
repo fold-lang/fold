@@ -574,13 +574,13 @@ type f = ~(a? : t) -> b;
 type f = ~(a : t) -> ~(b? : t) -> c;
 
 sig S = {
-  v : a -> b;
-  v : a -> b -> c -> d;
-  v : ~(a : t) -> b;
-  v : x -> ~(a : t) -> b;
-  v : ~(a : t) -> b -> c;
-  v : ~(a? : t) -> b;
-  v : ~(a : t) -> ~(b? : t) -> c;
+  val v : a -> b;
+  val v : a -> b -> c -> d;
+  val v : ~(a : t) -> b;
+  val v : x -> ~(a : t) -> b;
+  val v : ~(a : t) -> b -> c;
+  val v : ~(a? : t) -> b;
+  val v : ~(a : t) -> ~(b? : t) -> c;
 };
 
 
@@ -601,13 +601,13 @@ mod M3 = {
 
 // Module bindings with constraint
 mod M4 : {} = {};
-mod M5 : { x : int } = { let x = 42 };
-mod M6 : { x : int; y : int; } = { let x = 42; let y = 2; };
+mod M5 : { val x : int } = { let x = 42 };
+mod M6 : { val x : int; val y : int; } = { let x = 42; let y = 2; };
 
 // Module type
 sig S1 = {
-  a : int;
-  b : bool;
+  val a : int;
+  val b : bool;
 };
 
 // open
@@ -759,7 +759,7 @@ type t[_];
 type t[_] += A;
 
 // edge cases
-type t[A'b]; // 'a'b is ocaml
+type t[A'b]; // 'a'b in ocaml
 
 // TODO injectivity variance
 
@@ -889,6 +889,9 @@ let x = if {
 //  }
 //}
 
+// extension fn
+// https://github.com/little-arhat/ppx_fun
+
 // fn template
 //f1 = fn { 2 + _ } 1;
 //f1 = 0 |> fn { List.fold_left _ (+) [1, 2, 3] };
@@ -920,3 +923,7 @@ let x = if {
 // assoc list
 //[ "a" = 1, "b" = 2 ]
 //[ 2 = 1, 3 = 2 ]
+
+// "fmt: %d %a" % (10, pp x)
+
+// .[] .{} .()

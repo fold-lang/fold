@@ -598,9 +598,12 @@ type a [@@attr1]
 
 external a : t = "x" [@@attr2]
 
-let x = [%fl.mc1 "(2)"]
-let x = [%fl.mc2 "(2)"] + 1
-let x = [%fl.mc3 "{(< div > \"hello\" </ div >)}"]
+let x = [%fl.macro.expression "mc1" ("{}" 2)]
+let x = [%fl.macro.expression "mc2" ("{}" 2)] + 1
+
+let x =
+  [%fl.macro.expression "mc3" (( < ), div, ( > ), "hello", ( </ ), div, ( > ))]
+
 let x = if a > 1 then "yes" else if a == 0 then "maybe" else "no";;
 
 x;

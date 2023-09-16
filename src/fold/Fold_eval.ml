@@ -8,6 +8,11 @@ module Eval (E : Fold_ast_builder.S) : sig
   val module_binding : fl -> E.module_binding
   val structure_item : ?attrs:E.attributes -> fl -> E.structure_item
   val structure : fl -> E.structure_item list
+
+  module Embed : sig
+    val encode : fl -> E.expression
+    val decode : E.expression -> fl
+  end
 end = struct
   open struct
     let pexp_unit = E.pexp_construct (with_noloc (Ident.Lident "()")) None
@@ -55,6 +60,51 @@ end = struct
     | _ ->
       Fmt.epr ">>> %a@." Shaper.dump fl;
       failwith "invalid ident"
+
+  module Embed = struct
+    let rec encode (sh : Shaper.syntax) : E.expression =
+      match sh with
+      | Shaper.Const c -> E.pexp_constant ~loc:noloc (conv_const c)
+      | Shaper.Ident (Lower id | Upper id) | Sym id ->
+        E.pexp_ident ~loc:noloc (with_loc noloc (Ident.Lident id))
+      | Shaper.Shape (loc, kwd, args) ->
+        let kwd = E.pexp_constant ~loc (conv_const (String kwd)) in
+        let args = List.map encode args in
+        E.pexp_apply ~loc kwd [ (Asttypes.Nolabel, E.pexp_tuple ~loc args) ]
+      | Scope ("(", arg, ")") ->
+        let kwd = E.pexp_constant ~loc:noloc (conv_const (String "{}")) in
+        let arg = encode arg in
+        E.pexp_apply ~loc:noloc kwd
+          [ (Asttypes.Nolabel, E.pexp_tuple ~loc:noloc [ arg ]) ]
+      | Scope ("{", x, "}") -> encode x
+      | Seq args ->
+        let args = List.map encode args in
+        E.pexp_tuple ~loc:noloc args
+      | _ ->
+        Fmt.epr ">>> %a@." Shaper.dump sh;
+        failwith "embed/encode: todo"
+
+    let rec decode (ex : E.expression) : Shaper.syntax =
+      let open Prelude in
+      match ex.pexp_desc with
+      | Pexp_tuple
+          ({ pexp_desc = Pexp_ident { txt = Astlib.Longident.Lident kwd; _ }
+           ; _
+           }
+          :: args
+          ) ->
+        let args = List.map decode args in
+        Shaper.shape kwd args
+      | Pexp_ident { txt = Astlib.Longident.Lident id; _ } ->
+        let mk =
+          match String.get id 0 with
+          | 'a' .. 'z' -> Shaper.lower
+          | 'A' .. 'Z' -> Shaper.upper
+          | _ -> Shaper.sym
+        in
+        mk id
+      | _ -> failwith "embed/decode: todo"
+  end
 
   let rec quasiquote (syn : Shaper.syntax) =
     let open Fold_ast.Cons in
@@ -303,23 +353,33 @@ end = struct
           E.pexp_extension ~loc (with_loc loc "fl.error", payload)
       )
       (* --- macro --- *)
-      | Shape (loc, kwd, args) -> begin
-        match Fold_macros.getmacro kwd with
-        | Some macro -> eval (macro args)
-        | None ->
-          (* Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl; *)
-          (* Fmt.failwith "unknown macro %S" kwd *)
-          let id = with_loc loc ("fl." ^ kwd) in
-          let arg =
-            match args with
-            | [ x ] -> x
-            | _ -> Shaper.seq args
-          in
-          let arg = Shaper.String (Fmt.str "%a" Shaper.pp_sexp arg) in
-          let arg = E.pexp_constant ~loc (conv_const arg) in
-          let item = E.pstr_eval ~loc arg [] in
-          let payload = E.pstr [ item ] in
-          E.pexp_extension ~loc (id, payload)
+      | Shape (loc, _kwd, _args) -> begin
+        let embedded =
+          try Embed.encode fl
+          with exn ->
+            Fmt.epr ">>> %a@." Shaper.dump fl;
+            raise exn
+        in
+        let id = with_loc loc "fl.macro.expression" in
+        let item = E.pstr_eval ~loc embedded [] in
+        let payload = E.pstr [ item ] in
+        E.pexp_extension ~loc (id, payload)
+        (* match Fold_macros.getmacro kwd with
+           | Some macro -> eval (macro args)
+           | None ->
+             (* Fmt.epr "--- unknown:@.%a@.---@." Shaper.dump fl; *)
+             (* Fmt.failwith "unknown macro %S" kwd *)
+             let id = with_loc loc ("fl." ^ kwd) in
+             let arg =
+               match args with
+               | [ x ] -> x
+               | _ -> Shaper.seq args
+             in
+             let arg = Shaper.String (Fmt.str "%a" Shaper.pp_sexp arg) in
+             let arg = E.pexp_constant ~loc (conv_const arg) in
+             let item = E.pstr_eval ~loc arg [] in
+             let payload = E.pstr [ item ] in
+             E.pexp_extension ~loc (id, payload) *)
       end
       (* Err: unknown *)
       | _ ->
@@ -1333,7 +1393,8 @@ end = struct
         assert false
 
     and eval_type_kind ~loc (fl : fl) : E.type_kind =
-      (* TODO: make sure that there's no conflict between { A ... } and { a = ... } *)
+      (* TODO: make sure that there's no conflict between { A ... } and { a =
+         ... } *)
       match fl with
       (* A *)
       (* { A } *)
@@ -1578,7 +1639,8 @@ end = struct
     let rec eval (fl : fl) =
       match fl with
       (* "val" _ ":" _ *)
-      | Shape (loc, ":", [ Ident (Lower name); type' ]) ->
+      | Shape (loc, "val", [ Shape (_, ":", [ Ident (Lower name); type' ]) ]) ->
+        (* | Shape (loc, ":", [ Ident (Lower name); type' ]) -> *)
         let name = with_loc loc name in
         let type' = Core_type.eval type' in
         let vd = E.value_description ~loc ~name ~type_:type' ~prim:[] () in
@@ -1588,7 +1650,7 @@ end = struct
         E.psig_value ~loc (Value_description.eval vd)
       | _ ->
         Fmt.epr "Eval.sig: %a@." Shaper.dump fl;
-        assert false
+        invalid_arg "invalid signature item syntax"
   end
 
   let structure (fl : fl) =
