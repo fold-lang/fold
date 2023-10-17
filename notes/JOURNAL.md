@@ -1,5 +1,9 @@
 # JOURNAL
 
+## 2023-10-17
+
+- https://www.youtube.com/watch?v=Tc6oONW-bnc at 9:00 mentions how OCaml's syntax is hard for students.
+
 ## 2023-06-17
 
 ### Parsetree.expression and Shaper.syntax isomorphism
