@@ -1,15 +1,7 @@
 
-.PHONY: lock
-lock:
-	nix develop -f default.nix lock
-
-.PHONY: shell
-shell:
-	nix develop -f default.nix -j auto -i -k TERM -k PATH -k HOME -v shell
-
-.PHONY: all
-all:
-	nix build -f default.nix -j auto -v
+.PHONY: build
+build:
+	dune build -w --terminal-persistence=clear-on-rebuild-and-flush-history
 
 .PHONY: test-watch
 test-watch:
@@ -18,3 +10,11 @@ test-watch:
 .PHONY: watch
 watch:
 	dune build -w --terminal-persistence=clear-on-rebuild-and-flush-history
+
+.PHONY: lock
+lock:
+	nix develop -f default.nix lock
+
+.PHONY: shell
+shell:
+	nix develop -f default.nix -j auto -i -k TERM -k PATH -k HOME -v shell

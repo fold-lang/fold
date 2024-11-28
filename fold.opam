@@ -21,11 +21,11 @@ build: [
 ]
 
 depends: [
-  "ocaml" {= "4.14.0"}
+  "ocaml"
   "dune" {build}
   "menhirLib" {build}
   "sedlex"
-  "ocaml-migrate-parsetree"
+  "ppxlib"
   "fmt"
   "cmdliner"
   "pprint"

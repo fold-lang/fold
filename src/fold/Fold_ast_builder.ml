@@ -25,7 +25,7 @@ module type T = sig
   type binding_op
   type value_description
   type type_declaration
-  type type_kind = Parsetree.type_kind
+  type type_kind = Ml.type_kind
   type label_declaration
   type constructor_declaration
   type constructor_arguments
@@ -38,7 +38,7 @@ module type T = sig
   type class_signature
   type class_type_field
   type class_type_field_desc
-  type 'a class_infos = 'a Parsetree.class_infos
+  type 'a class_infos = 'a Ml.class_infos
   type class_description
   type class_type_declaration
   type class_expr
@@ -57,9 +57,9 @@ module type T = sig
   type module_declaration
   type module_substitution
   type module_type_declaration
-  type 'a open_infos = 'a Parsetree.open_infos
+  type 'a open_infos = 'a Ml.open_infos
   type open_description
-  type 'a include_infos = 'a Parsetree.include_infos
+  type 'a include_infos = 'a Ml.include_infos
   type include_description
   type include_declaration
   type with_constraint

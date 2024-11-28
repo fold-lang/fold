@@ -1,9 +1,9 @@
 open Prelude
 
-val expression : ?loc:loc -> fl -> Parsetree.expression
-val structure : fl -> Parsetree.structure
+val expression : ?loc:loc -> fl -> Ml.expression
+val structure : fl -> Ml.structure
 
 module Embed : sig
-  val encode : fl -> Parsetree.expression
-  val decode : Parsetree.expression -> fl
+  val encode : fl -> Ml.expression
+  val decode : Ml.expression -> fl
 end

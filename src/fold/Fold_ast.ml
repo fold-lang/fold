@@ -20,7 +20,7 @@ let ident_of_str id =
   | _ -> Shaper.sym id
 
 let ident_fl_of_ml lid =
-  match Ident.flatten lid with
+  match Ident.flatten_exn lid with
   | [ x ] -> ident_of_str x
   | xs ->
     xs
@@ -48,7 +48,7 @@ module Cons = struct
   let upper = Shaper.upper
 
   let longident lid =
-    match Ident.flatten lid with
+    match Ident.flatten_exn lid with
     | [ x ] -> ident_of_str x
     | xs ->
       xs
@@ -63,7 +63,7 @@ module Cons = struct
   let float = Shaper.float
   let char = Shaper.char
 
-  let const (const : Parsetree.constant) =
+  let const (const : Ml.constant) =
     match const with
     | Pconst_char x -> char x
     | Pconst_float (x, _) -> float (float_of_string x)
@@ -180,7 +180,7 @@ module Cons_next = struct
   let upper = Shaper.upper
 
   let longident lid =
-    match Ident.flatten lid with
+    match Ident.flatten_exn lid with
     | [ x ] -> ident_of_str x
     | xs ->
       xs
@@ -195,7 +195,7 @@ module Cons_next = struct
   let float = Shaper.float
   let char = Shaper.char
 
-  let const (const : Parsetree.constant) =
+  let const (const : Ml.constant) =
     match const with
     | Pconst_char x -> char x
     | Pconst_float (x, _) -> float (float_of_string x)

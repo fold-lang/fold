@@ -18,15 +18,16 @@ module List_ext = struct
 end
 
 (* Astlib *)
-module Ml = Astlib.Ast_500.Parsetree
-module Loc = Astlib.Location
-module Ident = Astlib.Longident
+module Ml = Ppxlib.Parsetree
+module Loc = Ppxlib.Location
+module Ident = Ppxlib.Longident
+module Asttypes = Ppxlib.Asttypes
 
-type loc = Astlib.Location.t
-type 'a with_loc = 'a Astlib.Location.loc
-type ident = Astlib.Longident.t
-type constant = Astlib.Ast_500.Parsetree.constant
+type loc = Ppxlib.Location.t
+type 'a with_loc = 'a Ppxlib.Location.loc
+type ident = Ppxlib.Longident.t
+type constant = Ppxlib.Parsetree.constant
 
-let noloc = Astlib.Location.none
-let with_noloc txt = { Astlib.Location.txt; loc = Astlib.Location.none }
-let with_loc loc txt = { Astlib.Location.txt; loc }
+let noloc = Ppxlib.Location.none
+let with_noloc txt = { Ppxlib.Location.txt; loc = Ppxlib.Location.none }
+let with_loc loc txt = { Ppxlib.Location.txt; loc }
