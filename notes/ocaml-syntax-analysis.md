@@ -158,3 +158,9 @@ type t = b = int
   - `_ -> .`
 - Refactoring: `let f a b = ...` to `fun a b -> ...` is frequent and annoying.
 - Refactoring: `let a = 1 in` to `let a = 1` is frequent and annoying.
+
+
+## Other
+
+- Constructors are not curried:
+  - https://discuss.ocaml.org/t/why-constructors-are-not-curried/13792/8

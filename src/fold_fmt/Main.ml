@@ -79,7 +79,7 @@ let output_fmt_arg =
 
 let input_file_name_arg =
   let doc = "Input file path." in
-  Arg.(info [] ~doc |> pos 0 (some string) (Some "/dev/stdin") |> required)
+  Arg.(info [] ~doc |> pos 0 string "/dev/stdin" |> value)
 
 let () =
   let doc = "Fold formatter" in

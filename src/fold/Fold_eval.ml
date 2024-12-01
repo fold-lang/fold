@@ -243,6 +243,9 @@ end = struct
       (* --- match --- TODO: decide *)
       | Shape (loc, "match", [ a; Scope ("{", Shape (_, ",", b), "}") ]) ->
         eval_match ~loc a b
+      (* --- match --- TODO: decide *)
+      | Shape (loc, "match", [ a; Scope ("{", Shape (_, "|", b), "}") ]) ->
+        eval_match ~loc a b
       (* --- match --- *)
       | Shape (loc, "match", [ a; Scope ("{", Shape (_, "on", b), "}") ]) ->
         eval_match ~loc a b

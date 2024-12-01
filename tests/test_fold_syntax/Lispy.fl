@@ -114,6 +114,18 @@ do {
   f ~(a? = b);
   f ~(a? : option[int] = b);
 
+
+  // alt
+  //f ~a;
+  //f ~(a);
+  //f (a = 1);
+  //f (~a : int);
+  //f (~a : int = 1);
+  //f ~a?;
+  //f (~a?);
+  //f (a? = b);
+  //f (a? : option[int] = b);
+
   // errors
   // { fl_expression! { f ~M }; };
   // { fl_expression! { f ~2 }; };
@@ -141,6 +153,62 @@ let x =
     on x if x > 2 -> b
     on 3 as x or x -> x
   };
+
+let f xs =
+  match xs {
+    | [] -> []
+    | [x] ->
+      [x, x + 1]
+    | [x & xs] -> {
+      let y = x + 1;
+      f [y & xs]
+    }
+  };
+
+let f xs =
+  match xs {
+  | [] -> []
+  | [x] ->
+    [x, x + 1]
+  | [x & xs] -> {
+      let y = x + 1;
+      f [y & xs]
+    }
+  };
+
+let f xs =
+  match xs {
+    [] -> [],
+    [x] ->
+      [x, x + 1],
+    [x & xs] -> {
+      let y = x + 1;
+      f [y & xs]
+    }
+  };
+
+let f xs =
+  match xs {
+    case [] -> [],
+    case [x] ->
+      [x, x + 1],
+    case [x & xs] -> {
+      let y = x + 1;
+      f [y & xs]
+    }
+  };
+
+let f xs =
+  match xs {
+    on [] -> []
+    on [x] ->
+      [x, x + 1]
+    on [x & xs] -> {
+      let y = x + 1;
+      f [y & xs]
+    }
+  };
+
 let x =
   match a {
     on 1 -> 0
@@ -713,7 +781,7 @@ type t = { a : [A] :: int, b : [B, C, D] :: B };
 type t = { a : [B] :: t2[B] -> option[t3[C, D] -> D] };
 
 // type gadt
-type t = A : int;
+type t = { A : int };
 type t = A : int -> t;
 type t = A : (t1, t2) -> t3;
 type t = A : (t1 -> t2) -> t3;
