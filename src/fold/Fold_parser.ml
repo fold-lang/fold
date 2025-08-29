@@ -294,7 +294,7 @@ let parse l : C.t =
   try P.run grammar l
   with exn ->
     (* FIXME!!! *)
-    Fmt.epr "syntax error %a:@." Location.print_loc (Obj.magic (L.loc l));
+    Fmt.epr "syntax error %a:@." Prelude.Loc.print (Obj.magic (L.loc l));
     raise exn
 
 let parse_chan ?file_name chan : C.t =

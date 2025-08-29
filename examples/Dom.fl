@@ -1,0 +1,57 @@
+mod M1 (Js : {
+  type t[+A]
+
+  val of_string : string -> t[{ #String }]
+}) (Dom : {
+  mod Document : {
+    type t
+
+    val t : t
+
+    val create_element[
+        local_name : string,
+        ?options : Js.t[{ #String | #Element_creation_options }],
+        t
+      ] -> Js.t[{< #Element | #Node }]
+
+    val create_text_node : data:string -> t -> {< #Text | #Node } Js.t
+    val create_document_fragment : t -> {< #Document_fragment | #Node } Js.t
+  }
+
+  mod Node : {
+    val node_name[Js.t[{ #Node }]] -> string
+    val append_child[node : Js.t[{ #Node }], Js.t[{ #Node }]] -> Js.t[{ #Node }]
+  }
+
+  mod Document_fragment : {
+    val append[
+        nodes : array[Js.t[{< #Node | #Trusted_script | #String }]],
+        Js.t[{ #Document_fragment }]
+      ] -> ()
+  }
+
+  mod Range : {
+    val make[] -> Js.t[{> #Range }]
+  }
+}) = {
+  val doc = Dom.Document.t
+
+  val base_meths[] ->
+    let el1 = Dom.Document.create_element[local_name="div", doc]
+    let txt1 = Dom.Document.create_text_node[data="a", doc]
+    let _ok =
+      let el2 = Dom.Node.f[el1]
+      Dom.Node.node_name[el1]
+    let _ok = Dom.Node.node_name[txt1]
+    let _no = Dom.Node.node_name[Dom.Range.make[]]
+    ()
+
+  val union_arg[] ->
+    let frag1 = Dom.Document.create_document_fragment[doc]
+    let txt1 = Dom.Document.create_text_node[data="a", doc]
+    let el1 = Dom.Document.create_element[local_name="div", doc]
+    let str1 = Js.of_string["foo"]
+    let _ok = Dom.Document_fragment.append[nodes={}, frag1]
+    let _ok = Dom.Document_fragment.append[nodes={ el1, txt1 }, frag1]
+    ()
+}

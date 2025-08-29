@@ -1,0 +1,50 @@
+// https://discuss.ocaml.org/t/recursive-module-inside-functor/14575/2
+
+
+/*
+module rec C: functor(F:Fam) -> sig
+  type 'b foo = Entry of 'b C(F).D.t
+  module M : sig
+    type ('a, 'b) t = ('a * 'b) foo
+  end
+  module D : sig type 'b t = 'b A(M).t = | end
+end = functor(F:Fam) -> struct
+  type 'b foo = Entry of 'b C(F).D.t
+  module M = struct
+    type ('a, 'b) t = ('a * 'b) foo
+  end
+  module D = A(M)
+end
+
+module E = struct
+  type 'b t = { x : int }
+end
+
+module N = C(E)
+*/
+
+
+mod rec C : (F: Fam) -> {
+  type foo[B] = { Entry of C(F).D.t[B] };
+
+  mod M : {
+    type t[A, B] = foo[(B, B)];
+  };
+  mod D : {
+    type t[B] = A(M).t[B] = { | };
+  };
+} = (F : Fam) -> {
+  type foo[B] = { Entry of C(F).D.t[B] };
+
+  mod M = {
+    type t[A, B] = foo[(A, B)];
+  };
+  mod D = A (M);
+};
+
+mod E = {
+  type t[B] = { x : int };
+};
+
+mod N = C(E);
+

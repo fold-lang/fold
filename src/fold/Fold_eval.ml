@@ -32,13 +32,13 @@ end = struct
         (Some (E.ppat_tuple ~loc [ x; xs ]))
   end
 
-  let conv_const (const : Shaper.const) =
-    let module C = Ppxlib.Ast_helper.Const in
+  let conv_const (const : Shaper.const) : Prelude.Ml.constant =
+    let module C = Prelude.Ast_helper.Const in
     match const with
-    | Int x -> C.int x
-    | Float x -> C.float (string_of_float x)
-    | String x -> C.string x
-    | Char x -> C.char x
+    | Int x -> Pconst_integer (string_of_int x, None)
+    | Float x -> Pconst_float (string_of_float x, None)
+    | String x -> Pconst_string (x, Loc.none, None)
+    | Char x -> Pconst_char x
 
   let eval_expident (fl : fl) : Ident.t with_loc =
     match fl with
@@ -260,7 +260,7 @@ end = struct
                         (E.pexp_ident ~loc (with_loc loc (Ident.Lident "error")))
                         [ ( Asttypes.Nolabel
                           , E.pexp_constant ~loc
-                              (Ppxlib.Ast_helper.Const.string "invalid match")
+                              (Pconst_string ("invalid match", Loc.none, None))
                           )
                         ]
                      )
@@ -273,8 +273,7 @@ end = struct
       | Shape (loc, "match", [ a; Scope ("{", single_case, "}") ]) ->
         eval_match ~loc a [ single_case ]
       | Shape (loc, "match", _) ->
-        Fmt.failwith "invalid match syntax: %a" Location.print_loc
-          (Obj.magic loc)
+        Fmt.failwith "invalid match syntax: %a" Loc.print (Obj.magic loc)
       (* -- try --- *)
       (* try a { on err -> b } *)
       | Shape (loc, "try", [ a; Scope ("{", Shape (_, "on", b), "}") ]) ->
@@ -911,8 +910,7 @@ end = struct
       (* other *)
       | Shape (loc, _, _) ->
         (* FIXME *)
-        Fmt.epr "todo pat: %a: %a@." Location.print_loc (Obj.magic loc)
-          Shaper.dump fl;
+        Fmt.epr "todo pat: %a: %a@." Loc.print (Obj.magic loc) Shaper.dump fl;
         assert false
       | _ ->
         Fmt.epr "todo pat: %a@." Shaper.dump fl;

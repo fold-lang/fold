@@ -189,17 +189,6 @@ let f xs =
 
 let f xs =
   match xs {
-    case [] -> [],
-    case [x] ->
-      [x, x + 1],
-    case [x & xs] -> {
-      let y = x + 1;
-      f [y & xs]
-    }
-  };
-
-let f xs =
-  match xs {
     on [] -> []
     on [x] ->
       [x, x + 1]

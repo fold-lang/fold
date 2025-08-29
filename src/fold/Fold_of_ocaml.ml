@@ -288,7 +288,6 @@ and Val : sig
   val mk :
        ?loc:loc
     -> ?attrs:Ml.attributes
-    -> ?docs:Docstrings.docs
     -> ?prim:string list
     -> string with_loc
     -> Ml.core_type
@@ -298,7 +297,7 @@ and Val : sig
 end = struct
   type value_description = Fl.t
 
-  let mk ?loc:_ ?attrs:_ ?docs:_ ?(prim = []) (name_with_loc : _ with_loc)
+  let mk ?loc:_ ?attrs:_ ?(prim = []) (name_with_loc : _ with_loc)
       (typ : Ml.core_type) =
     let name_syn = Fl.longident (Lident name_with_loc.txt) in
     let cons_syn = Fl.constraint' name_syn (Typ.conv typ) in

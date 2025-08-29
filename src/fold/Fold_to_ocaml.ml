@@ -1,5 +1,5 @@
 module Ml_eval = struct
-  include Ppxlib.Parsetree
+  include Prelude.Ml
   include Ppxlib.Ast_builder.Default
 
   let type_declaration ~loc ?(attrs = []) ~name ~params ~cstrs ~kind ~private_

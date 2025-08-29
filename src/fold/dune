@@ -9,5 +9,4 @@
   pprint
   ppxlib.astlib
   ppxlib
-  compiler-libs.bytecomp
-  compiler-libs.common))
+  ocaml-compiler-libs.shadow))

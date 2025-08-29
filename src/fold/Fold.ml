@@ -9,23 +9,19 @@ type fl = Fl.t
 type ml = Ml.structure
 
 module Utils = struct
-  let output_binary_structure ~input_file_name oc
-      (structure : Ppxlib.Parsetree.structure) =
+  let output_binary_structure ~input_file_name oc (structure : ml) =
     set_binary_mode_out oc true;
-    output_string oc Config.ast_impl_magic_number;
+    output_string oc Prelude.Current_ast.Ast.Config.ast_impl_magic_number;
     output_value oc input_file_name;
     output_value oc structure
 
-  let parse_structure input : ml =
+  let parse_structure input =
     let lexbuf = Lexing.from_channel input in
-    let structure = Ppxlib.Parse.implementation lexbuf in
-    structure
+    let structure = Ppxlib_ast.Parse.implementation lexbuf in
+    Prelude.Conv.copy_structure structure
 
-  let dump_parsetree : Format.formatter -> ml -> unit =
-    Ppxlib.Pprintast.structure
-
-  let pprint_structure : Format.formatter -> ml -> unit =
-    Ppxlib.Pprintast.structure
+  let dump_parsetree = Ppxlib.Pprintast.structure
+  let pprint_structure = Ppxlib.Pprintast.structure
 end
 
 let fl_of_ml : ml -> fl = Fold_of_ocaml.structure
